@@ -1,0 +1,6 @@
+{
+  "name": "FreshNex",
+  "description": "Smart food freshness monitoring platform combining RFID/QR-based product identification with IoT sensors to provide real-time quality analytics.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
