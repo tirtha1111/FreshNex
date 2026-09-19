@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Cpu, Wifi, WifiOff, Edit3, Save, X, Activity, Thermometer, Droplets, Wind, Plus, CheckCircle2 } from 'lucide-react';
+import { Cpu, Wifi, WifiOff, Edit3, Save, X, Activity, Thermometer, Droplets, Wind, Plus, CheckCircle2, Bluetooth } from 'lucide-react';
 import { DeviceData } from '../types';
+import { WifiSettings } from './WifiSettings';
 
 export const AdminDevices: React.FC = () => {
   const { devicesMap, updateDeviceData, updateProductProfile, productProfiles } = useApp();
 
   const [selectedDevice, setSelectedDevice] = useState<DeviceData | null>(null);
+  const [provisioningDeviceId, setProvisioningDeviceId] = useState<string | null>(null);
 
   // Configuration edit form states
   const [productName, setProductName] = useState('');
@@ -113,13 +115,22 @@ export const AdminDevices: React.FC = () => {
               </div>
             </div>
 
-            <button
-              onClick={() => handleOpenConfigure(dev)}
-              className="w-full py-2.5 rounded-xl bg-[#1267D6] text-white font-bold text-xs shadow-md hover:brightness-110 flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <Edit3 className="w-4 h-4" />
-              <span>CONFIGURE DEVICE</span>
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => handleOpenConfigure(dev)}
+                className="flex-1 py-2.5 rounded-xl bg-[#1267D6] text-white font-bold text-xs shadow-md hover:brightness-110 flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Edit3 className="w-4 h-4" />
+                <span>CONFIGURE</span>
+              </button>
+              <button
+                onClick={() => setProvisioningDeviceId(dev.device_id)}
+                className="flex-1 py-2.5 rounded-xl bg-sky-50 border border-sky-100 hover:bg-sky-100 text-[#1267D6] font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                <Bluetooth className="w-4 h-4" />
+                <span>PROVISION</span>
+              </button>
+            </div>
           </div>
         ))}
       </div>
@@ -241,6 +252,13 @@ export const AdminDevices: React.FC = () => {
             </form>
           </div>
         </div>
+      )}
+
+      {provisioningDeviceId && (
+        <WifiSettings
+          deviceId={provisioningDeviceId}
+          onClose={() => setProvisioningDeviceId(null)}
+        />
       )}
     </div>
   );
