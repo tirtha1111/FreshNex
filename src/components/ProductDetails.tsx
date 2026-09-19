@@ -21,6 +21,7 @@ import {
   X
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { WifiSettings } from './WifiSettings';
 
 export const ProductDetails: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
@@ -40,6 +41,7 @@ export const ProductDetails: React.FC = () => {
 
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
   const [historyFilter, setHistoryFilter] = useState<'1H' | '24H' | '7D' | '30D'>('24H');
+  const [showWifiSettings, setShowWifiSettings] = useState<boolean>(false);
 
   // Format last update time
   const lastUpdateTime = device.last_update 
@@ -124,6 +126,14 @@ export const ProductDetails: React.FC = () => {
             Monitoring
           </span>
         </div>
+
+        <button
+          onClick={() => setShowWifiSettings(true)}
+          className="w-full py-3 px-4 rounded-2xl border border-sky-200 bg-sky-50/50 hover:bg-sky-100/60 text-[#1267D6] font-extrabold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+        >
+          <Wifi className="w-4 h-4" />
+          <span>CONFIGURE DEPLOYED WI-FI (BLE)</span>
+        </button>
       </motion.div>
 
       {/* 3 Large Telemetry Sensor Cards */}
@@ -307,6 +317,15 @@ export const ProductDetails: React.FC = () => {
               )}
             </motion.div>
           </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showWifiSettings && (
+          <WifiSettings
+            deviceId={device.device_id}
+            onClose={() => setShowWifiSettings(false)}
+          />
         )}
       </AnimatePresence>
     </div>
