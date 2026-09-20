@@ -42,9 +42,9 @@ const AppContent: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#F5F9FF] flex flex-col items-center justify-center p-4">
-        <div className="w-12 h-12 border-4 border-[#1267D6] border-t-transparent rounded-full animate-spin" />
-        <p className="text-xs text-[#082A52] font-black mt-4 tracking-wider uppercase">
+      <div className="min-h-screen bg-[#0b0b0c] flex flex-col items-center justify-center p-4 select-none">
+        <div className="w-10 h-10 border-4 border-[#21c55d] border-t-transparent rounded-full animate-spin shadow-[0_0_12px_rgba(33,197,93,0.2)]" />
+        <p className="text-[10px] text-slate-400 font-mono font-black mt-5 tracking-widest uppercase">
           Initializing FreshNex Telemetry Engine...
         </p>
       </div>

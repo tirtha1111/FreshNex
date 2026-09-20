@@ -7,6 +7,7 @@ export interface DeviceData {
   humidity: number;
   mq135_raw: number;
   online: boolean;
+  profile_id?: string;
   last_update?: number;
 }
 

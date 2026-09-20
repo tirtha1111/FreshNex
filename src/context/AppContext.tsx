@@ -73,6 +73,12 @@ interface AppContextType {
   // Utilities
   userSettings: UserSettings;
   updateSettings: (settings: UserSettings) => Promise<void>;
+
+  // Legacy & Compatibility Layer for dashboards & detail pages
+  scanHistory: any[];
+  productsMap: any;
+  getProductTelemetry: (productId: string) => any;
+  clearScanHistory: () => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -586,6 +592,74 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUserSettings(settings);
   };
 
+  // Compatibility Layer Implementations
+  const scanHistory = userScans.map(s => {
+    const dev = devicesMap[s.device_id] || { temperature: 4.2, humidity: 62, mq135_raw: 120 };
+    // Classify freshness status based on device sensor readings or profile thresholds
+    let freshnessStatus: 'fresh' | 'warning' | 'spoiled' = 'fresh';
+    if (dev.temperature > 8 || dev.mq135_raw > 1800) {
+      freshnessStatus = 'warning';
+    }
+    return {
+      productId: s.device_id,
+      productName: s.product,
+      scannedAt: s.scanned_at,
+      freshnessStatus,
+      location: 'Cold Storage A'
+    };
+  });
+
+  const productsMap = devicesMap; // Alias for products compatibility
+
+  const getProductTelemetry = (productId: string) => {
+    const dev = devicesMap[productId] || {
+      device_id: productId,
+      product: 'Organic Lettuce',
+      temperature: 4.2,
+      humidity: 62.0,
+      mq135_raw: 120,
+      online: true,
+      last_update: Date.now()
+    };
+
+    const rawHistory = sensorHistory[productId] || [
+      { timestamp: Date.now() - 3600000 * 4, temperature: 3.8, humidity: 64, mq135_raw: 110 },
+      { timestamp: Date.now() - 3600000 * 3, temperature: 4.0, humidity: 63, mq135_raw: 115 },
+      { timestamp: Date.now() - 3600000 * 2, temperature: 4.5, humidity: 60, mq135_raw: 125 },
+      { timestamp: Date.now() - 3600000 * 1, temperature: 4.2, humidity: 62, mq135_raw: 120 },
+      { timestamp: Date.now(), temperature: dev.temperature, humidity: dev.humidity, mq135_raw: dev.mq135_raw }
+    ];
+
+    const history = rawHistory.map(h => ({
+      time: new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+      temp: h.temperature,
+      humidity: h.humidity,
+      gas: h.mq135_raw
+    }));
+
+    return {
+      product: {
+        id: productId,
+        name: dev.product,
+        batchNumber: 'FRX20250316001',
+        freshnessStatus: dev.temperature > 8 || dev.mq135_raw > 1800 ? 'warning' : 'fresh'
+      },
+      device: dev,
+      history
+    };
+  };
+
+  const clearScanHistory = async () => {
+    if (isDemoMode) {
+      setUserScans([]);
+      return;
+    }
+    if (currentUser) {
+      const scansRef = ref(database, `userScans/${currentUser.uid}`);
+      await dbSet(scansRef, null);
+    }
+  };
+
   return (
     <AppContext.Provider
       value={{
@@ -613,7 +687,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         updateProductProfile,
         applyFirebaseConfig,
         userSettings,
-        updateSettings
+        updateSettings,
+        scanHistory,
+        productsMap,
+        getProductTelemetry,
+        clearScanHistory
       }}
     >
       {children}

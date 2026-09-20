@@ -22,11 +22,6 @@ export const UserBottomNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Exactly matching the 4 tabs from image screens 5, 8, 9:
-  // 1: Home
-  // 2: Scan
-  // 3: History
-  // 4: Profile
   const navItems = [
     { label: 'Home', path: '/', icon: Home },
     { label: 'Scan', path: '/scan', icon: QrCode },
@@ -35,8 +30,8 @@ export const UserBottomNav: React.FC = () => {
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-100 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] px-4 py-2 select-none">
-      <div className="max-w-md mx-auto flex items-center justify-around">
+    <div className="fixed bottom-4 left-4 right-4 z-40 bg-[#141416]/85 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-3xl px-4 py-2.5 select-none max-w-md mx-auto">
+      <div className="flex items-center justify-around">
         {navItems.map((item) => {
           const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
           const Icon = item.icon;
@@ -45,16 +40,19 @@ export const UserBottomNav: React.FC = () => {
             <button
               key={item.label}
               onClick={() => navigate(item.path)}
-              className={`flex flex-col items-center justify-center py-1 px-4 rounded-2xl transition-all duration-200 cursor-pointer ${
+              className={`flex flex-col items-center justify-center py-1 px-3 rounded-2xl transition-all duration-200 cursor-pointer ${
                 isActive 
-                  ? 'text-[#1267D6] font-extrabold' 
-                  : 'text-slate-400 hover:text-slate-600 font-semibold'
+                  ? 'text-[#21c55d] font-extrabold' 
+                  : 'text-slate-400 hover:text-slate-200 font-semibold'
               }`}
             >
               <div className={`relative p-1 rounded-xl transition-all ${isActive ? 'scale-110' : ''}`}>
-                <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5px] text-[#1267D6]' : 'stroke-[1.75px]'}`} />
+                <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5px] text-[#21c55d]' : 'stroke-[1.75px]'}`} />
+                {isActive && (
+                  <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1.5 h-1.5 bg-[#21c55d] rounded-full shadow-[0_0_10px_#21c55d]" />
+                )}
               </div>
-              <span className={`text-[10px] mt-0.5 tracking-tight ${isActive ? 'font-black text-[#1267D6]' : 'font-medium text-slate-400'}`}>
+              <span className={`text-[9px] mt-1 tracking-tight uppercase font-mono ${isActive ? 'font-black text-[#21c55d]' : 'font-semibold text-slate-500'}`}>
                 {item.label}
               </span>
             </button>
@@ -70,43 +68,43 @@ export const UserHeader: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-sky-100 px-4 py-3 shadow-xs hidden md:block">
-      <div className="max-w-5xl mx-auto flex items-center justify-between">
+    <header className="sticky top-0 z-30 bg-[#0b0b0c]/85 backdrop-blur-xl border-b border-white/5 px-4 py-3 select-none">
+      <div className="max-w-md md:max-w-4xl mx-auto flex items-center justify-between">
         <div 
           onClick={() => navigate('/')} 
-          className="flex items-center gap-2.5 cursor-pointer group"
+          className="flex items-center gap-2 cursor-pointer group"
         >
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#1267D6] to-[#19A463] text-white flex items-center justify-center shadow-md">
-            <Leaf className="w-5 h-5 text-white" />
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#1267D6] to-[#21c55d] text-white flex items-center justify-center shadow-lg shadow-emerald-500/10">
+            <Leaf className="w-4.5 h-4.5 text-white" />
           </div>
           <div>
-            <h1 className="text-base font-black text-[#082A52] leading-none">
-              Fresh<span className="text-[#1267D6]">Nex</span>
+            <h1 className="text-sm font-black text-[#edeff2] leading-none tracking-tight">
+              Fresh<span className="text-[#38bdf8]">Nex</span>
             </h1>
-            <p className="text-[9px] font-bold text-sky-600 tracking-wider uppercase mt-0.5">
-              Smarter Food. Safer Tomorrow.
+            <p className="text-[8px] font-mono font-black text-slate-500 tracking-wider uppercase mt-0.5">
+              IoT Telemetry
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
           <button
             onClick={() => navigate('/alerts')}
-            className="w-9 h-9 rounded-xl bg-sky-50 border border-sky-100 text-sky-700 flex items-center justify-center hover:bg-sky-100 transition-colors relative"
+            className="w-8 h-8 rounded-xl bg-white/5 border border-white/10 text-slate-300 flex items-center justify-center hover:bg-white/10 transition-colors relative"
           >
             <Bell className="w-4 h-4" />
-            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white" />
+            <span className="absolute top-1.5 right-1.5 w-1.5 h-1.5 rounded-full bg-red-500 ring-1 ring-[#0b0b0c]" />
           </button>
 
           <button
             onClick={() => navigate('/profile')}
-            className="flex items-center gap-2 pl-2 pr-3 py-1 rounded-xl bg-sky-50 border border-sky-100 hover:bg-sky-100 transition-colors"
+            className="flex items-center gap-2 pl-2 pr-2 py-1 rounded-xl bg-white/5 border border-white/10 hover:bg-white/10 transition-colors"
           >
-            <div className="w-6 h-6 rounded-lg bg-[#1267D6] text-white text-xs font-black flex items-center justify-center">
+            <div className="w-5 h-5 rounded-lg bg-gradient-to-tr from-[#1267D6] to-[#21c55d] text-white text-[9px] font-black flex items-center justify-center">
               {userRecord?.name ? userRecord.name.charAt(0).toUpperCase() : 'A'}
             </div>
-            <span className="text-xs font-bold text-[#082A52] max-w-[120px] truncate">
-              {userRecord?.name || 'Alex Johnson'}
+            <span className="text-[10px] font-bold text-[#edeff2] max-w-[80px] truncate hidden sm:inline-block">
+              {userRecord?.name || 'Alex'}
             </span>
           </button>
         </div>
@@ -130,36 +128,32 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
   ];
 
   return (
-    <div className="min-h-screen bg-[#F5F9FF] flex flex-col md:flex-row">
-      {/* Sidebar for Desktop / Header for Mobile */}
-      <aside className="w-full md:w-64 bg-[#082A52] text-white flex-shrink-0 flex flex-col justify-between p-4 md:min-h-screen">
+    <div className="min-h-screen bg-[#0b0b0c] text-[#edeff2] flex flex-col md:flex-row">
+      {/* Sidebar - Matching Mockup aside */}
+      <aside className="w-full md:w-[280px] bg-[#141416] border-b md:border-b-0 md:border-r border-white/5 flex-shrink-0 flex flex-col justify-between p-6 select-none">
         <div>
-          {/* Admin Header */}
-          <div className="flex items-center justify-between md:justify-start gap-3 pb-4 mb-4 border-b border-white/10">
-            <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#1267D6] to-[#19A463] text-white flex items-center justify-center shadow-lg">
-                <Leaf className="w-5 h-5 text-white" />
+          {/* Logo Area */}
+          <div className="logo-area mb-8 md:mb-10">
+            <div className="logo-flex flex items-center gap-3">
+              <div className="logo-icon w-10 h-10 bg-gradient-to-tr from-[#1267D6] to-[#21c55d] rounded-xl flex items-center justify-center shadow-lg shadow-emerald-500/10">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path d="M11 20A7 7 0 0 1 9.8 6.1C15.5 5 17 4.48 19 2c1 2 2 4.18 2 8 0 5.5-4.78 10-10 10Z"></path>
+                  <path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"></path>
+                </svg>
               </div>
               <div>
-                <h2 className="text-base font-black tracking-tight text-white leading-none">
-                  Fresh<span className="text-[#38BDF8]">Nex</span>
+                <h2 className="text-sm font-black text-[#edeff2] tracking-tight">
+                  Fresh<span className="text-[#38bdf8]">Nex</span>
                 </h2>
-                <span className="text-[9px] font-bold text-sky-300 uppercase tracking-widest block mt-0.5">
-                  ADMIN CONSOLE
+                <span className="admin-badge font-mono text-[9px] text-[#38bdf8] uppercase tracking-widest block mt-0.5">
+                  SYSTEM INFRASTRUCTURE
                 </span>
               </div>
             </div>
-
-            <button
-              onClick={() => navigate('/')}
-              className="md:hidden text-[10px] font-black px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/30"
-            >
-              Consumer View
-            </button>
           </div>
 
           {/* Admin Navigation list */}
-          <nav className="space-y-1.5 flex flex-row md:flex-col overflow-x-auto md:overflow-visible pb-2 md:pb-0">
+          <nav className="space-y-1.5 flex flex-row md:flex-col overflow-x-auto md:overflow-visible pb-2 md:pb-0 gap-1 md:gap-0">
             {adminNav.map((item) => {
               const isActive = location.pathname === item.path;
               const Icon = item.icon;
@@ -168,10 +162,10 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
                 <button
                   key={item.path}
                   onClick={() => navigate(item.path)}
-                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap cursor-pointer ${
+                  className={`nav-item w-full flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap cursor-pointer text-left ${
                     isActive
-                      ? 'bg-gradient-to-r from-[#1267D6] to-[#2196F3] text-white shadow-md shadow-sky-500/30'
-                      : 'text-slate-300 hover:text-white hover:bg-white/5'
+                      ? 'bg-[rgba(33,197,93,0.1)] text-[#21c55d]'
+                      : 'text-slate-400 hover:text-[#edeff2] hover:bg-white/5'
                   }`}
                 >
                   <Icon className="w-4 h-4 shrink-0" />
@@ -182,40 +176,40 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
           </nav>
         </div>
 
-        {/* User footer in Admin */}
-        <div className="pt-4 mt-4 border-t border-white/10 hidden md:block">
-          <div className="flex items-center justify-between mb-3 px-1">
-            <div className="flex items-center gap-2 overflow-hidden">
-              <div className="w-7 h-7 rounded-lg bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-sky-300 text-xs font-black">
-                A
-              </div>
-              <div className="overflow-hidden">
-                <p className="text-xs font-bold text-white truncate">{userRecord?.name || 'Admin User'}</p>
-                <p className="text-[10px] text-slate-400 truncate">{userRecord?.email || 'admin@freshnex.com'}</p>
-              </div>
+        {/* User panel - Matching Mockup */}
+        <div className="user-panel pt-6 mt-6 border-t border-white/5 hidden md:block">
+          <div className="user-info flex items-center gap-2.5 mb-4">
+            <div className="avatar w-8 h-8 rounded-full bg-white/5 border border-white/10 flex items-center justify-center font-extrabold text-[11px] text-white">
+              {userRecord?.name ? userRecord.name.charAt(0).toUpperCase() : 'T'}
+            </div>
+            <div className="overflow-hidden">
+              <p className="text-xs font-black text-white truncate leading-none mb-1">
+                {userRecord?.name?.toUpperCase() || 'TIRTHARAJ'}
+              </p>
+              <p className="text-[10px] text-slate-400 truncate leading-none">
+                {userRecord?.email || 'realtirtharaj@gmail.com'}
+              </p>
             </div>
           </div>
 
-          <div className="space-y-1">
-            <button
-              onClick={() => navigate('/')}
-              className="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-sky-200 transition-colors flex items-center justify-center gap-2"
-            >
-              <span>Switch to Consumer View</span>
-            </button>
-            <button
-              onClick={logout}
-              className="w-full py-2 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-xs font-bold text-red-300 transition-colors flex items-center justify-center gap-2"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-              <span>Log Out</span>
-            </button>
-          </div>
+          <button
+            onClick={() => navigate('/')}
+            className="w-full h-10 rounded-xl bg-white/5 hover:bg-white/10 text-[11px] font-black text-slate-300 border border-white/5 transition-colors flex items-center justify-center mb-2 cursor-pointer"
+          >
+            Switch to Consumer View
+          </button>
+
+          <button
+            onClick={logout}
+            className="w-full h-10 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-[11px] font-black text-red-300 transition-colors flex items-center justify-center cursor-pointer"
+          >
+            Log Out
+          </button>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-4 md:p-8 overflow-y-auto max-w-6xl">
+      <main className="flex-1 p-6 md:p-10 overflow-y-auto max-w-6xl w-full">
         {children}
       </main>
     </div>
@@ -230,7 +224,7 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#F5F9FF] via-[#EAF4FF] to-[#D9ECFF] text-[#082A52] flex flex-col justify-between">
+    <div className="min-h-screen bg-[#0b0b0c] text-[#edeff2] flex flex-col justify-between">
       <UserHeader />
       <main className="flex-1 p-4 pb-24 md:pb-8 max-w-md md:max-w-4xl mx-auto w-full">
         {children}
