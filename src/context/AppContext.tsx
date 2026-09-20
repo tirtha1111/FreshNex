@@ -108,8 +108,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [productProfiles, setProductProfiles] = useState<ProductProfile[]>([
     { id: 'p_milk', name: 'Milk', temperature_min: 2.0, temperature_max: 6.0, humidity_min: 50, humidity_max: 70, mq135_threshold: 1500 },
     { id: 'p_meat', name: 'Meat', temperature_min: -2.0, temperature_max: 4.0, humidity_min: 60, humidity_max: 80, mq135_threshold: 1200 },
-    { id: 'p_fish', name: 'Fish', temperature_min: 0.0, temperature_max: 3.0, humidity_min: 70, humidity_max: 90, mq135_threshold: 1000 },
-    { id: 'p_veg', name: 'Vegetables', temperature_min: 4.0, temperature_max: 10.0, humidity_min: 80, humidity_max: 95, mq135_threshold: 1800 }
   ]);
   const [alertsList, setAlertsList] = useState<SensorAlert[]>([]);
   const [allUsersList, setAllUsersList] = useState<UserRecord[]>([]);

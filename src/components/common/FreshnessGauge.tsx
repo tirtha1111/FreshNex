@@ -5,7 +5,7 @@ interface FreshnessGaugeProps {
   score: number;
   label?: string;
   qualityLabel?: string;
-  size?: number;
+  size?: number | 'sm' | 'md' | 'lg';
 }
 
 export const FreshnessGauge: React.FC<FreshnessGaugeProps> = ({
@@ -15,7 +15,20 @@ export const FreshnessGauge: React.FC<FreshnessGaugeProps> = ({
   size = 130,
 }) => {
   const strokeWidth = 8;
-  const radius = (size - strokeWidth * 2) / 2;
+  
+  // Map friendly size presets to numbers
+  let numericSize = 130;
+  if (typeof size === 'number') {
+    numericSize = size;
+  } else if (size === 'sm') {
+    numericSize = 100;
+  } else if (size === 'md') {
+    numericSize = 140;
+  } else if (size === 'lg') {
+    numericSize = 180;
+  }
+
+  const radius = (numericSize - strokeWidth * 2) / 2;
   const circumference = 2 * Math.PI * radius;
   const strokeDashoffset = circumference - (score / 100) * circumference;
 
@@ -27,24 +40,24 @@ export const FreshnessGauge: React.FC<FreshnessGaugeProps> = ({
 
   return (
     <div className="flex flex-col items-center justify-center select-none text-center">
-      <span className="text-[11px] font-medium text-[#B8A89E] mb-1.5 uppercase tracking-wider">
+      <span className="text-[11px] font-bold text-[#5C7F75] mb-1.5 uppercase tracking-wider">
         {label}
       </span>
-      <div className="relative flex items-center justify-center" style={{ width: size, height: size }}>
-        <svg width={size} height={size} className="rotate-[-90deg]">
+      <div className="relative flex items-center justify-center" style={{ width: numericSize, height: numericSize }}>
+        <svg width={numericSize} height={numericSize} className="rotate-[-90deg]">
           {/* Background Track */}
           <circle
-            cx={size / 2}
-            cy={size / 2}
+            cx={numericSize / 2}
+            cy={numericSize / 2}
             r={radius}
-            stroke="#3D261A"
+            stroke="#EBF1EF"
             strokeWidth={strokeWidth}
             fill="transparent"
           />
           {/* Animated Value Arc */}
           <motion.circle
-            cx={size / 2}
-            cy={size / 2}
+            cx={numericSize / 2}
+            cy={numericSize / 2}
             r={radius}
             stroke={strokeColor}
             strokeWidth={strokeWidth}
@@ -63,12 +76,12 @@ export const FreshnessGauge: React.FC<FreshnessGaugeProps> = ({
             initial={{ opacity: 0, scale: 0.5 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.6, delay: 0.2 }}
-            className="text-2xl sm:text-3xl font-extrabold text-[#FDF8F5] tracking-tight"
+            className="text-2xl sm:text-3xl font-extrabold text-[#07221A] tracking-tight"
           >
             {score}%
           </motion.span>
           <span
-            className="text-[11px] font-semibold mt-0.5 tracking-wide"
+            className="text-[11px] font-bold mt-0.5 tracking-wide"
             style={{ color: strokeColor }}
           >
             {qualityLabel}

@@ -184,7 +184,7 @@ export const LiveDataPage: React.FC = () => {
 
       {/* Threshold Active Breach Banner */}
       <AnimatePresence>
-        {hasActiveBreach && (
+        {!((currentProduct as any)?.isUnconfigured) && hasActiveBreach && (
           <motion.div
             initial={{ opacity: 0, height: 0, y: -10 }}
             animate={{ opacity: 1, height: 'auto', y: 0 }}
@@ -219,6 +219,32 @@ export const LiveDataPage: React.FC = () => {
         )}
       </AnimatePresence>
 
+      {/* Unconfigured IoT Warning Banner */}
+      <AnimatePresence>
+        {((currentProduct as any)?.isUnconfigured) && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, y: -10 }}
+            animate={{ opacity: 1, height: 'auto', y: 0 }}
+            exit={{ opacity: 0, height: 0, y: -10 }}
+            className="p-4 rounded-2xl bg-[#FFF9E6] border border-[#FFAA00]/20 text-[#07221A] shadow-sm flex items-center justify-between gap-4"
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#FFAA00]/10 text-[#FFAA00] flex items-center justify-center shrink-0 border border-[#FFAA00]/20 animate-pulse">
+                <AlertTriangle className="w-5 h-5" />
+              </div>
+              <div>
+                <h4 className="text-xs font-black uppercase tracking-wider text-[#996600]">
+                  Micro-node Not Configured Yet
+                </h4>
+                <p className="text-xs text-[#664C00] mt-0.5 font-semibold">
+                  This meat package has been registered, but its corresponding hardware micro-node sensor is not configured or bound yet in Settings.
+                </p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* PRODUCT INFORMATION CARD */}
       <div className="bg-white border border-[#13493B]/10 rounded-[32px] p-6 sm:p-8 relative overflow-hidden shadow-sm">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
@@ -239,65 +265,68 @@ export const LiveDataPage: React.FC = () => {
                 </span>
               </div>
             </motion.div>
-
+ 
             <div className="space-y-1.5">
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                 <h2 className="text-xl font-black text-[#07221A] tracking-tight">{currentProduct.name}</h2>
-                <StatusBadge status={freshnessReport?.status || 'Fresh'} size="md" />
+                <StatusBadge status={((currentProduct as any)?.isUnconfigured) ? 'Warning' : (freshnessReport?.status || 'Fresh')} size="md" />
               </div>
               <p className="text-xs font-semibold text-[#5C7F75]">{currentProduct.category} • FreshNex IoT Node</p>
               
               <div className="pt-1 flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1 text-[11px] font-bold text-[#5C7F75]">
                 <div className="flex items-center gap-1">
-                  <span className="w-2 h-2 rounded-full bg-[#20E79A]" />
-                  <span>Bio-Sensor Linked</span>
+                  <span className={`w-2 h-2 rounded-full ${((currentProduct as any)?.isUnconfigured) ? 'bg-[#FFAA00]' : 'bg-[#20E79A]'}`} />
+                  <span>{((currentProduct as any)?.isUnconfigured) ? 'Awaiting Device Sync' : 'Bio-Sensor Linked'}</span>
                 </div>
                 <span>•</span>
                 <span>ID: {currentProduct.id}</span>
               </div>
             </div>
           </div>
-
+ 
           {/* Right: Freshness Index Gauge */}
           <div className="flex flex-col items-center justify-center shrink-0 border-t md:border-t-0 md:border-l border-[#13493B]/10 pt-4 md:pt-0 md:pl-10">
             <span className="text-[10px] font-black text-[#5C7F75] uppercase tracking-wider mb-2">Live Freshness Score</span>
             <div className="relative flex items-center justify-center">
-              <FreshnessGauge score={freshnessReport?.score || 100} size="md" />
+              <FreshnessGauge score={((currentProduct as any)?.isUnconfigured) ? 0 : (freshnessReport?.score || 100)} size="md" />
             </div>
           </div>
         </div>
       </div>
-
+ 
       {/* THREE LIVE METRIC TILES */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <SensorCard
           title="Ambient Temperature"
-          value={sensorData?.temperature || 4.2}
-          unit="°C"
+          value={((currentProduct as any)?.isUnconfigured) ? '--' : (sensorData?.temperature || 4.2)}
+          unit={((currentProduct as any)?.isUnconfigured) ? undefined : "°C"}
           icon={Thermometer}
           color={metricConfig.temp.color}
-          status={isTempBreached ? 'critical' : 'normal'}
-          message={isTempBreached ? 'Elevated temperature' : 'Safe cooling bounds'}
+          status={((currentProduct as any)?.isUnconfigured) ? undefined : (isTempBreached ? 'critical' : 'normal')}
+          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : (isTempBreached ? 'Elevated temperature' : 'Safe cooling bounds')}
+          isEmpty={!!((currentProduct as any)?.isUnconfigured)}
         />
-
+ 
         <SensorCard
           title="Relative Humidity"
-          value={sensorData?.humidity || 62}
-          unit="%"
+          value={((currentProduct as any)?.isUnconfigured) ? '--' : (sensorData?.humidity || 62)}
+          unit={((currentProduct as any)?.isUnconfigured) ? undefined : "%"}
           icon={Droplets}
           color={metricConfig.humidity.color}
-          status={isHumidityBreached ? 'critical' : 'normal'}
-          message="Moisture level steady"
+          status={((currentProduct as any)?.isUnconfigured) ? undefined : (isHumidityBreached ? 'critical' : 'normal')}
+          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : "Moisture level steady"}
+          isEmpty={!!((currentProduct as any)?.isUnconfigured)}
         />
-
+ 
         <SensorCard
           title="MQ-135 Gas Sensors"
-          value={sensorData?.gas || 120}
-          unit="ppm"
+          value={((currentProduct as any)?.isUnconfigured) ? '--' : (sensorData?.gas || 120)}
+          unit={((currentProduct as any)?.isUnconfigured) ? undefined : "ppm"}
           icon={Wind}
           color={metricConfig.gas.color}
-          status={isGasBreached ? 'critical' : 'normal'}
-          message={isGasBreached ? 'Gas threshold breach' : 'Stable atmosphere'}
+          status={((currentProduct as any)?.isUnconfigured) ? undefined : (isGasBreached ? 'critical' : 'normal')}
+          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : (isGasBreached ? 'Gas threshold breach' : 'Stable atmosphere')}
+          isEmpty={!!((currentProduct as any)?.isUnconfigured)}
         />
       </div>
 
@@ -335,7 +364,16 @@ export const LiveDataPage: React.FC = () => {
         </div>
 
         {/* Recharts Chart Area */}
-        <div className="h-72 w-full">
+        <div className="h-72 w-full relative">
+          {((currentProduct as any)?.isUnconfigured) && (
+            <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center text-center p-6 rounded-[20px]">
+              <AlertTriangle className="w-8 h-8 text-[#FFAA00] mb-2 animate-bounce" />
+              <h4 className="text-sm font-black text-[#07221A]">No Live History Feed</h4>
+              <p className="text-xs font-semibold text-[#5C7F75] max-w-sm mt-1 leading-relaxed">
+                Telemetry charts and historical trend vectors will populate once the hardware micro-node transmits its first payload packet.
+              </p>
+            </div>
+          )}
           <ResponsiveContainer width="100%" height="100%">
             <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
               <defs>

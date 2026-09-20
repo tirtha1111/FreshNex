@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
+import { useAuth } from '../context/AuthContext';
 import { 
   QrCode, 
   Thermometer, 
@@ -40,8 +41,13 @@ const SENSOR_TREND_DATA = [
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
+  const { userProfile } = useAuth();
   const [selectedMetric, setSelectedMetric] = useState('Temperature');
   const [timeRange, setTimeRange] = useState('1D');
+
+  const isAdmin = userProfile?.role === 'admin';
+  const assignedTag = userProfile?.assignedProductId || 'MILK';
+  const assignedName = userProfile?.assignedProductName || 'Milk Package';
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -79,44 +85,60 @@ export const DashboardPage: React.FC = () => {
 
         {/* Left Side Info */}
         <div className="flex-1 space-y-4 text-center lg:text-left z-10">
-          <span className="text-[11px] font-black text-[#5C7F75] uppercase tracking-widest block">
-            Real-Time Monitoring
-          </span>
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white border border-[#13493B]/10 shadow-sm">
+            <span className={`w-2 h-2 rounded-full ${isAdmin ? 'bg-[#20E79A]' : 'bg-[#FF6A00]'}`} />
+            <span className="text-[10px] font-black text-[#07221A] uppercase tracking-wider">
+              {isAdmin ? 'Admin Hub • All Registered Products' : `User Portal • Product ID: ${assignedTag}`}
+            </span>
+          </div>
           <div className="space-y-1">
             <h1 className="text-3xl sm:text-4xl font-serif italic font-black text-[#07221A] leading-none tracking-tight">
-              FRESH FOOD
+              {isAdmin ? 'FRESH FOOD' : assignedName.toUpperCase()}
             </h1>
             <h1 className="text-3xl sm:text-4xl font-serif italic font-black text-[#07221A] leading-none tracking-tight">
-              BRIGHTER
+              {isAdmin ? 'BRIGHTER' : 'MONITORING'}
             </h1>
             <h1 className="text-3xl sm:text-4xl font-serif italic font-black text-[#07221A] leading-none tracking-tight">
-              TOMORROWS
+              {isAdmin ? 'TOMORROWS' : 'PORTAL'}
             </h1>
           </div>
           <p className="text-xs text-[#5C7F75] font-semibold max-w-sm leading-relaxed">
-            IoT powered insights for safer food, healthier lives and a more sustainable world.
+            {isAdmin 
+              ? 'IoT powered insights for safer food, healthier lives and a more sustainable world.' 
+              : `Real-time freshness score, telemetry logs, and cold-chain metrics for ${assignedName}.`}
           </p>
 
           <div className="pt-2 flex flex-wrap items-center justify-center lg:justify-start gap-4">
-            <motion.button
-              whileHover={{ scale: 1.04, y: -2 }}
-              whileTap={{ scale: 0.96 }}
-              onClick={() => navigate('/scan')}
-              className="px-6 py-3.5 bg-[#07221A] text-white hover:bg-[#134336] rounded-full text-xs font-black flex items-center gap-2 shadow-lg shadow-[#07221A]/15 cursor-pointer"
-            >
-              <Scan className="w-4 h-4 text-[#20E79A]" />
-              <span>Scan a Product</span>
-            </motion.button>
+            {isAdmin ? (
+              <motion.button
+                whileHover={{ scale: 1.04, y: -2 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => navigate('/scan')}
+                className="px-6 py-3.5 bg-[#07221A] text-white hover:bg-[#134336] rounded-full text-xs font-black flex items-center gap-2 shadow-lg shadow-[#07221A]/15 cursor-pointer"
+              >
+                <Scan className="w-4 h-4 text-[#20E79A]" />
+                <span>Scan a Product Tag</span>
+              </motion.button>
+            ) : (
+              <motion.button
+                whileHover={{ scale: 1.04, y: -2 }}
+                whileTap={{ scale: 0.96 }}
+                onClick={() => navigate(`/live-data/${assignedTag}`)}
+                className="px-6 py-3.5 bg-[#07221A] text-white hover:bg-[#134336] rounded-full text-xs font-black flex items-center gap-2 shadow-lg shadow-[#07221A]/15 cursor-pointer"
+              >
+                <Activity className="w-4 h-4 text-[#20E79A]" />
+                <span>View Product Telemetry</span>
+              </motion.button>
+            )}
 
             <motion.button
               whileHover={{ scale: 1.04, y: -2 }}
               whileTap={{ scale: 0.96 }}
+              onClick={() => navigate('/analytics')}
               className="px-6 py-3.5 bg-white border border-[#13493B]/10 hover:bg-[#F4F7F6] text-[#07221A] rounded-full text-xs font-black flex items-center gap-2 shadow-sm cursor-pointer"
             >
-              <div className="w-4 h-4 rounded-full bg-[#20E79A]/20 flex items-center justify-center">
-                <div className="w-1.5 h-1.5 bg-[#20E79A] rounded-full ml-0.5" />
-              </div>
-              <span>Watch How It Works</span>
+              <BarChart3 className="w-4 h-4 text-[#20E79A]" />
+              <span>{isAdmin ? 'Global Analytics' : 'Product Analytics'}</span>
             </motion.button>
           </div>
         </div>

@@ -27,17 +27,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
   const location = useLocation();
 
   const liveDataPath = activeItem ? `/live-data/${activeItem.id}` : '/live-data';
+  const isAdmin = userProfile?.role === 'admin';
 
-  const navItems = [
+  const adminNavItems = [
     { name: 'Dashboard', path: '/dashboard', icon: Home },
     { name: 'Scan Product', path: '/scan', icon: QrCode },
     { name: 'Devices', path: liveDataPath, icon: Cpu, matchPrefix: '/live-data' },
     { name: 'Products', path: '/history', icon: Package },
     { name: 'Analytics', path: '/analytics', icon: BarChart3 },
-    { name: 'Notifications', path: '/alerts', icon: Bell, badge: 3 }, // Show exact copy "3" notifications
+    { name: 'Notifications', path: '/alerts', icon: Bell, badge: 3 },
     { name: 'Users', path: '/profile', icon: Users },
     { name: 'Settings', path: '/settings', icon: Settings },
   ];
+
+  const userNavItems = [
+    { name: 'Dashboard', path: '/dashboard', icon: Home },
+    { name: 'Analytics', path: '/analytics', icon: BarChart3 },
+    { name: 'Notifications', path: '/alerts', icon: Bell, badge: 3 },
+    { name: 'Settings', path: '/settings', icon: Settings },
+  ];
+
+  const navItems = isAdmin ? adminNavItems : userNavItems;
 
   const handleLogout = async () => {
     await logout();
@@ -155,10 +165,10 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
             </div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-white truncate">
-                {userProfile?.name || 'Admin'}
+                {userProfile?.name || (isAdmin ? 'Admin' : 'Product Access')}
               </p>
-              <span className="text-[9px] font-semibold text-[#8FA39E] block uppercase tracking-wider">
-                Administrator
+              <span className="text-[9px] font-semibold text-[#8FA39E] block uppercase tracking-wider truncate">
+                {isAdmin ? 'Administrator' : `Tag #${userProfile?.assignedProductId || 'MILK'}`}
               </span>
             </div>
           </div>

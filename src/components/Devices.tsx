@@ -129,8 +129,8 @@ export const Devices: React.FC = () => {
                 onChange={(e) => setLocation(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-slate-600 focus:outline-none focus:border-[#FF6A00]"
               >
-                <option value="Coldroom A">Coldroom A (Vegetables / Fruits)</option>
-                <option value="Coldroom B">Coldroom B (Dairy / Bakery)</option>
+                <option value="Coldroom A">Coldroom A (Dairy Vault)</option>
+                <option value="Coldroom B">Coldroom B (Meat Cold Storage)</option>
                 <option value="Deep Freezer">Deep Freezer (Meat / Seafood)</option>
                 <option value="Loading Dock C">Loading Dock C (Dispatch Transit)</option>
                 <option value="Storage Facility 4">Storage Facility 4 (Dry Goods)</option>

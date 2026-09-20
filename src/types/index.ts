@@ -51,6 +51,8 @@ export interface UserProfile {
   name: string;
   email: string;
   role: Role;
+  assignedProductId?: string;
+  assignedProductName?: string;
   avatar?: string;
   memberSince?: string;
   organization?: string;

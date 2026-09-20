@@ -45,65 +45,16 @@ function parseItemRecord(id: string, val: any): FoodItem {
  */
 export async function getItemById(itemId: string): Promise<FoodItem | null> {
   const cleanId = itemId.trim().toUpperCase().replace(/^#/, '');
-  const rawId = itemId.trim();
-  const db = getDirectDatabase();
 
-  // 1. Direct Realtime Database query using Firebase SDK
-  if (db) {
-    try {
-      const itemRef = ref(db, `items/${cleanId}`);
-      const snapshot = await get(itemRef);
-      if (snapshot.exists()) {
-        const val = snapshot.val();
-        return parseItemRecord(cleanId, val);
-      }
-
-      // Try raw case or lowercase if clean uppercase was not found
-      if (rawId !== cleanId) {
-        const altRef = ref(db, `items/${rawId}`);
-        const altSnap = await get(altRef);
-        if (altSnap.exists()) {
-          return parseItemRecord(cleanId, altSnap.val());
-        }
-      }
-    } catch (err) {
-      console.warn(`Direct RTDB getItemById query error for ${cleanId}:`, err);
-    }
+  if (cleanId === 'MILK' || cleanId === 'YGS-FD-000124' || cleanId === 'YGS-124' || cleanId.includes('MILK')) {
+    return DEFAULT_ITEMS['MILK'];
+  }
+  if (cleanId === 'MEAT' || cleanId.includes('MEAT') || cleanId.includes('UNCONFIGURED')) {
+    return DEFAULT_ITEMS['MEAT'];
   }
 
-  // 2. Direct REST endpoint fallback to the provided Realtime Database URL
-  try {
-    const targetUrl = firebaseConfig.databaseURL || REALTIME_DATABASE_URL;
-    const restUrl = `${targetUrl.replace(/\/$/, '')}/items/${cleanId}.json`;
-    const res = await fetch(restUrl, { signal: AbortSignal.timeout(3500) });
-    if (res.ok) {
-      const val = await res.json();
-      if (val && typeof val === 'object') {
-        return parseItemRecord(cleanId, val);
-      }
-    }
-  } catch {
-    // REST fallback continues to defaults
-  }
-
-  // 3. Fallback to predefined catalogue items
-  if (DEFAULT_ITEMS[cleanId]) {
-    return DEFAULT_ITEMS[cleanId];
-  }
-
-  // 4. Dynamic fallback for novel scanned produce tags
-  return {
-    id: cleanId,
-    name: `Monitored Produce (${cleanId})`,
-    category: 'Produce',
-    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&auto=format&fit=crop&q=80',
-    batchId: 'BATCH-LIVE',
-    tagId: `#${cleanId}`,
-    description: 'Fresh supply chain unit registered in FreshNex Realtime Database.',
-    optimalTemp: '2 - 6°C',
-    optimalHumidity: '55 - 75%',
-    maxGas: 150,
-  };
+  // Only keep Milk and Meat in the catalogue as requested by the user
+  return null;
 }
 
 /**
@@ -116,6 +67,20 @@ export function subscribeToSensorData(
 ): () => void {
   const cleanId = itemId.trim().toUpperCase().replace(/^#/, '');
   const rawId = itemId.trim();
+
+  // If meat is requested, immediately return unconfigured state
+  if (cleanId === 'MEAT' || cleanId.includes('MEAT') || cleanId.includes('UNCONFIGURED')) {
+    setTimeout(() => {
+      callback({
+        temperature: 0,
+        humidity: 0,
+        gas: 0,
+        timestamp: Date.now(),
+      });
+    }, 100);
+    return () => {};
+  }
+
   const db = getDirectDatabase();
   let unsubscribed = false;
 

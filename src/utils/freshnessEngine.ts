@@ -43,6 +43,7 @@ export function calculateFreshness(
   let gas = 120;
   let category: string | undefined = undefined;
   let expiryDate: string | number | null = null;
+  let isUnconfigured = false;
 
   if (reading !== undefined) {
     const product = inputOrProduct;
@@ -67,12 +68,32 @@ export function calculateFreshness(
     gas = reading.gasLevel ?? reading.gas ?? 120;
     category = product.category;
     expiryDate = product.expiryDate;
+    isUnconfigured = !!product.isUnconfigured;
   } else if (inputOrProduct) {
     temperature = inputOrProduct.temperature ?? 4.2;
     humidity = inputOrProduct.humidity ?? 62;
     gas = inputOrProduct.gas ?? 120;
     category = inputOrProduct.category;
     expiryDate = inputOrProduct.expiryDate;
+    isUnconfigured = !!inputOrProduct.isUnconfigured;
+  }
+
+  // Handle unconfigured IoT device
+  if (isUnconfigured || (category === 'Meat Products' && temperature === 0 && humidity === 0 && gas === 0)) {
+    return {
+      score: 0,
+      status: 'Warning',
+      qualityLabel: 'Unconfigured',
+      riskLevel: 'unknown',
+      message: 'IoT sensor micro-node is not configured yet.',
+      statusColor: '#FFAA00',
+      statusBg: 'rgba(255, 170, 0, 0.15)',
+      statusBorder: 'rgba(255, 170, 0, 0.4)',
+      tempStatus: 'Warning',
+      humidityStatus: 'Warning',
+      gasStatus: 'Warning',
+      failedParameters: [],
+    };
   }
 
   const thresholds = (category && CATEGORY_THRESHOLDS[category]) || DEFAULT_THRESHOLDS;
