@@ -42,8 +42,9 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
 
   const userNavItems = [
     { name: 'Dashboard', path: '/dashboard', icon: Home },
+    { name: 'Scanner', path: '/scan', icon: QrCode },
+    { name: 'Live Readings', path: liveDataPath, icon: Cpu, matchPrefix: '/live-data' },
     { name: 'Analytics', path: '/analytics', icon: BarChart3 },
-    { name: 'Notifications', path: '/alerts', icon: Bell, badge: 3 },
     { name: 'Settings', path: '/settings', icon: Settings },
   ];
 

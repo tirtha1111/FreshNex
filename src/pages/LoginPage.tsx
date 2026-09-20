@@ -1,10 +1,9 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, QrCode, Shield, Sparkles, Package } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, QrCode, Shield, Sparkles } from 'lucide-react';
 import { Logo } from '../components/common/Logo';
 import { useAuth } from '../context/AuthContext';
-import { AnimatedBackground } from '../components/common/AnimatedBackground';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
@@ -15,10 +14,11 @@ export const LoginPage: React.FC = () => {
   // User product portal state
   const [productId, setProductId] = useState('');
   
-  // Admin login state
-  const [adminEmail, setAdminEmail] = useState('');
-  const [adminPassword, setAdminPassword] = useState('');
+  // Admin login state with required defaults
+  const [adminEmail, setAdminEmail] = useState('realtirtharaj@gmail.com');
+  const [adminPassword, setAdminPassword] = useState('1122');
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -65,185 +65,142 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleQuickPreset = (tag: string) => {
-    setProductId(tag);
-    setLocalError(null);
-  };
-
-  const handleQuickAdminPreset = () => {
-    setAdminEmail('admin@freshnex.com');
-    setAdminPassword('admin123');
-    setLocalError(null);
-  };
-
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 16 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -12 }}
-      transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-      className="min-h-screen bg-[#140C08] flex flex-col justify-center items-center px-4 py-12 select-none relative overflow-hidden font-sans"
-    >
-      <AnimatedBackground />
+    <div className="min-h-screen bg-gradient-to-br from-[#FFF8F0] via-[#F7F2EB] to-[#EFEAE2] flex flex-col justify-center items-center px-4 py-8 select-none relative font-sans text-slate-800">
+      {/* Top subtle ambient warmth background circles */}
+      <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-lg h-72 bg-gradient-to-b from-orange-200/40 via-amber-100/30 to-transparent blur-3xl pointer-events-none rounded-full" />
 
       <motion.div 
-        initial={{ opacity: 0, y: 20 }}
+        initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.45 }}
-        className="w-full max-w-md space-y-6 relative z-10"
+        transition={{ duration: 0.4 }}
+        className="w-full max-w-sm sm:max-w-md space-y-6 relative z-10"
       >
-        {/* Brand Logo & Header */}
+        {/* Brand Logo & Headline */}
         <div className="text-center space-y-2">
-          <div className="flex justify-center">
-            <Logo size="lg" linkTo="/" />
+          <div className="flex justify-center pb-1">
+            <Logo size="md" linkTo="/" />
           </div>
-          <h2 className="text-2xl font-black text-[#FDF8F5] tracking-tight mt-3">
-            FreshNex Gateway Login
-          </h2>
-          <p className="text-xs text-[#B8A89E] font-medium">
-            Select your access role to connect to the supply chain intelligence portal.
+          <h1 className="text-3xl font-black text-slate-900 tracking-tight">
+            Get Started Now
+          </h1>
+          <p className="text-xs text-slate-500 font-medium max-w-xs mx-auto leading-relaxed">
+            Select User or Admin portal to access real-time food freshness telemetry
           </p>
         </div>
 
-        {/* Tab Switcher: User (Product ID) vs Admin */}
-        <div className="grid grid-cols-2 p-1.5 rounded-2xl bg-[#1E140E] border border-[#3D261A] shadow-inner">
-          <button
-            type="button"
-            onClick={() => {
-              setLoginMode('user');
-              setLocalError(null);
-              clearAuthError();
-            }}
-            className={`py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-2 ${
-              loginMode === 'user'
-                ? 'bg-[#FF6A00] text-[#140C08] shadow-[0_4px_15px_rgba(255,106,0,0.35)]'
-                : 'text-[#B8A89E] hover:text-[#FDF8F5]'
-            }`}
-          >
-            <Package className="w-4 h-4" />
-            <span>User (Product ID)</span>
-          </button>
+        {/* Soft Mobile Card Container matching the uploaded design */}
+        <div className="bg-white/90 backdrop-blur-xl p-6 sm:p-8 rounded-[32px] shadow-[0_20px_50px_rgba(210,180,150,0.25)] border border-white/80 space-y-6">
+          
+          {/* Segmented Pill Switcher (User vs Admin) */}
+          <div className="grid grid-cols-2 p-1.5 rounded-full bg-slate-100/80 border border-slate-200/60 shadow-inner">
+            <button
+              type="button"
+              onClick={() => {
+                setLoginMode('user');
+                setLocalError(null);
+                clearAuthError();
+              }}
+              className={`py-3 rounded-full text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                loginMode === 'user'
+                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/30'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <QrCode className="w-3.5 h-3.5" />
+              <span>User Login</span>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setLoginMode('admin');
-              setLocalError(null);
-              clearAuthError();
-            }}
-            className={`py-2.5 rounded-xl text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-2 ${
-              loginMode === 'admin'
-                ? 'bg-[#20E79A] text-[#07221A] shadow-[0_4px_15px_rgba(32,231,154,0.35)]'
-                : 'text-[#B8A89E] hover:text-[#FDF8F5]'
-            }`}
-          >
-            <Shield className="w-4 h-4" />
-            <span>Admin Login</span>
-          </button>
-        </div>
+            <button
+              type="button"
+              onClick={() => {
+                setLoginMode('admin');
+                setLocalError(null);
+                clearAuthError();
+              }}
+              className={`py-3 rounded-full text-xs font-black transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+                loginMode === 'admin'
+                  ? 'bg-gradient-to-r from-orange-500 to-amber-500 text-white shadow-md shadow-orange-500/30'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Shield className="w-3.5 h-3.5" />
+              <span>Admin Login</span>
+            </button>
+          </div>
 
-        {/* Form Card Container */}
-        <div className="card-solid p-7 space-y-5 shadow-2xl relative border border-[#3D261A] overflow-hidden">
-          <div className={`absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent ${
-            loginMode === 'user' ? 'via-[#FF6A00]/70' : 'via-[#20E79A]/70'
-          } to-transparent`} />
-
+          {/* Error Banner */}
           {(localError || authError) && (
             <motion.div 
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-3.5 rounded-xl bg-[#FF5A67]/15 border border-[#FF5A67]/30 flex items-start gap-2.5 text-[#FF5A67] text-xs font-semibold"
+              className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-rose-600 text-xs font-semibold"
             >
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>{localError || authError}</span>
             </motion.div>
           )}
 
+          {/* Forms */}
           <AnimatePresence mode="wait">
             {loginMode === 'user' ? (
               <motion.form
                 key="user-form"
-                initial={{ opacity: 0, x: -15 }}
+                initial={{ opacity: 0, x: -12 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 15 }}
+                exit={{ opacity: 0, x: 12 }}
                 transition={{ duration: 0.25 }}
                 onSubmit={handleUserProductSubmit}
-                className="space-y-4"
+                className="space-y-4 pt-1"
               >
-                <div className="space-y-1">
-                  <h3 className="text-sm font-black text-[#FDF8F5] flex items-center gap-2">
-                    <span>Product Unique ID Access</span>
-                    <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-[#FF6A00]/15 text-[#FF6A00] border border-[#FF6A00]/30">
-                      User Portal
-                    </span>
-                  </h3>
-                  <p className="text-xs text-[#B8A89E] font-medium leading-relaxed">
-                    Enter the unique product Tag ID printed on your IoT package to unlock its dedicated monitoring portal.
-                  </p>
-                </div>
-
                 {/* Product Tag ID Input */}
-                <div className="space-y-1.5 pt-1">
-                  <label className="text-xs font-bold text-[#B8A89E] block">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 block">
                     Unique Product Tag ID
                   </label>
                   <div className="relative">
-                    <QrCode className="w-4 h-4 text-[#8C7A70] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="text"
                       required
                       value={productId}
                       onChange={(e) => setProductId(e.target.value)}
                       placeholder="e.g. MILK or MEAT"
-                      className="w-full pl-10 pr-4 py-2.5 bg-[#1E140E] text-sm font-bold text-[#FDF8F5] placeholder-[#8C7A70] rounded-xl border border-[#3D261A] focus:outline-none focus:border-[#FF6A00] focus:ring-2 focus:ring-[#FF6A00]/20 transition-all uppercase font-mono tracking-wider"
+                      className="w-full px-4 py-3.5 bg-slate-50 text-sm font-bold text-slate-900 placeholder-slate-400 rounded-2xl border border-slate-200/80 focus:outline-none focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all uppercase font-mono tracking-wider"
                     />
                   </div>
                 </div>
 
-                {/* Quick Presets */}
-                <div className="space-y-2 pt-1">
-                  <span className="text-[10px] font-bold text-[#8C7A70] uppercase tracking-wider block">
-                    Registered Tag Shortcuts:
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => handleQuickPreset('MILK')}
-                      className={`flex-1 py-1.5 px-2.5 rounded-lg border text-xs font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                        productId.toUpperCase() === 'MILK'
-                          ? 'bg-[#20E79A]/20 border-[#20E79A] text-[#20E79A]'
-                          : 'bg-[#1E140E] border-[#3D261A] text-[#B8A89E] hover:text-[#FDF8F5]'
-                      }`}
-                    >
-                      <Sparkles className="w-3 h-3 text-[#20E79A]" />
-                      <span>MILK (Live)</span>
-                    </button>
+                {/* Remember Me Checkbox */}
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer text-slate-600 font-medium">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-300 text-orange-500 focus:ring-0 cursor-pointer accent-orange-500"
+                    />
+                    <span>Remember Me</span>
+                  </label>
 
-                    <button
-                      type="button"
-                      onClick={() => handleQuickPreset('MEAT')}
-                      className={`flex-1 py-1.5 px-2.5 rounded-lg border text-xs font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
-                        productId.toUpperCase() === 'MEAT'
-                          ? 'bg-[#FFAA00]/20 border-[#FFAA00] text-[#FFAA00]'
-                          : 'bg-[#1E140E] border-[#3D261A] text-[#B8A89E] hover:text-[#FDF8F5]'
-                      }`}
-                    >
-                      <AlertCircle className="w-3 h-3 text-[#FFAA00]" />
-                      <span>MEAT (Pending)</span>
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setProductId('MILK')}
+                    className="text-orange-600 hover:text-orange-700 font-bold text-[11px]"
+                  >
+                    Use Sample ID
+                  </button>
                 </div>
 
-                {/* Submit Button */}
+                {/* Submit Pill Button matching image */}
                 <div className="pt-3">
                   <motion.button
-                    whileHover={{ scale: 1.02, y: -1 }}
+                    whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full py-3 rounded-xl font-bold text-sm text-[#140C08] btn-orange flex items-center justify-center gap-2 shadow-[0_4px_25px_rgba(255,106,0,0.35)] disabled:opacity-50 cursor-pointer"
+                    className="w-full py-4 rounded-full font-extrabold text-sm text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(249,115,22,0.35)] disabled:opacity-50 cursor-pointer transition-all"
                   >
-                    <span>{isSubmitting ? 'Authenticating Product...' : 'Access Product Portal'}</span>
+                    <span>{isSubmitting ? 'Authenticating Tag...' : 'Access Product Portal'}</span>
                     <ArrowRight className="w-4 h-4" />
                   </motion.button>
                 </div>
@@ -251,87 +208,79 @@ export const LoginPage: React.FC = () => {
             ) : (
               <motion.form
                 key="admin-form"
-                initial={{ opacity: 0, x: 15 }}
+                initial={{ opacity: 0, x: 12 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -15 }}
+                exit={{ opacity: 0, x: -12 }}
                 transition={{ duration: 0.25 }}
                 onSubmit={handleAdminSubmit}
-                className="space-y-4"
+                className="space-y-4 pt-1"
               >
-                <div className="space-y-1">
-                  <h3 className="text-sm font-black text-[#FDF8F5] flex items-center gap-2">
-                    <span>Administrator Credentials</span>
-                    <span className="px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-wider bg-[#20E79A]/15 text-[#20E79A] border border-[#20E79A]/30">
-                      System Admin
-                    </span>
-                  </h3>
-                  <p className="text-xs text-[#B8A89E] font-medium leading-relaxed">
-                    Full access to all registered products, live devices, system configurations, and user management.
-                  </p>
-                </div>
-
-                {/* Admin Email */}
-                <div className="space-y-1.5 pt-1">
-                  <label className="text-xs font-bold text-[#B8A89E] block">
-                    Admin Email Address
+                {/* Email Address */}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold text-slate-700 block">
+                    Email Address
                   </label>
                   <div className="relative">
-                    <Mail className="w-4 h-4 text-[#8C7A70] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type="email"
                       required
                       value={adminEmail}
                       onChange={(e) => setAdminEmail(e.target.value)}
-                      placeholder="admin@freshnex.com"
-                      className="w-full pl-10 pr-4 py-2.5 bg-[#1E140E] text-sm text-[#FDF8F5] placeholder-[#8C7A70] rounded-xl border border-[#3D261A] focus:outline-none focus:border-[#20E79A] focus:ring-2 focus:ring-[#20E79A]/20 transition-all"
+                      placeholder="realtirtharaj@gmail.com"
+                      className="w-full px-4 py-3.5 bg-slate-50 text-sm font-semibold text-slate-900 placeholder-slate-400 rounded-2xl border border-slate-200/80 focus:outline-none focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all"
                     />
                   </div>
                 </div>
 
-                {/* Admin Password */}
+                {/* Set Password */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-[#B8A89E] block">
+                  <label className="text-xs font-bold text-slate-700 block">
                     Password
                   </label>
                   <div className="relative">
-                    <Lock className="w-4 h-4 text-[#8C7A70] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     <input
                       type={showPassword ? 'text' : 'password'}
                       required
                       value={adminPassword}
                       onChange={(e) => setAdminPassword(e.target.value)}
                       placeholder="••••••••"
-                      className="w-full pl-10 pr-11 py-2.5 bg-[#1E140E] text-sm text-[#FDF8F5] placeholder-[#8C7A70] rounded-xl border border-[#3D261A] focus:outline-none focus:border-[#20E79A] focus:ring-2 focus:ring-[#20E79A]/20 transition-all"
+                      className="w-full pl-4 pr-11 py-3.5 bg-slate-50 text-sm font-semibold text-slate-900 placeholder-slate-400 rounded-2xl border border-slate-200/80 focus:outline-none focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all"
                     />
                     <button
                       type="button"
                       onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#8C7A70] hover:text-[#FDF8F5] cursor-pointer"
+                      className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 cursor-pointer"
                     >
                       {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
                 </div>
 
-                {/* Fill Admin Preset */}
-                <div className="flex justify-end pt-0.5">
-                  <button
-                    type="button"
-                    onClick={handleQuickAdminPreset}
-                    className="text-[10px] text-[#20E79A] font-bold hover:underline cursor-pointer"
-                  >
-                    Autofill Admin Demo Credentials
-                  </button>
+                {/* Remember Me & Forgot Password */}
+                <div className="flex items-center justify-between text-xs pt-1">
+                  <label className="flex items-center gap-2 cursor-pointer text-slate-600 font-medium">
+                    <input
+                      type="checkbox"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.target.checked)}
+                      className="w-4 h-4 rounded border-slate-300 text-orange-500 focus:ring-0 cursor-pointer accent-orange-500"
+                    />
+                    <span>Remember Me</span>
+                  </label>
+
+                  <span className="text-orange-600 font-bold text-[11px]">
+                    Admin Creds Pre-filled
+                  </span>
                 </div>
 
-                {/* Admin Submit Button */}
-                <div className="pt-2">
+                {/* Submit Pill Button */}
+                <div className="pt-3">
                   <motion.button
-                    whileHover={{ scale: 1.02, y: -1 }}
+                    whileHover={{ scale: 1.02 }}
                     whileTap={{ scale: 0.98 }}
                     type="submit"
                     disabled={isSubmitting}
-                    className="w-full py-3 rounded-xl font-bold text-sm text-[#07221A] bg-[#20E79A] hover:bg-[#1bd48c] flex items-center justify-center gap-2 shadow-[0_4px_25px_rgba(32,231,154,0.3)] disabled:opacity-50 cursor-pointer transition-all"
+                    className="w-full py-4 rounded-full font-extrabold text-sm text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 flex items-center justify-center gap-2 shadow-[0_10px_30px_rgba(249,115,22,0.35)] disabled:opacity-50 cursor-pointer transition-all"
                   >
                     <span>{isSubmitting ? 'Signing in as Admin...' : 'Sign In as Admin'}</span>
                     <ArrowRight className="w-4 h-4" />
@@ -340,8 +289,9 @@ export const LoginPage: React.FC = () => {
               </motion.form>
             )}
           </AnimatePresence>
+
         </div>
       </motion.div>
-    </motion.div>
+    </div>
   );
 };

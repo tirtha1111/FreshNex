@@ -119,15 +119,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthError(null);
     setIsLoading(true);
 
-    const isAdminEmail = email.trim().toLowerCase().includes('admin');
-    const assignedRole: 'admin' | 'user' = isAdminEmail ? 'admin' : 'user';
+    const cleanEmail = email.trim().toLowerCase();
+    const isAdminCredentials = 
+      cleanEmail === 'realtirtharaj@gmail.com' || 
+      cleanEmail.includes('admin') || 
+      (cleanEmail === 'realtirtharaj@gmail.com' && pass === '1122');
+
+    const assignedRole: 'admin' | 'user' = isAdminCredentials ? 'admin' : 'user';
 
     if (!auth) {
       // Demo / fallback admin sign in when auth is unavailable or in offline demo mode
       const mockUser = {
-        uid: 'admin_demo_uid_101',
+        uid: isAdminCredentials ? 'admin_realtirtharaj_101' : 'user_demo_101',
         email: email.trim(),
-        displayName: isAdminEmail ? 'System Administrator' : 'FreshNex User',
+        displayName: isAdminCredentials ? 'System Administrator' : 'FreshNex User',
       } as any;
 
       setCurrentUser(mockUser);
@@ -136,7 +141,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const profileData: UserProfile = {
         uid: mockUser.uid,
         email: email.trim(),
-        name: isAdminEmail ? 'System Administrator' : 'FreshNex User',
+        name: isAdminCredentials ? 'Tirtharaj (System Admin)' : 'FreshNex User',
         role: assignedRole,
         memberSince: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
         organization: 'FreshNex Enterprise Operations',
@@ -155,7 +160,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const profileData: UserProfile = {
         uid: userCred.user.uid,
         email: userCred.user.email || email,
-        name: isAdminEmail ? 'System Administrator' : (userCred.user.displayName || userCred.user.email?.split('@')[0] || 'User'),
+        name: isAdminCredentials ? 'Tirtharaj (System Admin)' : (userCred.user.displayName || userCred.user.email?.split('@')[0] || 'User'),
         role: assignedRole,
         memberSince: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
         organization: 'FreshNex Network',
@@ -163,20 +168,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setUserProfile(profileData);
       localStorage.setItem('freshnex_profile', JSON.stringify(profileData));
     } catch (err: any) {
-      // Fallback demo sign in for offline admin testing
-      if (isAdminEmail || pass === 'admin123' || pass === 'password') {
+      // Fallback demo sign in for admin credentials (e.g. realtirtharaj@gmail.com / 1122)
+      if (isAdminCredentials || pass === '1122' || pass === 'admin123') {
         const mockUser = {
-          uid: 'admin_demo_uid_101',
-          email: email.trim(),
-          displayName: 'System Administrator',
+          uid: 'admin_realtirtharaj_101',
+          email: cleanEmail,
+          displayName: 'Tirtharaj (System Admin)',
         } as any;
         setCurrentUser(mockUser);
         setIsDemoMode(true);
         localStorage.setItem('freshnex_demo_user', 'true');
         const profileData: UserProfile = {
           uid: mockUser.uid,
-          email: email.trim(),
-          name: 'System Administrator',
+          email: cleanEmail,
+          name: 'Tirtharaj (System Admin)',
           role: 'admin',
           memberSince: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
           organization: 'FreshNex Enterprise Operations',
