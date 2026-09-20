@@ -6,72 +6,60 @@ import {
   Home, 
   QrCode, 
   History, 
-  PackageCheck, 
   User, 
   ShieldCheck, 
   LayoutDashboard, 
   Cpu, 
   Users, 
   Bell, 
+  PackageCheck,
   Settings, 
   LogOut,
-  Sparkles
+  Leaf
 } from 'lucide-react';
 
 export const UserBottomNav: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Exactly matching the 4 tabs from image screens 5, 8, 9:
+  // 1: Home
+  // 2: Scan
+  // 3: History
+  // 4: Profile
   const navItems = [
-    { label: 'HOME', path: '/', icon: Home },
-    { label: 'HISTORY', path: '/scan-history', icon: History },
-    { label: 'SCAN', path: '/scan', icon: QrCode, isCenter: true },
-    { label: 'PRODUCTS', path: '/products', icon: PackageCheck },
-    { label: 'PROFILE', path: '/profile', icon: User },
+    { label: 'Home', path: '/', icon: Home },
+    { label: 'Scan', path: '/scan', icon: QrCode },
+    { label: 'History', path: '/scan-history', icon: History },
+    { label: 'Profile', path: '/profile', icon: User },
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-40 px-3 pb-3 pt-1 pointer-events-none">
-      <div className="max-w-md mx-auto pointer-events-auto">
-        <div className="glass-card rounded-2xl px-3 py-2 flex items-center justify-around shadow-xl border border-white/80 bg-white/85 backdrop-blur-2xl">
-          {navItems.map((item) => {
-            const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
-            const Icon = item.icon;
+    <div className="fixed bottom-0 left-0 right-0 z-40 bg-white/95 backdrop-blur-xl border-t border-slate-100 shadow-[0_-4px_20px_rgba(0,0,0,0.04)] px-4 py-2 select-none">
+      <div className="max-w-md mx-auto flex items-center justify-around">
+        {navItems.map((item) => {
+          const isActive = location.pathname === item.path || (item.path !== '/' && location.pathname.startsWith(item.path));
+          const Icon = item.icon;
 
-            if (item.isCenter) {
-              return (
-                <div key={item.label} className="relative -top-5">
-                  <motion.button
-                    whileTap={{ scale: 0.92 }}
-                    whileHover={{ scale: 1.05 }}
-                    onClick={() => navigate('/scan')}
-                    className="w-14 h-14 rounded-full bg-gradient-to-tr from-[#1267D6] via-[#1A73E8] to-[#2196F3] text-white flex items-center justify-center shadow-xl shadow-sky-500/40 ring-4 ring-white/90 border border-sky-200"
-                  >
-                    <QrCode className="w-7 h-7" />
-                  </motion.button>
-                  <span className="text-[10px] font-black text-[#1267D6] tracking-wider text-center block mt-1">
-                    SCAN
-                  </span>
-                </div>
-              );
-            }
-
-            return (
-              <button
-                key={item.label}
-                onClick={() => navigate(item.path)}
-                className={`flex flex-col items-center justify-center py-1 px-2.5 rounded-xl transition-all duration-200 ${
-                  isActive ? 'text-[#1267D6] font-extrabold' : 'text-slate-400 hover:text-slate-600'
-                }`}
-              >
-                <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5px] scale-110 text-[#1267D6]' : ''}`} />
-                <span className={`text-[10px] mt-1 ${isActive ? 'font-bold text-[#1267D6]' : 'font-medium'}`}>
-                  {item.label}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+          return (
+            <button
+              key={item.label}
+              onClick={() => navigate(item.path)}
+              className={`flex flex-col items-center justify-center py-1 px-4 rounded-2xl transition-all duration-200 cursor-pointer ${
+                isActive 
+                  ? 'text-[#1267D6] font-extrabold' 
+                  : 'text-slate-400 hover:text-slate-600 font-semibold'
+              }`}
+            >
+              <div className={`relative p-1 rounded-xl transition-all ${isActive ? 'scale-110' : ''}`}>
+                <Icon className={`w-5 h-5 ${isActive ? 'stroke-[2.5px] text-[#1267D6]' : 'stroke-[1.75px]'}`} />
+              </div>
+              <span className={`text-[10px] mt-0.5 tracking-tight ${isActive ? 'font-black text-[#1267D6]' : 'font-medium text-slate-400'}`}>
+                {item.label}
+              </span>
+            </button>
+          );
+        })}
       </div>
     </div>
   );
@@ -82,42 +70,43 @@ export const UserHeader: React.FC = () => {
   const navigate = useNavigate();
 
   return (
-    <header className="sticky top-0 z-30 bg-white/70 backdrop-blur-xl border-b border-sky-100/80 px-4 py-3 shadow-xs">
+    <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-sky-100 px-4 py-3 shadow-xs hidden md:block">
       <div className="max-w-5xl mx-auto flex items-center justify-between">
         <div 
           onClick={() => navigate('/')} 
           className="flex items-center gap-2.5 cursor-pointer group"
         >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#1267D6] to-[#2196F3] text-white flex items-center justify-center shadow-md shadow-sky-500/20 group-hover:scale-105 transition-transform">
-            <ShieldCheck className="w-5 h-5" />
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#1267D6] to-[#19A463] text-white flex items-center justify-center shadow-md">
+            <Leaf className="w-5 h-5 text-white" />
           </div>
           <div>
-            <h1 className="text-lg font-black text-[#082A52] leading-none">
+            <h1 className="text-base font-black text-[#082A52] leading-none">
               Fresh<span className="text-[#1267D6]">Nex</span>
             </h1>
-            <p className="text-[10px] font-bold text-sky-600 tracking-wider uppercase mt-0.5">
-              IoT Food Freshness
+            <p className="text-[9px] font-bold text-sky-600 tracking-wider uppercase mt-0.5">
+              Smarter Food. Safer Tomorrow.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <button
-            onClick={() => navigate('/notifications')}
+            onClick={() => navigate('/alerts')}
             className="w-9 h-9 rounded-xl bg-sky-50 border border-sky-100 text-sky-700 flex items-center justify-center hover:bg-sky-100 transition-colors relative"
           >
             <Bell className="w-4 h-4" />
+            <span className="absolute top-2 right-2 w-2 h-2 rounded-full bg-red-500 ring-2 ring-white" />
           </button>
 
           <button
             onClick={() => navigate('/profile')}
-            className="flex items-center gap-2 pl-2 pr-3 py-1 rounded-xl bg-sky-50/80 border border-sky-100 hover:bg-sky-100 transition-colors"
+            className="flex items-center gap-2 pl-2 pr-3 py-1 rounded-xl bg-sky-50 border border-sky-100 hover:bg-sky-100 transition-colors"
           >
             <div className="w-6 h-6 rounded-lg bg-[#1267D6] text-white text-xs font-black flex items-center justify-center">
-              {userRecord?.name ? userRecord.name.charAt(0).toUpperCase() : 'U'}
+              {userRecord?.name ? userRecord.name.charAt(0).toUpperCase() : 'A'}
             </div>
-            <span className="text-xs font-bold text-[#082A52] max-w-[100px] truncate hidden sm:inline">
-              {userRecord?.name || 'User'}
+            <span className="text-xs font-bold text-[#082A52] max-w-[120px] truncate">
+              {userRecord?.name || 'Alex Johnson'}
             </span>
           </button>
         </div>
@@ -147,37 +136,45 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
         <div>
           {/* Admin Header */}
           <div className="flex items-center justify-between md:justify-start gap-3 pb-4 mb-4 border-b border-white/10">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#1267D6] to-[#2196F3] text-white flex items-center justify-center shadow-lg shadow-sky-500/30">
-                <ShieldCheck className="w-6 h-6" />
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#1267D6] to-[#19A463] text-white flex items-center justify-center shadow-lg">
+                <Leaf className="w-5 h-5 text-white" />
               </div>
               <div>
-                <h2 className="text-lg font-black tracking-tight text-white">
-                  Fresh<span className="text-sky-400">Nex</span>
+                <h2 className="text-base font-black tracking-tight text-white leading-none">
+                  Fresh<span className="text-[#38BDF8]">Nex</span>
                 </h2>
-                <span className="inline-block px-2 py-0.5 text-[9px] font-black uppercase tracking-widest bg-sky-500/20 text-sky-300 rounded-full border border-sky-400/30">
+                <span className="text-[9px] font-bold text-sky-300 uppercase tracking-widest block mt-0.5">
                   ADMIN CONSOLE
                 </span>
               </div>
             </div>
+
+            <button
+              onClick={() => navigate('/')}
+              className="md:hidden text-[10px] font-black px-2.5 py-1 rounded-lg bg-sky-500/20 text-sky-300 border border-sky-400/30"
+            >
+              Consumer View
+            </button>
           </div>
 
-          {/* Admin Navigation Links */}
-          <nav className="space-y-1">
+          {/* Admin Navigation list */}
+          <nav className="space-y-1.5 flex flex-row md:flex-col overflow-x-auto md:overflow-visible pb-2 md:pb-0">
             {adminNav.map((item) => {
-              const isActive = location.pathname === item.path || (item.path !== '/admin' && location.pathname.startsWith(item.path));
+              const isActive = location.pathname === item.path;
               const Icon = item.icon;
+
               return (
                 <button
-                  key={item.label}
+                  key={item.path}
                   onClick={() => navigate(item.path)}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all duration-200 ${
+                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-xs font-bold transition-all duration-200 whitespace-nowrap cursor-pointer ${
                     isActive
-                      ? 'bg-gradient-to-r from-[#1267D6] to-[#2196F3] text-white shadow-lg shadow-sky-600/30'
-                      : 'text-slate-300 hover:bg-white/5 hover:text-white'
+                      ? 'bg-gradient-to-r from-[#1267D6] to-[#2196F3] text-white shadow-md shadow-sky-500/30'
+                      : 'text-slate-300 hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="w-4 h-4 shrink-0" />
                   <span>{item.label}</span>
                 </button>
               );
@@ -185,29 +182,40 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
           </nav>
         </div>
 
-        {/* User Badge & Logout */}
-        <div className="pt-4 mt-4 border-t border-white/10 flex items-center justify-between">
-          <div className="flex items-center gap-2 overflow-hidden">
-            <div className="w-8 h-8 rounded-full bg-sky-500 text-white font-black text-xs flex items-center justify-center shrink-0">
-              {userRecord?.name ? userRecord.name.charAt(0).toUpperCase() : 'A'}
-            </div>
-            <div className="truncate">
-              <p className="text-xs font-bold text-white truncate">{userRecord?.name || 'Admin'}</p>
-              <p className="text-[10px] text-sky-300 font-medium truncate">{userRecord?.email}</p>
+        {/* User footer in Admin */}
+        <div className="pt-4 mt-4 border-t border-white/10 hidden md:block">
+          <div className="flex items-center justify-between mb-3 px-1">
+            <div className="flex items-center gap-2 overflow-hidden">
+              <div className="w-7 h-7 rounded-lg bg-sky-500/20 border border-sky-400/30 flex items-center justify-center text-sky-300 text-xs font-black">
+                A
+              </div>
+              <div className="overflow-hidden">
+                <p className="text-xs font-bold text-white truncate">{userRecord?.name || 'Admin User'}</p>
+                <p className="text-[10px] text-slate-400 truncate">{userRecord?.email || 'admin@freshnex.com'}</p>
+              </div>
             </div>
           </div>
-          <button
-            onClick={() => logout()}
-            title="Log Out"
-            className="p-2 rounded-xl text-slate-300 hover:text-rose-400 hover:bg-white/10 transition-colors"
-          >
-            <LogOut className="w-4 h-4" />
-          </button>
+
+          <div className="space-y-1">
+            <button
+              onClick={() => navigate('/')}
+              className="w-full py-2 px-3 rounded-xl bg-white/5 hover:bg-white/10 text-xs font-bold text-sky-200 transition-colors flex items-center justify-center gap-2"
+            >
+              <span>Switch to Consumer View</span>
+            </button>
+            <button
+              onClick={logout}
+              className="w-full py-2 px-3 rounded-xl bg-red-500/10 hover:bg-red-500/20 text-xs font-bold text-red-300 transition-colors flex items-center justify-center gap-2"
+            >
+              <LogOut className="w-3.5 h-3.5" />
+              <span>Log Out</span>
+            </button>
+          </div>
         </div>
       </aside>
 
       {/* Main Content Area */}
-      <main className="flex-1 p-4 sm:p-6 md:p-8 overflow-y-auto pb-20 md:pb-8">
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto max-w-6xl">
         {children}
       </main>
     </div>
@@ -222,9 +230,9 @@ export const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) =>
   }
 
   return (
-    <div className="min-h-screen bg-[#F5F9FF] text-[#082A52] flex flex-col pb-24">
+    <div className="min-h-screen bg-gradient-to-b from-[#F5F9FF] via-[#EAF4FF] to-[#D9ECFF] text-[#082A52] flex flex-col justify-between">
       <UserHeader />
-      <main className="flex-1 max-w-5xl w-full mx-auto p-4 sm:p-6">
+      <main className="flex-1 p-4 pb-24 md:pb-8 max-w-md md:max-w-4xl mx-auto w-full">
         {children}
       </main>
       <UserBottomNav />

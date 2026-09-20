@@ -1,22 +1,19 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { isFirebaseConfigured } from '../firebase/firebase';
 import { 
+  ChevronLeft, 
+  ChevronRight, 
   User, 
-  Mail, 
-  ShieldCheck, 
-  PackageCheck, 
-  Clock, 
   Bell, 
+  Moon, 
+  Globe, 
   HelpCircle, 
   Info, 
-  Lock, 
   LogOut, 
-  ChevronRight, 
+  Check, 
   Database,
-  CheckCircle2,
-  AlertTriangle,
+  Shield,
   X
 } from 'lucide-react';
 
@@ -24,11 +21,14 @@ export const ProfileSettings: React.FC = () => {
   const { userRecord, userRole, logout, applyFirebaseConfig } = useApp();
   const navigate = useNavigate();
 
-  const [showConfigModal, setShowConfigModal] = useState<boolean>(false);
-  const [showAboutModal, setShowAboutModal] = useState<boolean>(false);
-  const [showHelpModal, setShowHelpModal] = useState<boolean>(false);
+  const [notificationsEnabled, setNotificationsEnabled] = useState(true);
+  const [darkModeEnabled, setDarkModeEnabled] = useState(false);
+  const [selectedLanguage, setSelectedLanguage] = useState('English (US)');
+  const [showAboutModal, setShowAboutModal] = useState(false);
+  const [showHelpModal, setShowHelpModal] = useState(false);
+  const [showConfigModal, setShowConfigModal] = useState(false);
 
-  // Firebase config form state for easy in-app credentials input
+  // Firebase config input state
   const [fbApiKey, setFbApiKey] = useState('');
   const [fbAuthDomain, setFbAuthDomain] = useState('');
   const [fbDatabaseUrl, setFbDatabaseUrl] = useState('');
@@ -37,7 +37,7 @@ export const ProfileSettings: React.FC = () => {
   const handleSaveConfig = (e: React.FormEvent) => {
     e.preventDefault();
     if (!fbApiKey || !fbDatabaseUrl) {
-      alert('Please enter at least API Key and Realtime Database URL.');
+      alert('Please enter at least API Key and Database URL.');
       return;
     }
     applyFirebaseConfig({
@@ -49,265 +49,255 @@ export const ProfileSettings: React.FC = () => {
       messagingSenderId: '',
       appId: ''
     });
+    setShowConfigModal(false);
   };
 
   return (
-    <div className="space-y-5 max-w-xl mx-auto pb-10">
-      <div>
-        <h1 className="text-2xl font-black text-[#082A52] tracking-tight">Account & Profile</h1>
-        <p className="text-xs text-slate-500 font-medium">Manage your settings and preferences</p>
+    <div className="space-y-4 pb-6 select-none">
+      {/* Top Header Bar (matching Screen 9) */}
+      <div className="flex items-center justify-between pt-1">
+        <button
+          onClick={() => navigate(-1)}
+          className="w-10 h-10 rounded-2xl bg-white border border-slate-200 text-[#082A52] flex items-center justify-center shadow-xs hover:bg-slate-50 transition-colors cursor-pointer"
+        >
+          <ChevronLeft className="w-6 h-6" />
+        </button>
+
+        <h1 className="text-base font-black text-[#082A52] tracking-tight">
+          Profile & Settings
+        </h1>
+
+        <div className="w-10" />
       </div>
 
-      {/* User Info Header Card */}
-      <div className="glass-card rounded-3xl p-6 border border-white/80 shadow-xl flex items-center gap-4">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-[#1267D6] to-[#2196F3] text-white font-black text-2xl flex items-center justify-center shadow-lg shadow-sky-500/30">
-          {userRecord?.name ? userRecord.name.charAt(0).toUpperCase() : 'U'}
-        </div>
-        <div className="flex-1 overflow-hidden">
-          <h2 className="text-lg font-black text-[#082A52] truncate">{userRecord?.name || 'FreshNex User'}</h2>
-          <p className="text-xs text-slate-500 font-medium truncate">{userRecord?.email || 'user@example.com'}</p>
-          <div className="mt-1.5 flex items-center gap-2">
-            <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-              userRole === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-sky-100 text-[#1267D6]'
-            }`}>
-              Account Type: {userRole.toUpperCase()}
-            </span>
+      {/* User Profile Card (matching Screen 9) */}
+      <div 
+        onClick={() => setShowConfigModal(true)}
+        className="w-full rounded-3xl bg-white border border-slate-200/90 p-4 shadow-xs flex items-center justify-between cursor-pointer hover:border-[#1267D6]/40 transition-colors"
+      >
+        <div className="flex items-center gap-3.5">
+          {/* Avatar */}
+          <div className="w-14 h-14 rounded-full bg-gradient-to-tr from-[#1267D6] to-[#2196F3] text-white font-black text-lg flex items-center justify-center shadow-md shadow-sky-500/20">
+            {userRecord?.name 
+              ? userRecord.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase()
+              : 'AJ'}
           </div>
-        </div>
-      </div>
 
-      {/* Firebase Status Badge */}
-      <div className="glass-card rounded-2xl p-4 border border-white/80 shadow-md flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Database className={`w-5 h-5 ${isFirebaseConfigured ? 'text-emerald-500' : 'text-amber-500'}`} />
-          <div>
-            <p className="text-xs font-bold text-[#082A52]">Firebase Realtime Database</p>
-            <p className="text-[10px] text-slate-500">
-              {isFirebaseConfigured ? 'Connected & Active' : 'Demo Mode (Add Config below)'}
+          <div className="space-y-0.5">
+            <h2 className="text-sm font-black text-[#082A52]">
+              {userRecord?.name || 'Alex Johnson'}
+            </h2>
+            <p className="text-xs text-slate-400 font-semibold">
+              {userRecord?.email || 'alex.johnson@freshnex.com'}
+            </p>
+            <p className="text-[10px] text-slate-400 font-medium">
+              Member since March 1, 2025
             </p>
           </div>
         </div>
+
+        <ChevronRight className="w-5 h-5 text-slate-400" />
+      </div>
+
+      {/* Settings Options List (matching Screen 9) */}
+      <div className="w-full rounded-3xl bg-white border border-slate-200/90 p-2 shadow-xs divide-y divide-slate-100">
+        
+        {/* 1. Account Settings */}
         <button
           onClick={() => setShowConfigModal(true)}
-          className="px-3 py-1.5 rounded-xl bg-sky-100 text-[#1267D6] text-xs font-bold hover:bg-sky-200 transition-colors"
-        >
-          {isFirebaseConfigured ? 'View Config' : 'Connect Firebase'}
-        </button>
-      </div>
-
-      {/* Profile Options List */}
-      <div className="glass-card rounded-3xl p-2 border border-white/80 shadow-xl space-y-1">
-        <button
-          onClick={() => navigate('/products')}
-          className="w-full p-3.5 rounded-2xl hover:bg-sky-50/80 transition-colors flex items-center justify-between text-left"
+          className="w-full p-3.5 flex items-center justify-between hover:bg-slate-50 rounded-2xl transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-sky-100 text-[#1267D6] flex items-center justify-center">
-              <PackageCheck className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl bg-sky-50 text-[#1267D6] flex items-center justify-center">
+              <User className="w-4.5 h-4.5" />
             </div>
-            <div>
-              <p className="text-xs font-bold text-[#082A52]">My Monitored Products</p>
-              <p className="text-[10px] text-slate-400">View tracked packages and ESP32 devices</p>
-            </div>
+            <span className="text-xs font-black text-[#082A52]">Account Settings</span>
           </div>
           <ChevronRight className="w-4 h-4 text-slate-400" />
         </button>
 
-        <button
-          onClick={() => navigate('/scan-history')}
-          className="w-full p-3.5 rounded-2xl hover:bg-sky-50/80 transition-colors flex items-center justify-between text-left"
-        >
+        {/* 2. Notifications Toggle */}
+        <div className="w-full p-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-indigo-100 text-indigo-600 flex items-center justify-center">
-              <Clock className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl bg-emerald-50 text-[#19A463] flex items-center justify-center">
+              <Bell className="w-4.5 h-4.5" />
             </div>
-            <div>
-              <p className="text-xs font-bold text-[#082A52]">Scan History</p>
-              <p className="text-[10px] text-slate-400">View logs of previously scanned QR packages</p>
-            </div>
+            <span className="text-xs font-black text-[#082A52]">Notifications</span>
           </div>
-          <ChevronRight className="w-4 h-4 text-slate-400" />
-        </button>
+          <button
+            onClick={() => setNotificationsEnabled(!notificationsEnabled)}
+            className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
+              notificationsEnabled ? 'bg-[#19A463]' : 'bg-slate-300'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform ${
+                notificationsEnabled ? 'left-6.5' : 'left-0.5'
+              }`}
+            />
+          </button>
+        </div>
 
-        <button
-          onClick={() => navigate('/notifications')}
-          className="w-full p-3.5 rounded-2xl hover:bg-sky-50/80 transition-colors flex items-center justify-between text-left"
-        >
+        {/* 3. Dark Mode Toggle */}
+        <div className="w-full p-3.5 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
-              <Bell className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl bg-purple-50 text-purple-600 flex items-center justify-center">
+              <Moon className="w-4.5 h-4.5" />
             </div>
-            <div>
-              <p className="text-xs font-bold text-[#082A52]">Notifications & Alerts</p>
-              <p className="text-[10px] text-slate-400">System alerts and threshold updates</p>
-            </div>
+            <span className="text-xs font-black text-[#082A52]">Dark Mode</span>
           </div>
-          <ChevronRight className="w-4 h-4 text-slate-400" />
-        </button>
+          <button
+            onClick={() => setDarkModeEnabled(!darkModeEnabled)}
+            className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
+              darkModeEnabled ? 'bg-[#19A463]' : 'bg-slate-300'
+            }`}
+          >
+            <span
+              className={`absolute top-0.5 w-5 h-5 rounded-full bg-white shadow-md transition-transform ${
+                darkModeEnabled ? 'left-6.5' : 'left-0.5'
+              }`}
+            />
+          </button>
+        </div>
 
+        {/* 4. Language Selector */}
+        <div className="w-full p-3.5 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center">
+              <Globe className="w-4.5 h-4.5" />
+            </div>
+            <span className="text-xs font-black text-[#082A52]">Language</span>
+          </div>
+          <span className="text-xs font-bold text-slate-500">
+            {selectedLanguage}
+          </span>
+        </div>
+
+        {/* 5. Help & Support */}
         <button
           onClick={() => setShowHelpModal(true)}
-          className="w-full p-3.5 rounded-2xl hover:bg-sky-50/80 transition-colors flex items-center justify-between text-left"
+          className="w-full p-3.5 flex items-center justify-between hover:bg-slate-50 rounded-2xl transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-600 flex items-center justify-center">
-              <HelpCircle className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+              <HelpCircle className="w-4.5 h-4.5" />
             </div>
-            <div>
-              <p className="text-xs font-bold text-[#082A52]">Help & Support</p>
-              <p className="text-[10px] text-slate-400">ESP32 setup guide & FAQ</p>
-            </div>
+            <span className="text-xs font-black text-[#082A52]">Help & Support</span>
           </div>
           <ChevronRight className="w-4 h-4 text-slate-400" />
         </button>
 
+        {/* 6. About FreshNex */}
         <button
           onClick={() => setShowAboutModal(true)}
-          className="w-full p-3.5 rounded-2xl hover:bg-sky-50/80 transition-colors flex items-center justify-between text-left"
+          className="w-full p-3.5 flex items-center justify-between hover:bg-slate-50 rounded-2xl transition-colors cursor-pointer"
         >
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-purple-100 text-purple-600 flex items-center justify-center">
-              <Info className="w-5 h-5" />
+            <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center">
+              <Info className="w-4.5 h-4.5" />
             </div>
-            <div>
-              <p className="text-xs font-bold text-[#082A52]">About FreshNex</p>
-              <p className="text-[10px] text-slate-400">Version 2.0 • Smart IoT Platform</p>
-            </div>
+            <span className="text-xs font-black text-[#082A52]">About FreshNex</span>
           </div>
           <ChevronRight className="w-4 h-4 text-slate-400" />
         </button>
       </div>
 
-      {/* Logout Button */}
+      {/* Logout Button (matching Screen 9) */}
       <button
-        onClick={() => logout()}
-        className="w-full py-3.5 rounded-2xl bg-rose-50 text-rose-600 font-bold text-xs border border-rose-200 hover:bg-rose-100 transition-colors flex items-center justify-center gap-2 cursor-pointer"
+        onClick={logout}
+        className="w-full h-12 rounded-2xl font-black text-xs text-red-600 bg-red-50 border border-red-200/80 shadow-xs flex items-center justify-center gap-2 hover:bg-red-100 active:scale-[0.98] transition-all cursor-pointer"
       >
         <LogOut className="w-4 h-4" />
-        <span>LOG OUT OF ACCOUNT</span>
+        <span>Log Out</span>
       </button>
 
-      {/* FIREBASE CONFIG MODAL */}
+      {/* About FreshNex Modal */}
+      {showAboutModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-white rounded-3xl p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-black text-[#082A52]">About FreshNex</h3>
+              <button onClick={() => setShowAboutModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              <strong>FreshNex</strong> provides end-to-end food freshness monitoring using smart RFID/QR codes and ESP32 wireless IoT sensor arrays. Track real-time temperature, humidity, and food degradation gases seamlessly.
+            </p>
+            <div className="text-[11px] text-slate-400 font-bold">Version 2.4.0 (Build 2025)</div>
+            <button
+              onClick={() => setShowAboutModal(false)}
+              className="w-full py-2.5 bg-[#082A52] text-white rounded-xl text-xs font-black"
+            >
+              Close
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Help & Support Modal */}
+      {showHelpModal && (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-white rounded-3xl p-5 space-y-4 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-black text-[#082A52]">Help & Support</h3>
+              <button onClick={() => setShowHelpModal(false)} className="text-slate-400 hover:text-slate-600">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="space-y-2 text-xs text-slate-600">
+              <p><strong>How to scan:</strong> Tap the Scan tab and center the QR code or RFID tag in the green brackets.</p>
+              <p><strong>Device integration:</strong> Flash your ESP32 with the FreshNex firmware provided in the repository to stream live telemetry.</p>
+              <p><strong>Email support:</strong> support@freshnex.com</p>
+            </div>
+            <button
+              onClick={() => setShowHelpModal(false)}
+              className="w-full py-2.5 bg-[#082A52] text-white rounded-xl text-xs font-black"
+            >
+              Got it
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Firebase Config Modal */}
       {showConfigModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-          <div className="glass-card w-full max-w-md rounded-3xl p-6 bg-white/95 shadow-2xl space-y-4">
-            <div className="flex items-center justify-between pb-3 border-b border-sky-100">
-              <h3 className="text-base font-bold text-[#082A52]">Firebase Credentials</h3>
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="w-full max-w-sm bg-white rounded-3xl p-5 space-y-3 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h3 className="text-base font-black text-[#082A52]">Firebase Database Config</h3>
               <button onClick={() => setShowConfigModal(false)} className="text-slate-400 hover:text-slate-600">
                 <X className="w-5 h-5" />
               </button>
             </div>
-
-            <p className="text-xs text-slate-500 leading-relaxed">
-              To connect your real Firebase Realtime Database, enter your Firebase project credentials below or set environment variables in your deployment.
-            </p>
-
-            <form onSubmit={handleSaveConfig} className="space-y-3">
+            <form onSubmit={handleSaveConfig} className="space-y-2 text-xs">
               <div>
-                <label className="text-[10px] font-bold text-[#082A52] uppercase block mb-1">
-                  API Key (VITE_FIREBASE_API_KEY)
-                </label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase">API Key</label>
                 <input
                   type="text"
                   value={fbApiKey}
                   onChange={e => setFbApiKey(e.target.value)}
                   placeholder="AIzaSy..."
-                  className="w-full glass-input px-3 py-2 rounded-xl text-xs font-mono"
+                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl"
                 />
               </div>
-
               <div>
-                <label className="text-[10px] font-bold text-[#082A52] uppercase block mb-1">
-                  Realtime Database URL (VITE_FIREBASE_DATABASE_URL)
-                </label>
+                <label className="text-[10px] font-bold text-slate-500 uppercase">Realtime DB URL</label>
                 <input
                   type="text"
                   value={fbDatabaseUrl}
                   onChange={e => setFbDatabaseUrl(e.target.value)}
                   placeholder="https://your-app-default-rtdb.firebaseio.com"
-                  className="w-full glass-input px-3 py-2 rounded-xl text-xs font-mono"
+                  className="w-full p-2 bg-slate-50 border border-slate-200 rounded-xl"
                 />
               </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-[#082A52] uppercase block mb-1">
-                  Auth Domain (VITE_FIREBASE_AUTH_DOMAIN)
-                </label>
-                <input
-                  type="text"
-                  value={fbAuthDomain}
-                  onChange={e => setFbAuthDomain(e.target.value)}
-                  placeholder="your-app.firebaseapp.com"
-                  className="w-full glass-input px-3 py-2 rounded-xl text-xs font-mono"
-                />
-              </div>
-
-              <div>
-                <label className="text-[10px] font-bold text-[#082A52] uppercase block mb-1">
-                  Project ID (VITE_FIREBASE_PROJECT_ID)
-                </label>
-                <input
-                  type="text"
-                  value={fbProjectId}
-                  onChange={e => setFbProjectId(e.target.value)}
-                  placeholder="your-app-id"
-                  className="w-full glass-input px-3 py-2 rounded-xl text-xs font-mono"
-                />
-              </div>
-
               <button
                 type="submit"
-                className="w-full py-3 rounded-xl bg-[#1267D6] text-white font-bold text-xs shadow-md hover:brightness-110"
+                className="w-full py-2.5 bg-[#1267D6] text-white rounded-xl text-xs font-black mt-2"
               >
-                APPLY & RECONNECT
+                Save & Connect
               </button>
             </form>
-          </div>
-        </div>
-      )}
-
-      {/* ABOUT MODAL */}
-      {showAboutModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-          <div className="glass-card w-full max-w-md rounded-3xl p-6 bg-white/95 shadow-2xl space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-sky-100">
-              <h3 className="text-base font-bold text-[#082A52]">About FreshNex</h3>
-              <button onClick={() => setShowAboutModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="text-xs text-slate-600 space-y-2">
-              <p className="font-bold text-[#1267D6]">FreshNex Smart Food Monitoring Platform</p>
-              <p>
-                Combines RFID/QR product identification with ESP32 microcontrollers, DHT22 temperature & humidity sensors, and MQ-135 air quality sensors for real-time food freshness telemetry.
-              </p>
-              <p className="text-[11px] text-slate-400 pt-2 border-t border-sky-100">
-                Tagline: "Track Freshness. Trust Every Bite."
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* HELP MODAL */}
-      {showHelpModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-md">
-          <div className="glass-card w-full max-w-md rounded-3xl p-6 bg-white/95 shadow-2xl space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-sky-100">
-              <h3 className="text-base font-bold text-[#082A52]">ESP32 & QR Setup Guide</h3>
-              <button onClick={() => setShowHelpModal(false)} className="text-slate-400 hover:text-slate-600">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-            <div className="text-xs text-slate-600 space-y-2">
-              <p className="font-bold text-[#082A52]">How to Connect Your Hardware:</p>
-              <ol className="list-decimal pl-4 space-y-1 text-[11px]">
-                <li>Flash your ESP32 with Wi-Fi & Firebase Realtime Database SDK.</li>
-                <li>Publish sensor values to <code className="text-sky-600 font-mono">devices/YGS-FD-000124</code>.</li>
-                <li>Print QR code containing string: <code className="text-sky-600 font-mono">YGS-FD-000124</code>.</li>
-                <li>Scan using the in-app camera scanner to view real-time streams!</li>
-              </ol>
-            </div>
           </div>
         </div>
       )}

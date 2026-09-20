@@ -1,81 +1,249 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { Clock, ChevronRight, QrCode, Trash2, Cpu } from 'lucide-react';
+import { 
+  ChevronLeft, 
+  Search, 
+  Filter, 
+  ChevronRight, 
+  Leaf, 
+  AlertTriangle, 
+  Clock, 
+  Trash2 
+} from 'lucide-react';
 
 export const HistoryPage: React.FC = () => {
-  const { userScans, devicesMap } = useApp();
   const navigate = useNavigate();
+  const { scanHistory, clearScanHistory } = useApp();
+
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterTab, setFilterTab] = useState<'all' | 'fresh' | 'warning'>('all');
+
+  // Exact dataset matching Screen 8
+  const defaultItems = [
+    {
+      id: 'YGS-FD-000124',
+      name: 'Organic Lettuce',
+      date: 'Mar 16, 2025 10:24 AM',
+      status: 'fresh',
+      icon: '🥗',
+      location: 'Cold Storage A'
+    },
+    {
+      id: 'item-2',
+      name: 'Strawberries',
+      date: 'Mar 15, 2025 02:12 PM',
+      status: 'fresh',
+      icon: '🍓',
+      location: 'Cold Storage B'
+    },
+    {
+      id: 'item-3',
+      name: 'Chicken Breast',
+      date: 'Mar 14, 2025 11:05 AM',
+      status: 'warning',
+      icon: '🍗',
+      location: 'Meat Facility 1'
+    },
+    {
+      id: 'item-4',
+      name: 'Milk',
+      date: 'Mar 13, 2025 09:04 AM',
+      status: 'fresh',
+      icon: '🥛',
+      location: 'Dairy Chiller'
+    },
+    {
+      id: 'item-5',
+      name: 'Tomatoes',
+      date: 'Mar 12, 2025 01:18 PM',
+      status: 'fresh',
+      icon: '🍅',
+      location: 'Ambient Bay 3'
+    },
+    {
+      id: 'item-6',
+      name: 'Apples',
+      date: 'Mar 11, 2025 01:29 PM',
+      status: 'fresh',
+      icon: '🍏',
+      location: 'Fruit Section C'
+    },
+    {
+      id: 'item-7',
+      name: 'Fish Fillet',
+      date: 'Mar 10, 2025 10:15 AM',
+      status: 'warning',
+      icon: '🐟',
+      location: 'Seafood Deep Freeze'
+    },
+  ];
+
+  // Merge with real user scan history if present
+  const allList = scanHistory.length > 0
+    ? [
+        ...scanHistory.map((s, idx) => ({
+          id: s.productId,
+          name: s.productName,
+          date: new Date(s.scannedAt).toLocaleDateString('en-US', {
+            month: 'short',
+            day: 'numeric',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+          }),
+          status: s.freshnessStatus,
+          icon: s.productName.toLowerCase().includes('milk') ? '🥛' : '🥗',
+          location: s.location || 'Cold Storage A'
+        })),
+        ...defaultItems
+      ]
+    : defaultItems;
+
+  // Filter based on search and selected tab
+  const filteredList = allList.filter(item => {
+    const matchesSearch = 
+      item.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.date.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (!matchesSearch) return false;
+    if (filterTab === 'fresh') return item.status === 'fresh';
+    if (filterTab === 'warning') return item.status === 'warning' || item.status === 'spoiled';
+    return true;
+  });
+
+  const freshCount = allList.filter(i => i.status === 'fresh').length;
+  const warningCount = allList.filter(i => i.status === 'warning' || i.status === 'spoiled').length;
 
   return (
-    <div className="space-y-4 max-w-2xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-black text-[#082A52] tracking-tight">Scan History</h1>
-        <p className="text-xs text-slate-500 font-medium">Packages and devices you scanned previously</p>
+    <div className="space-y-4 pb-6 select-none">
+      {/* Top Header Bar (matching Screen 8) */}
+      <div className="flex items-center justify-between pt-1">
+        <button
+          onClick={() => navigate(-1)}
+          className="w-10 h-10 rounded-2xl bg-white border border-slate-200 text-[#082A52] flex items-center justify-center shadow-xs hover:bg-slate-50 transition-colors cursor-pointer"
+        >
+          <ChevronLeft className="w-6 h-6" />
+        </button>
+
+        <h1 className="text-base font-black text-[#082A52] tracking-tight">
+          Scan History
+        </h1>
+
+        <button
+          onClick={clearScanHistory}
+          title="Clear scan history"
+          className="w-10 h-10 rounded-2xl bg-white border border-slate-200 text-slate-400 hover:text-red-500 flex items-center justify-center shadow-xs transition-colors cursor-pointer"
+        >
+          <Trash2 className="w-4 h-4" />
+        </button>
       </div>
 
-      {userScans.length === 0 ? (
-        <div className="glass-card p-8 rounded-3xl text-center space-y-3">
-          <div className="w-12 h-12 rounded-2xl bg-sky-100 text-[#1267D6] flex items-center justify-center mx-auto">
-            <Clock className="w-6 h-6" />
-          </div>
-          <h3 className="text-base font-bold text-[#082A52]">No Scans Recorded</h3>
-          <p className="text-xs text-slate-500 max-w-xs mx-auto">
-            Scan a QR code on any food package to view live ESP32 telemetry data and log it to your history.
-          </p>
-          <button
-            onClick={() => navigate('/scan')}
-            className="px-6 py-2.5 rounded-xl bg-gradient-to-r from-[#1267D6] to-[#2196F3] text-white text-xs font-bold shadow-md hover:brightness-110"
+      {/* Subtitle */}
+      <p className="text-xs text-slate-500 font-semibold text-center -mt-2">
+        Your past scans and food data.
+      </p>
+
+      {/* Search Bar & Filter Button (matching Screen 8) */}
+      <div className="flex items-center gap-2">
+        <div className="relative flex-1">
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <input
+            type="text"
+            value={searchQuery}
+            onChange={e => setSearchQuery(e.target.value)}
+            placeholder="Search items, locations, or dates..."
+            className="w-full h-11 bg-white pl-10 pr-4 rounded-2xl text-xs font-semibold text-[#082A52] border border-slate-200/90 outline-none focus:border-[#1267D6] shadow-xs placeholder:text-slate-400"
+          />
+        </div>
+
+        <button
+          onClick={() => {
+            const nextTab = filterTab === 'all' ? 'fresh' : filterTab === 'fresh' ? 'warning' : 'all';
+            setFilterTab(nextTab);
+          }}
+          className="w-11 h-11 rounded-2xl bg-white border border-slate-200/90 text-[#082A52] flex items-center justify-center shadow-xs hover:bg-slate-50 transition-colors cursor-pointer shrink-0"
+        >
+          <Filter className="w-4 h-4" />
+        </button>
+      </div>
+
+      {/* Category Filter Tabs: All (24), Fresh (18), Warning (4) (matching Screen 8) */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={() => setFilterTab('all')}
+          className={`px-4 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer ${
+            filterTab === 'all'
+              ? 'bg-[#1267D6] text-white shadow-md shadow-sky-500/20'
+              : 'bg-white text-slate-500 border border-slate-200/80 hover:bg-slate-50'
+          }`}
+        >
+          All ({allList.length})
+        </button>
+
+        <button
+          onClick={() => setFilterTab('fresh')}
+          className={`px-4 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer ${
+            filterTab === 'fresh'
+              ? 'bg-[#1267D6] text-white shadow-md shadow-sky-500/20'
+              : 'bg-white text-slate-500 border border-slate-200/80 hover:bg-slate-50'
+          }`}
+        >
+          Fresh ({freshCount})
+        </button>
+
+        <button
+          onClick={() => setFilterTab('warning')}
+          className={`px-4 py-2 rounded-2xl text-xs font-black transition-all cursor-pointer ${
+            filterTab === 'warning'
+              ? 'bg-[#1267D6] text-white shadow-md shadow-sky-500/20'
+              : 'bg-white text-slate-500 border border-slate-200/80 hover:bg-slate-50'
+          }`}
+        >
+          Warning ({warningCount})
+        </button>
+      </div>
+
+      {/* List Items (matching Screen 8) */}
+      <div className="space-y-2.5">
+        {filteredList.map((item, idx) => (
+          <div
+            key={`${item.id}-${idx}`}
+            onClick={() => navigate(`/products/${item.id}`)}
+            className="w-full rounded-2xl bg-white border border-slate-200/80 p-3.5 shadow-xs hover:border-[#1267D6]/40 hover:shadow-md transition-all flex items-center justify-between cursor-pointer group"
           >
-            SCAN NOW
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {userScans.map((scan) => {
-            const dev = devicesMap[scan.device_id] || {
-              device_id: scan.device_id,
-              product: scan.product || 'Food Package',
-              temperature: 27.4,
-              humidity: 61.2,
-              mq135_raw: 1320,
-              online: true,
-              last_update: scan.scanned_at
-            };
-
-            return (
-              <div
-                key={scan.id}
-                onClick={() => navigate(`/products/${scan.device_id}`)}
-                className="glass-card glass-card-hover p-4 rounded-2xl cursor-pointer flex items-center justify-between border border-white/80"
-              >
-                <div className="flex items-center gap-3.5">
-                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-sky-50 to-sky-100 border border-sky-200 text-[#1267D6] flex items-center justify-center font-black text-base shadow-xs">
-                    {scan.product ? scan.product.charAt(0).toUpperCase() : 'P'}
-                  </div>
-                  <div>
-                    <h4 className="text-sm font-bold text-[#082A52]">{scan.product || 'Food Package'}</h4>
-                    <p className="text-xs font-mono font-bold text-sky-700">{scan.device_id}</p>
-                    <p className="text-[10px] text-slate-400 font-medium mt-0.5">
-                      Scanned: {new Date(scan.scanned_at).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3">
-                  <div className="text-right hidden sm:block">
-                    <span className="text-xs font-bold text-[#082A52]">
-                      {dev.temperature}°C • {dev.humidity}%
-                    </span>
-                    <p className="text-[10px] text-slate-400">MQ-135: {dev.mq135_raw}</p>
-                  </div>
-                  <ChevronRight className="w-5 h-5 text-slate-400" />
-                </div>
+            <div className="flex items-center gap-3">
+              {/* Thumbnail icon */}
+              <div className="w-11 h-11 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center text-xl shrink-0">
+                {item.icon}
               </div>
-            );
-          })}
-        </div>
-      )}
+
+              <div>
+                <h3 className="text-xs font-black text-[#082A52] group-hover:text-[#1267D6] transition-colors">
+                  {item.name}
+                </h3>
+                <p className="text-[10px] text-slate-400 font-semibold mt-0.5">
+                  {item.date}
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              {item.status === 'fresh' ? (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-emerald-50 text-[#19A463] border border-emerald-200">
+                  Fresh
+                </span>
+              ) : (
+                <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black bg-amber-50 text-amber-600 border border-amber-200">
+                  Warning
+                </span>
+              )}
+              <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 };

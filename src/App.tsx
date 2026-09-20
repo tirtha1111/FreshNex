@@ -1,9 +1,9 @@
 import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
 import { AppProvider, useApp } from './context/AppContext';
 import { Splash } from './components/Splash';
 import { Layout } from './components/Navigation';
-import { Login, SignUp, ForgotPassword } from './components/Auth';
+import { AuthScreen } from './components/Auth';
 import { Dashboard } from './components/Dashboard';
 import { ScanProduct } from './components/ScanProduct';
 import { ProductDetails } from './components/ProductDetails';
@@ -23,9 +23,21 @@ import { AdminSettings } from './components/AdminSettings';
 const AppContent: React.FC = () => {
   const { currentUser, userRole, isLoading } = useApp();
   const [showSplash, setShowSplash] = useState<boolean>(true);
+  const navigate = useNavigate();
 
   if (showSplash) {
-    return <Splash onFinish={() => setShowSplash(false)} />;
+    return (
+      <Splash 
+        onFinish={(targetMode) => {
+          setShowSplash(false);
+          if (targetMode === 'signup') {
+            navigate('/signup');
+          } else {
+            navigate('/login');
+          }
+        }} 
+      />
+    );
   }
 
   if (isLoading) {
@@ -42,9 +54,33 @@ const AppContent: React.FC = () => {
   if (!currentUser) {
     return (
       <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<SignUp />} />
-        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route 
+          path="/login" 
+          element={
+            <AuthScreen 
+              initialMode="login" 
+              onBackToWelcome={() => setShowSplash(true)} 
+            />
+          } 
+        />
+        <Route 
+          path="/signup" 
+          element={
+            <AuthScreen 
+              initialMode="signup" 
+              onBackToWelcome={() => setShowSplash(true)} 
+            />
+          } 
+        />
+        <Route 
+          path="/forgot-password" 
+          element={
+            <AuthScreen 
+              initialMode="forgot" 
+              onBackToWelcome={() => setShowSplash(true)} 
+            />
+          } 
+        />
         <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     );
@@ -70,7 +106,6 @@ const AppContent: React.FC = () => {
             <Route path="/products/:productId" element={<ProductDetails />} />
             <Route path="/products" element={<Products />} />
             <Route path="/scan-history" element={<HistoryPage />} />
-            <Route path="/notifications text-slate-500" element={<Alerts />} />
             <Route path="/alerts" element={<Alerts />} />
             <Route path="/profile" element={<ProfileSettings />} />
             <Route path="/settings" element={<ProfileSettings />} />
