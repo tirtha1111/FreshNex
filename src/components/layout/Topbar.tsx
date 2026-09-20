@@ -41,7 +41,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
     updateThresholds,
     isAudioMuted,
     toggleAudioMute,
-    triggerSimulatedBreach
   } = useFreshness();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -209,12 +208,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                       <div className="text-center py-8">
                         <ShieldCheck className="w-8 h-8 text-[#20E79A]/60 mx-auto mb-2" />
                         <p className="text-xs text-[#B8A89E] font-medium">All sensor telemetry within safe limits.</p>
-                        <button
-                          onClick={() => triggerSimulatedBreach('temperature')}
-                          className="mt-3 text-[11px] text-[#FFAA00] underline cursor-pointer"
-                        >
-                          Simulate test alert
-                        </button>
                       </div>
                     ) : (
                       filteredAlerts.map((n, i) => {
@@ -344,7 +337,6 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
         onClose={() => setIsConfigModalOpen(false)}
         thresholds={thresholds}
         onSaveThresholds={updateThresholds}
-        onTriggerTestBreach={triggerSimulatedBreach}
       />
     </>
   );

@@ -44,7 +44,6 @@ export const LiveDataPage: React.FC = () => {
     isScanning,
     thresholds,
     updateThresholds,
-    triggerSimulatedBreach,
     alerts
   } = useFreshness();
 
@@ -421,7 +420,6 @@ export const LiveDataPage: React.FC = () => {
         onClose={() => setIsConfigOpen(false)}
         thresholds={thresholds}
         onSaveThresholds={updateThresholds}
-        onTriggerTestBreach={triggerSimulatedBreach}
       />
     </motion.div>
   );

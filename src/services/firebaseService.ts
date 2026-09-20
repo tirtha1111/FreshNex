@@ -120,7 +120,7 @@ export function subscribeToSensorData(
   let unsubscribed = false;
 
   // Normalizes sensor telemetry received from ESP32 / IoT nodes
-  const processSensorPayload = (val: any) => {
+  const processSensorPayload = (val: any, isReal: boolean = false) => {
     if (!val || typeof val !== 'object') return;
 
     // If node contains pushed logs (-Nxxx: { ... }), select the latest entry
@@ -141,11 +141,12 @@ export function subscribeToSensorData(
     const timestamp = Number(target.timestamp ?? target.time ?? target.last_update ?? Date.now());
 
     callback({
-      temperature: isNaN(temperature) ? 27.4 : +temperature.toFixed(1),
-      humidity: isNaN(humidity) ? 61.2 : Math.round(humidity),
-      gas: isNaN(gas) ? 360 : Math.round(gas),
+      temperature: isNaN(temperature) ? 4.2 : +temperature.toFixed(1),
+      humidity: isNaN(humidity) ? 62.0 : Math.round(humidity),
+      gas: isNaN(gas) ? 120 : Math.round(gas),
       timestamp: isNaN(timestamp) ? Date.now() : timestamp,
-    });
+      isReal,
+    } as any);
   };
 
   let activeCleanup: (() => void) | null = null;
@@ -160,23 +161,23 @@ export function subscribeToSensorData(
 
       const handleValue = (snapshot: any) => {
         if (snapshot.exists()) {
-          processSensorPayload(snapshot.val());
+          processSensorPayload(snapshot.val(), true);
         } else {
           // Check default device or sensorData
           get(defaultDeviceRef).then(defSnap => {
             if (defSnap.exists()) {
-              processSensorPayload(defSnap.val());
+              processSensorPayload(defSnap.val(), true);
             } else {
               get(sensorRef).then(sensorSnap => {
                 if (sensorSnap.exists()) {
-                  processSensorPayload(sensorSnap.val());
+                  processSensorPayload(sensorSnap.val(), true);
                 } else {
                   get(devicesRootRef).then(rootSnap => {
                     if (rootSnap.exists()) {
                       const devicesObj = rootSnap.val();
                       const firstKey = Object.keys(devicesObj)[0];
                       if (firstKey && devicesObj[firstKey]) {
-                        processSensorPayload(devicesObj[firstKey]);
+                        processSensorPayload(devicesObj[firstKey], true);
                         return;
                       }
                     }
@@ -186,9 +187,9 @@ export function subscribeToSensorData(
                       gas: 120,
                       timestamp: Date.now()
                     };
-                    callback(def);
+                    callback({ ...def, isReal: false } as any);
                   }).catch(() => {
-                    callback(DEFAULT_SENSOR_DATA[cleanId] || DEFAULT_SENSOR_DATA.FRX1004);
+                    callback({ ...(DEFAULT_SENSOR_DATA[cleanId] || DEFAULT_SENSOR_DATA.FRX1004), isReal: false } as any);
                   });
                 }
               });
@@ -203,7 +204,7 @@ export function subscribeToSensorData(
 
       onValue(defaultDeviceRef, (snap) => {
         if (snap.exists()) {
-          processSensorPayload(snap.val());
+          processSensorPayload(snap.val(), true);
         }
       });
 
@@ -230,7 +231,7 @@ export function subscribeToSensorData(
       if (res.ok) {
         const data = await res.json();
         if (data) {
-          processSensorPayload(data);
+          processSensorPayload(data, true);
           return;
         }
       }
@@ -243,7 +244,7 @@ export function subscribeToSensorData(
         if (allDevices && typeof allDevices === 'object') {
           const firstKey = Object.keys(allDevices)[0];
           if (firstKey && allDevices[firstKey]) {
-            processSensorPayload(allDevices[firstKey]);
+            processSensorPayload(allDevices[firstKey], true);
           }
         }
       }

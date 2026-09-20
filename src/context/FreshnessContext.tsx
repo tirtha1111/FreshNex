@@ -126,7 +126,7 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   }, [currentUser?.uid]);
 
   // 3. Process and evaluate incoming sensor data against thresholds
-  const handleSensorTelemetry = useCallback((data: SensorData, currentItem?: FoodItem | null) => {
+  const handleSensorTelemetry = useCallback((data: SensorData & { isReal?: boolean }, currentItem?: FoodItem | null) => {
     setSensorData(data);
     const itemToEval = currentItem || activeItem;
     
@@ -139,18 +139,21 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       });
       setFreshnessReport(report);
 
-      // Evaluate sensor readings for threshold breaches
-      const triggeredAlerts = evaluateSensorReading(data, itemToEval, thresholds);
-      if (triggeredAlerts.length > 0) {
-        triggeredAlerts.forEach(alert => {
-          // Push to Firebase in real-time
-          pushAlertToFirebase(alert, currentUser?.uid);
+      // ONLY evaluate and trigger alerts if the actual physical product is connected successfully
+      if (data.isReal) {
+        // Evaluate sensor readings for threshold breaches
+        const triggeredAlerts = evaluateSensorReading(data, itemToEval, thresholds);
+        if (triggeredAlerts.length > 0) {
+          triggeredAlerts.forEach(alert => {
+            // Push to Firebase in real-time
+            pushAlertToFirebase(alert, currentUser?.uid);
 
-          // Play audible tone if not muted
-          if (!isAudioMuted && thresholds.enableAudio) {
-            playAlertChime(alert.severity);
-          }
-        });
+            // Play audible tone if not muted
+            if (!isAudioMuted && thresholds.enableAudio) {
+              playAlertChime(alert.severity);
+            }
+          });
+        }
       }
     }
   }, [activeItem, thresholds, isAudioMuted, currentUser?.uid]);

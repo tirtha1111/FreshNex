@@ -21,7 +21,6 @@ interface ThresholdConfigModalProps {
   onClose: () => void;
   thresholds: SensorThresholdConfig;
   onSaveThresholds: (newConfig: SensorThresholdConfig) => void;
-  onTriggerTestBreach: (type: 'temperature' | 'gas' | 'humidity') => void;
 }
 
 export const ThresholdConfigModal: React.FC<ThresholdConfigModalProps> = ({
@@ -29,7 +28,6 @@ export const ThresholdConfigModal: React.FC<ThresholdConfigModalProps> = ({
   onClose,
   thresholds,
   onSaveThresholds,
-  onTriggerTestBreach,
 }) => {
   const [formState, setFormState] = useState<SensorThresholdConfig>(thresholds);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -206,41 +204,6 @@ export const ThresholdConfigModal: React.FC<ThresholdConfigModalProps> = ({
                 />
               </button>
             </div>
-
-            {/* Test Simulation Controls */}
-            <div className="p-3.5 rounded-2xl bg-[#26170E] border border-[#FF6A00]/25 space-y-2">
-              <div className="flex items-center gap-1.5 text-xs font-bold text-[#FFAA00]">
-                <Sparkles className="w-3.5 h-3.5 text-[#FFAA00]" />
-                <span>Test Real-Time Firebase Alert Trigger</span>
-              </div>
-              <p className="text-[11px] text-[#B8A89E]">
-                Instantly simulate a threshold breach to verify the live Firebase notification broadcast.
-              </p>
-              <div className="flex flex-wrap gap-2 pt-1">
-                <button
-                  type="button"
-                  onClick={() => onTriggerTestBreach('temperature')}
-                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-[#140C08] hover:bg-[#FF6A00]/20 text-[#FFAA00] border border-[#FF6A00]/30 transition-colors cursor-pointer"
-                >
-                  Test Temp Spike (+32°C)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onTriggerTestBreach('gas')}
-                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-[#140C08] hover:bg-[#FF3D00]/20 text-[#FF6A00] border border-[#FF6A00]/30 transition-colors cursor-pointer"
-                >
-                  Test Gas Hazard (480 ppm)
-                </button>
-                <button
-                  type="button"
-                  onClick={() => onTriggerTestBreach('humidity')}
-                  className="px-2.5 py-1 text-[11px] font-bold rounded-lg bg-[#140C08] hover:bg-[#20E79A]/20 text-[#20E79A] border border-[#20E79A]/30 transition-colors cursor-pointer"
-                >
-                  Test Humidity (92%)
-                </button>
-              </div>
-            </div>
-
             {/* Actions */}
             <div className="flex items-center justify-between pt-2">
               <button

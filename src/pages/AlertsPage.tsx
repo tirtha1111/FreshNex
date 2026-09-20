@@ -35,7 +35,6 @@ export const AlertsPage: React.FC = () => {
     updateThresholds,
     isAudioMuted,
     toggleAudioMute,
-    triggerSimulatedBreach
   } = useFreshness();
 
   const [searchFilter, setSearchFilter] = useState('');
@@ -257,7 +256,7 @@ export const AlertsPage: React.FC = () => {
         animate="visible"
         className="space-y-3"
       >
-        {filteredAlerts.length === 0 ? (
+         {filteredAlerts.length === 0 ? (
           <div className="card-solid p-12 text-center space-y-4 rounded-3xl border border-[#3D261A]">
             <div className="w-16 h-16 rounded-2xl bg-[#20E79A]/15 text-[#20E79A] border border-[#20E79A]/30 flex items-center justify-center mx-auto shadow-lg">
               <ShieldCheck className="w-8 h-8" />
@@ -266,15 +265,6 @@ export const AlertsPage: React.FC = () => {
             <p className="text-xs text-[#8C7A70] max-w-sm mx-auto">
               All connected IoT telemetry sensors are currently operating within safe baseline threshold limits.
             </p>
-            <div className="pt-2">
-              <button
-                onClick={() => triggerSimulatedBreach('gas')}
-                className="px-4 py-2 rounded-xl text-xs font-bold text-[#FFAA00] bg-[#1E140E] border border-[#FF6A00]/40 hover:bg-[#261A12] transition-colors cursor-pointer inline-flex items-center gap-1.5"
-              >
-                <Sparkles className="w-3.5 h-3.5" />
-                <span>Simulate Test Gas Alert (480 ppm)</span>
-              </button>
-            </div>
           </div>
         ) : (
           filteredAlerts.map((alert) => {
@@ -418,7 +408,6 @@ export const AlertsPage: React.FC = () => {
         onClose={() => setIsConfigModalOpen(false)}
         thresholds={thresholds}
         onSaveThresholds={updateThresholds}
-        onTriggerTestBreach={triggerSimulatedBreach}
       />
     </div>
   );
