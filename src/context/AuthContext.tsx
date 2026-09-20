@@ -49,8 +49,29 @@ const DEFAULT_SETTINGS: UserSettings = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [currentUser, setCurrentUser] = useState<User | null>(null);
-  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
+  const [currentUser, setCurrentUser] = useState<User | null>(() => {
+    try {
+      const storedProfile = localStorage.getItem('freshnex_profile');
+      const isDemo = localStorage.getItem('freshnex_demo_user') === 'true';
+      if (storedProfile) {
+        const parsed = JSON.parse(storedProfile);
+        if (parsed && parsed.uid) {
+          return {
+            uid: parsed.uid,
+            email: parsed.email || '',
+            displayName: parsed.name || '',
+          } as any;
+        }
+      }
+    } catch (e) {
+      console.warn('Error reading stored user profile', e);
+    }
+    return null;
+  });
+
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(() => {
+    return localStorage.getItem('freshnex_demo_user') === 'true';
+  });
 
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
     try {
@@ -72,13 +93,32 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return DEFAULT_SETTINGS;
   });
 
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Sync auth state
   useEffect(() => {
-    // Clear any legacy demo token from storage
-    localStorage.removeItem('freshnex_demo_user');
+    const storedProfileStr = localStorage.getItem('freshnex_profile');
+    const isDemo = localStorage.getItem('freshnex_demo_user') === 'true';
+
+    // If active demo/offline session exists, restore it and skip resetting
+    if (storedProfileStr && isDemo) {
+      try {
+        const parsed = JSON.parse(storedProfileStr);
+        if (parsed && parsed.uid) {
+          setCurrentUser({
+            uid: parsed.uid,
+            email: parsed.email,
+            displayName: parsed.name,
+          } as any);
+          setIsDemoMode(true);
+          setIsLoading(false);
+          return;
+        }
+      } catch (e) {
+        console.warn('Failed to parse profile:', e);
+      }
+    }
 
     if (!isFirebaseConfigured || !auth) {
       setIsLoading(false);
@@ -87,12 +127,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 2000);
+    }, 1500);
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       clearTimeout(timer);
-      setCurrentUser(user);
       if (user) {
+        setCurrentUser(user);
         setUserProfile(prev => ({
           ...prev,
           uid: user.uid,
@@ -100,7 +140,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           name: user.displayName || user.email?.split('@')[0] || 'User',
         }));
       } else {
-        setUserProfile(DEFAULT_PROFILE);
+        if (!localStorage.getItem('freshnex_demo_user')) {
+          setCurrentUser(null);
+          setUserProfile(DEFAULT_PROFILE);
+        }
       }
       setIsLoading(false);
     }, (err) => {
@@ -289,6 +332,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     setIsDemoMode(false);
     localStorage.removeItem('freshnex_demo_user');
+    localStorage.removeItem('freshnex_profile');
+    setUserProfile(DEFAULT_PROFILE);
     if (auth) {
       try {
         await signOut(auth);

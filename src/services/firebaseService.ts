@@ -46,10 +46,10 @@ function parseItemRecord(id: string, val: any): FoodItem {
 export async function getItemById(itemId: string): Promise<FoodItem | null> {
   const cleanId = itemId.trim().toUpperCase().replace(/^#/, '');
 
-  if (cleanId === 'MILK' || cleanId === 'YGS-FD-000124' || cleanId === 'YGS-124' || cleanId.includes('MILK')) {
+  if (cleanId === 'MILK' || cleanId === 'YGS-FD-000124' || cleanId.includes('000124') || cleanId.includes('MILK')) {
     return DEFAULT_ITEMS['MILK'];
   }
-  if (cleanId === 'MEAT' || cleanId.includes('MEAT') || cleanId.includes('UNCONFIGURED')) {
+  if (cleanId === 'MEAT' || cleanId === 'YGS-FD-112233' || cleanId.includes('112233') || cleanId.includes('MEAT') || cleanId.includes('UNCONFIGURED')) {
     return DEFAULT_ITEMS['MEAT'];
   }
 

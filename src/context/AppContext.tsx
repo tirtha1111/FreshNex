@@ -77,8 +77,8 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Initial default prototype device
-const PROTOTYPE_DEVICE: DeviceData = {
+// Initial default prototype devices
+const PROTOTYPE_MILK: DeviceData = {
   device_id: 'YGS-FD-000124',
   product: 'Milk',
   temperature: 27.4,
@@ -88,10 +88,21 @@ const PROTOTYPE_DEVICE: DeviceData = {
   last_update: Date.now()
 };
 
+const PROTOTYPE_MEAT: DeviceData = {
+  device_id: 'YGS-FD-112233',
+  product: 'Meat',
+  temperature: 3.5,
+  humidity: 68.0,
+  mq135_raw: 980,
+  online: true,
+  last_update: Date.now()
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isDemoMode, setDemoMode] = useState<boolean>(!isFirebaseConfigured);
   const [devicesMap, setDevicesMap] = useState<Record<string, DeviceData>>({
-    'YGS-FD-000124': PROTOTYPE_DEVICE
+    'YGS-FD-000124': PROTOTYPE_MILK,
+    'YGS-FD-112233': PROTOTYPE_MEAT,
   });
   const [userScans, setUserScans] = useState<UserScanItem[]>([
     {
@@ -485,8 +496,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     // Prototype Device lookup guarantee
-    if (deviceId.toUpperCase() === 'YGS-FD-000124') {
-      return PROTOTYPE_DEVICE;
+    const cleanUpper = deviceId.toUpperCase();
+    if (cleanUpper === 'YGS-FD-000124' || cleanUpper.includes('000124') || cleanUpper.includes('MILK')) {
+      return PROTOTYPE_MILK;
+    }
+    if (cleanUpper === 'YGS-FD-112233' || cleanUpper.includes('112233') || cleanUpper.includes('MEAT')) {
+      return PROTOTYPE_MEAT;
     }
 
     if (!isFirebaseConfigured || isDemoMode) {

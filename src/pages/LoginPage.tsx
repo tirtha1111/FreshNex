@@ -14,9 +14,9 @@ export const LoginPage: React.FC = () => {
   // User product portal state
   const [productId, setProductId] = useState('');
   
-  // Admin login state with required defaults
-  const [adminEmail, setAdminEmail] = useState('realtirtharaj@gmail.com');
-  const [adminPassword, setAdminPassword] = useState('1122');
+  // Admin login state
+  const [adminEmail, setAdminEmail] = useState('');
+  const [adminPassword, setAdminPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
@@ -181,14 +181,6 @@ export const LoginPage: React.FC = () => {
                     />
                     <span>Remember Me</span>
                   </label>
-
-                  <button
-                    type="button"
-                    onClick={() => setProductId('MILK')}
-                    className="text-orange-600 hover:text-orange-700 font-bold text-[11px]"
-                  >
-                    Use Sample ID
-                  </button>
                 </div>
 
                 {/* Submit Pill Button matching image */}
@@ -226,7 +218,7 @@ export const LoginPage: React.FC = () => {
                       required
                       value={adminEmail}
                       onChange={(e) => setAdminEmail(e.target.value)}
-                      placeholder="realtirtharaj@gmail.com"
+                      placeholder="Enter administrator email"
                       className="w-full px-4 py-3.5 bg-slate-50 text-sm font-semibold text-slate-900 placeholder-slate-400 rounded-2xl border border-slate-200/80 focus:outline-none focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all"
                     />
                   </div>
@@ -268,9 +260,13 @@ export const LoginPage: React.FC = () => {
                     <span>Remember Me</span>
                   </label>
 
-                  <span className="text-orange-600 font-bold text-[11px]">
-                    Admin Creds Pre-filled
-                  </span>
+                  <button
+                    type="button"
+                    onClick={() => navigate('/forgot-password')}
+                    className="text-orange-600 hover:text-orange-700 font-bold text-[11px] cursor-pointer"
+                  >
+                    Forgot Password?
+                  </button>
                 </div>
 
                 {/* Submit Pill Button */}
