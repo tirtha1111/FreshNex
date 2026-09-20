@@ -99,7 +99,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search anything (e.g. Tomato, FRX1004)..."
+              placeholder="Search tag ID or batch..."
               className="w-full pl-10 pr-4 py-2 bg-[#1E140E] text-sm text-[#FDF8F5] placeholder-[#8C7A70] rounded-xl border border-[#3D261A] focus:outline-none focus:border-[#FF6A00] focus:ring-2 focus:ring-[#FF6A00]/20 focus:bg-[#261A12] transition-all duration-200 shadow-inner"
             />
           </div>

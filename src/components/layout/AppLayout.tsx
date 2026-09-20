@@ -12,7 +12,7 @@ export const AppLayout: React.FC = () => {
   const location = useLocation();
   const { activeItem } = useFreshness();
 
-  const liveDataPath = activeItem ? `/live-data/${activeItem.id}` : '/live-data/FRX1004';
+  const liveDataPath = activeItem ? `/live-data/${activeItem.id}` : '/live-data';
 
   const mobileNav = [
     { label: 'Home', path: '/dashboard', icon: Home },

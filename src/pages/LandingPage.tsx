@@ -244,17 +244,17 @@ export const LandingPage: React.FC = () => {
                   <div className="p-4 rounded-2xl bg-[#1E140E] border border-[#3D261A] flex items-center gap-4 shadow-inner">
                     <img
                       src="https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&auto=format&fit=crop&q=80"
-                      alt="Organic Vine Tomato"
+                      alt="Cold Chain Unit"
                       className="w-16 h-16 rounded-xl object-cover border border-[#3D261A]"
                     />
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <h4 className="text-sm font-black text-[#FDF8F5] truncate">Organic Vine Tomato</h4>
+                        <h4 className="text-sm font-black text-[#FDF8F5] truncate">Cold Chain Unit</h4>
                         <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-[#20E79A]/20 text-[#20E79A] border border-[#20E79A]/30">
                           Fresh
                         </span>
                       </div>
-                      <p className="text-xs text-[#FF6A00] font-mono mt-0.5">Tag ID: #FRX1004</p>
+                      <p className="text-xs text-[#FF6A00] font-mono mt-0.5">Tag ID: #FRX1024</p>
                       <p className="text-[11px] text-[#8C7A70] mt-1">Batch BATCH-001 • Vault A4</p>
                     </div>
                   </div>

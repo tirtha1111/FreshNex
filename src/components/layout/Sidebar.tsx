@@ -28,7 +28,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const liveDataPath = activeItem ? `/live-data/${activeItem.id}` : '/live-data/FRX1004';
+  const liveDataPath = activeItem ? `/live-data/${activeItem.id}` : '/live-data';
 
   const navItems = [
     { name: 'Home', path: '/dashboard', icon: Home },

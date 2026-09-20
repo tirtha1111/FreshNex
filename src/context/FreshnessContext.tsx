@@ -48,7 +48,6 @@ interface FreshnessContextType {
   toggleAudioMute: () => void;
   updateThresholds: (newConfig: SensorThresholdConfig) => void;
   scanItem: (itemId: string) => Promise<FoodItem>;
-  simulateScan: (itemId?: string) => Promise<FoodItem>;
   clearActiveItem: () => void;
   markNotificationsAsRead: () => void;
   markAlertAsRead: (alertId: string) => Promise<void>;
@@ -57,7 +56,6 @@ interface FreshnessContextType {
   deleteHistoryRecord: (id: string) => void;
   clearHistory: () => Promise<void>;
   reloadHistory: () => Promise<void>;
-  triggerSimulatedBreach: (type: 'temperature' | 'gas' | 'humidity') => Promise<void>;
 }
 
 const FreshnessContext = createContext<FreshnessContextType | undefined>(undefined);
@@ -226,79 +224,6 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  const simulateScan = async (itemId = 'FRX1004'): Promise<FoodItem> => {
-    return scanItem(itemId);
-  };
-
-  // Trigger test simulated breach to verify Firebase notification delivery
-  const triggerSimulatedBreach = async (type: 'temperature' | 'gas' | 'humidity') => {
-    const item = activeItem || DEFAULT_ITEMS.FRX1004;
-    const now = Date.now();
-
-    let simulatedAlert: SensorAlertEvent;
-
-    if (type === 'temperature') {
-      simulatedAlert = {
-        id: `alert-test-temp-${now}`,
-        type: 'Temperature Critical',
-        title: 'Critical Temperature Spike Exceeded',
-        message: `${item.name} #FRX1004 temperature spiked to 32.8°C (Critical Limit: ${thresholds.tempCritical}°C). Immediate cooling required!`,
-        severity: 'critical',
-        metric: 'temperature',
-        currentValue: 32.8,
-        thresholdValue: thresholds.tempCritical,
-        unit: '°C',
-        deviceId: item.tagId,
-        itemId: item.id,
-        itemName: item.name,
-        timestamp: now,
-        read: false,
-        resolved: false,
-      };
-    } else if (type === 'gas') {
-      simulatedAlert = {
-        id: `alert-test-gas-${now}`,
-        type: 'Hazardous VOC Spike',
-        title: 'Severe Gas / Spoilage Threshold Exceeded',
-        message: `${item.name} VOC sensor jumped to 480 ppm (Hazard Threshold: ${thresholds.gasCritical} ppm). Elevated microbial volatile amines detected!`,
-        severity: 'critical',
-        metric: 'gas',
-        currentValue: 480,
-        thresholdValue: thresholds.gasCritical,
-        unit: 'ppm',
-        deviceId: item.tagId,
-        itemId: item.id,
-        itemName: item.name,
-        timestamp: now,
-        read: false,
-        resolved: false,
-      };
-    } else {
-      simulatedAlert = {
-        id: `alert-test-hum-${now}`,
-        type: 'High Humidity Anomaly',
-        title: 'Excessive Moisture Threshold Exceeded',
-        message: `${item.name} humidity reached 92% (Threshold: ${thresholds.humidityMax}%). Severe moisture condensation risk.`,
-        severity: 'warning',
-        metric: 'humidity',
-        currentValue: 92,
-        thresholdValue: thresholds.humidityMax,
-        unit: '%',
-        deviceId: item.tagId,
-        itemId: item.id,
-        itemName: item.name,
-        timestamp: now,
-        read: false,
-        resolved: false,
-      };
-    }
-
-    await pushAlertToFirebase(simulatedAlert, currentUser?.uid);
-    if (!isAudioMuted && thresholds.enableAudio) {
-      playAlertChime(simulatedAlert.severity);
-    }
-  };
-
   const clearActiveItem = () => {
     setActiveItem(null);
     setSensorData(null);
@@ -378,7 +303,6 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         toggleAudioMute,
         updateThresholds,
         scanItem,
-        simulateScan,
         clearActiveItem,
         markNotificationsAsRead,
         markAlertAsRead,
@@ -387,7 +311,6 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         deleteHistoryRecord,
         clearHistory,
         reloadHistory,
-        triggerSimulatedBreach,
       }}
     >
       {children}

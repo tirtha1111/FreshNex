@@ -15,7 +15,8 @@ import {
   Sparkles,
   AlertTriangle,
   Sliders,
-  Bell
+  Bell,
+  Scan
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -51,11 +52,12 @@ export const LiveDataPage: React.FC = () => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
-  // If page is loaded directly by URL e.g. /live-data/FRX1004, ensure item is scanned/loaded
+  // If page is loaded directly with an item ID URL, ensure item is scanned/loaded
   useEffect(() => {
-    const targetId = itemId || 'FRX1004';
-    if (!activeItem || activeItem.id.toLowerCase() !== targetId.toLowerCase()) {
-      scanItem(targetId).catch(() => {});
+    if (itemId) {
+      if (!activeItem || activeItem.id.toLowerCase() !== itemId.toLowerCase()) {
+        scanItem(itemId).catch(() => {});
+      }
     }
   }, [itemId]);
 
@@ -104,14 +106,32 @@ export const LiveDataPage: React.FC = () => {
     }
   };
 
-  const currentProduct = activeItem || {
-    id: 'FRX1004',
-    name: 'Tomato',
-    tagId: '#FRX1004',
-    image: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&auto=format&fit=crop&q=80',
-    category: 'Vegetable',
-    batchId: 'BATCH-001',
-  };
+  if (!activeItem) {
+    return (
+      <div className="max-w-md mx-auto text-center py-16 px-6 space-y-6 select-none">
+        <div className="w-20 h-20 rounded-3xl bg-[#1E140E] border border-[#FF6A00]/30 flex items-center justify-center mx-auto text-[#FF6A00] shadow-lg">
+          <Activity className="w-10 h-10 animate-pulse" />
+        </div>
+        <div className="space-y-2">
+          <h2 className="text-xl font-extrabold text-[#FDF8F5]">No Connected IoT Device</h2>
+          <p className="text-xs text-[#B8A89E] leading-relaxed">
+            There is currently no active product telemetry session. Please scan a QR tag or enter a manual Tag ID to connect your physical sensor device.
+          </p>
+        </div>
+        <motion.button
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+          onClick={() => navigate('/scan')}
+          className="px-6 py-3 rounded-xl font-bold text-xs text-[#140C08] btn-orange transition-all cursor-pointer inline-flex items-center gap-2"
+        >
+          <Scan className="w-4 h-4" />
+          <span>Scan IoT Tag Now</span>
+        </motion.button>
+      </div>
+    );
+  }
+
+  const currentProduct = activeItem;
 
   const metricConfig = {
     temp: { name: 'Temperature', unit: '°C', color: '#FF5A67' },

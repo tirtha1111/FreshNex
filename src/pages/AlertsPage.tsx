@@ -364,7 +364,7 @@ export const AlertsPage: React.FC = () => {
                         if (alert.itemId) {
                           navigate(`/live-data/${alert.itemId}`);
                         } else {
-                          navigate('/live-data/FRX1004');
+                          navigate('/live-data');
                         }
                       }}
                       className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#140C08] bg-[#FF6A00] hover:bg-[#FFAA00] flex items-center gap-1.5 cursor-pointer transition-colors shadow-sm"

@@ -73,7 +73,7 @@ export function evaluateSensorReading(
   const config = { ...DEFAULT_THRESHOLDS, ...customThresholds };
   const newAlerts: SensorAlertEvent[] = [];
   const now = Date.now();
-  const itemId = item?.id || 'FRX1004';
+  const itemId = item?.id || 'UNKNOWN_ITEM';
   const itemName = item?.name || 'Monitored Unit';
 
   // 1. Temperature Threshold Checks

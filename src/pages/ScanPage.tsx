@@ -17,22 +17,13 @@ import { useFreshness } from '../context/FreshnessContext';
 
 export const ScanPage: React.FC = () => {
   const navigate = useNavigate();
-  const { scanItem, simulateScan, isScanning } = useFreshness();
+  const { scanItem, isScanning } = useFreshness();
 
-  const [tagInput, setTagInput] = useState('FRX1004');
+  const [tagInput, setTagInput] = useState('');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [cameraActive, setCameraActive] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
-
-  // Quick preset tags matching the reference datasets
-  const presetTags = [
-    { tag: 'FRX1004', name: 'Tomato', status: 'Fresh' },
-    { tag: 'FRX0891', name: 'Lettuce', status: 'Fresh' },
-    { tag: 'FRX0705', name: 'Milk', status: 'Fresh' },
-    { tag: 'FRX0643', name: 'Chicken', status: 'At Risk' },
-    { tag: 'FRX0552', name: 'Fish', status: 'Fresh' },
-  ];
 
   // Optional real camera stream attempt
   useEffect(() => {
@@ -193,7 +184,7 @@ export const ScanPage: React.FC = () => {
             whileHover={{ scale: 1.03, y: -2 }}
             whileTap={{ scale: 0.96 }}
             onClick={() => handlePerformScan(tagInput)}
-            disabled={isScanning}
+            disabled={isScanning || !tagInput}
             className="w-full max-w-md py-3.5 px-6 rounded-xl font-black text-[#140C08] btn-orange flex items-center justify-center gap-2 shadow-[0_4px_25px_rgba(255,106,0,0.4)] disabled:opacity-50 cursor-pointer"
           >
             {isScanning ? (
@@ -204,7 +195,7 @@ export const ScanPage: React.FC = () => {
             ) : (
               <>
                 <Scan className="w-4 h-4" />
-                <span>Simulate Scan (#{tagInput || 'FRX1004'})</span>
+                <span>Perform Real Scan ({tagInput ? `#${tagInput}` : 'Enter Tag ID below'})</span>
               </>
             )}
           </motion.button>
@@ -213,51 +204,26 @@ export const ScanPage: React.FC = () => {
         {/* Manual Input Section */}
         <div className="pt-4 border-t border-[#3D261A]/60 max-w-md mx-auto space-y-3">
           <label className="text-xs font-bold text-[#B8A89E] block text-center sm:text-left">
-            Or enter Tag ID manually:
+            Enter physical tag or batch ID to connect:
           </label>
           <div className="flex gap-2">
             <input
               type="text"
               value={tagInput}
               onChange={(e) => setTagInput(e.target.value)}
-              placeholder="e.g. FRX1004"
+              placeholder="e.g. FRX1024"
               className="flex-1 px-4 py-2.5 bg-[#1E140E] text-sm font-mono text-[#FDF8F5] placeholder-[#8C7A70] rounded-xl border border-[#3D261A] focus:outline-none focus:border-[#FF6A00] focus:ring-2 focus:ring-[#FF6A00]/20"
             />
             <motion.button
               whileHover={{ scale: 1.05 }}
               whileTap={{ scale: 0.95 }}
               onClick={() => handlePerformScan(tagInput)}
-              disabled={isScanning}
-              className="px-5 py-2.5 rounded-xl font-bold text-xs text-[#FDF8F5] bg-[#261A12] hover:bg-[#302017] border border-[#3D261A] hover:border-[#FF6A00]/50 flex items-center gap-1.5 transition-colors cursor-pointer shadow-md"
+              disabled={isScanning || !tagInput}
+              className="px-5 py-2.5 rounded-xl font-bold text-xs text-[#FDF8F5] bg-[#261A12] hover:bg-[#302017] border border-[#3D261A] hover:border-[#FF6A00]/50 flex items-center gap-1.5 transition-colors cursor-pointer shadow-md disabled:opacity-50"
             >
-              <span>Verify</span>
+              <span>Connect</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </motion.button>
-          </div>
-
-          {/* Quick Preset Tag Buttons */}
-          <div className="pt-2">
-            <span className="text-[11px] font-bold text-[#8C7A70] block mb-2 uppercase tracking-wider">
-              Quick Test Tags:
-            </span>
-            <div className="flex flex-wrap gap-2">
-              {presetTags.map((p) => (
-                <motion.button
-                  key={p.tag}
-                  type="button"
-                  whileHover={{ scale: 1.06, y: -1 }}
-                  whileTap={{ scale: 0.94 }}
-                  onClick={() => {
-                    setTagInput(p.tag);
-                    handlePerformScan(p.tag);
-                  }}
-                  className="px-3 py-1.5 rounded-xl bg-[#1E140E] hover:bg-[#302017] border border-[#3D261A] hover:border-[#FF6A00]/50 text-xs text-[#B8A89E] hover:text-[#FDF8F5] transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
-                >
-                  <span className="font-mono font-bold text-[#FFAA00]">#{p.tag}</span>
-                  <span className="text-[#FDF8F5] font-medium">({p.name})</span>
-                </motion.button>
-              ))}
-            </div>
           </div>
         </div>
       </div>

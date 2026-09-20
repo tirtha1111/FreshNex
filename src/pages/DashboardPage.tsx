@@ -27,18 +27,8 @@ export const DashboardPage: React.FC = () => {
     activeItem, 
     sensorData, 
     freshnessReport, 
-    simulateScan, 
     isScanning 
   } = useFreshness();
-
-  const handleSimulateScan = async () => {
-    try {
-      const item = await simulateScan('FRX1004');
-      navigate(`/live-data/${item.id}`);
-    } catch (e) {
-      console.warn(e);
-    }
-  };
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -98,21 +88,6 @@ export const DashboardPage: React.FC = () => {
               >
                 <Scan className="w-4 h-4" />
                 <span>Scan Product Now</span>
-              </motion.button>
-
-              <motion.button
-                whileHover={{ scale: 1.04, y: -2 }}
-                whileTap={{ scale: 0.96 }}
-                onClick={handleSimulateScan}
-                disabled={isScanning}
-                className="px-4 py-2.5 rounded-xl text-xs font-bold text-[#FFAA00] bg-[#1E140E] hover:bg-[#302017] border border-[#FF6A00]/40 flex items-center gap-2 cursor-pointer transition-colors shadow-md disabled:opacity-50"
-              >
-                {isScanning ? (
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-[#FFAA00]" />
-                ) : (
-                  <Sparkles className="w-3.5 h-3.5 text-[#FFAA00]" />
-                )}
-                <span>Simulate Scan (#FRX1004)</span>
               </motion.button>
             </div>
           </div>
