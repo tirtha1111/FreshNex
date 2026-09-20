@@ -2,23 +2,23 @@
 
 @layer base {
   :root {
-    --bg-main: #0D0A08;
-    --bg-secondary: #16100C;
-    --bg-sidebar: #110C09;
-    --bg-card: rgba(28, 19, 14, 0.65);
-    --bg-card-elevated: rgba(38, 25, 18, 0.75);
-    --border-color: rgba(255, 106, 0, 0.25);
-    --neon-orange: #FF6A00;
-    --warm-amber: #FFAA00;
-    --sunset-coral: #FF4500;
-    --fresh-green: #10B981;
-    --text-primary: #FDF8F5;
-    --text-secondary: #B8A89E;
+    --bg-main: #060B18;
+    --bg-secondary: #0A1226;
+    --bg-sidebar: #050914;
+    --bg-card: rgba(10, 18, 38, 0.65);
+    --bg-card-elevated: rgba(18, 28, 56, 0.75);
+    --border-color: rgba(59, 130, 246, 0.25);
+    --neon-orange: #3B82F6;
+    --warm-amber: #4ADE80;
+    --sunset-coral: #00D2FF;
+    --fresh-green: #22C55E;
+    --text-primary: #F8FAFC;
+    --text-secondary: #94A3B8;
   }
 
   body {
-    background: radial-gradient(circle at 20% 20%, #22130A 0%, #0D0A08 55%, #050403 100%);
-    color: #FDF8F5;
+    background: radial-gradient(circle at 20% 20%, #0A1F44 0%, #060B18 60%, #030610 100%);
+    color: #F8FAFC;
     font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow-x: hidden;
     -webkit-tap-highlight-color: transparent;
@@ -26,67 +26,67 @@
   }
 }
 
-/* Glassmorphism Classes with Warm Amber & Sunset Orange Glow */
+/* Glassmorphism Classes with Blue & Light Green Glow */
 .glass-card {
-  background: rgba(24, 16, 12, 0.65);
+  background: rgba(10, 18, 38, 0.65);
   backdrop-filter: blur(20px);
   -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 106, 0, 0.22);
-  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(255, 170, 0, 0.15);
+  border: 1px solid rgba(59, 130, 246, 0.22);
+  box-shadow: 0 12px 40px 0 rgba(0, 0, 0, 0.7), inset 0 1px 0 0 rgba(74, 222, 128, 0.15);
   border-radius: 20px;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .glass-card:hover {
-  border-color: rgba(255, 170, 0, 0.6);
-  box-shadow: 0 20px 50px 0 rgba(0, 0, 0, 0.8), 0 0 30px 0 rgba(255, 106, 0, 0.35);
+  border-color: rgba(74, 222, 128, 0.6);
+  box-shadow: 0 20px 50px 0 rgba(0, 0, 0, 0.8), 0 0 30px 0 rgba(59, 130, 246, 0.35);
   transform: translateY(-2px);
 }
 
 .glass-panel {
-  background: rgba(20, 13, 10, 0.78);
+  background: rgba(8, 14, 30, 0.78);
   backdrop-filter: blur(24px);
   -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 106, 0, 0.35);
-  box-shadow: 0 25px 60px 0 rgba(0, 0, 0, 0.85), inset 0 1px 3px 0 rgba(255, 170, 0, 0.25);
+  border: 1px solid rgba(59, 130, 246, 0.35);
+  box-shadow: 0 25px 60px 0 rgba(0, 0, 0, 0.85), inset 0 1px 3px 0 rgba(74, 222, 128, 0.25);
   border-radius: 24px;
 }
 
 .glass-nav {
-  background: rgba(13, 9, 7, 0.88);
+  background: rgba(6, 10, 20, 0.88);
   backdrop-filter: blur(30px);
   -webkit-backdrop-filter: blur(30px);
-  border-bottom: 1px solid rgba(255, 106, 0, 0.25);
+  border-bottom: 1px solid rgba(59, 130, 246, 0.25);
   box-shadow: 0 15px 40px rgba(0, 0, 0, 0.9);
 }
 
 .glass-modal {
-  background: rgba(17, 11, 8, 0.94);
+  background: rgba(8, 13, 26, 0.94);
   backdrop-filter: blur(36px);
   -webkit-backdrop-filter: blur(36px);
-  border: 1px solid rgba(255, 106, 0, 0.45);
-  box-shadow: 0 35px 90px rgba(0, 0, 0, 0.95), 0 0 50px rgba(255, 106, 0, 0.25);
+  border: 1px solid rgba(59, 130, 246, 0.45);
+  box-shadow: 0 35px 90px rgba(0, 0, 0, 0.95), 0 0 50px rgba(59, 130, 246, 0.25);
   border-radius: 28px;
 }
 
 .card-solid {
-  background: #1C130E;
-  border: 1px solid rgba(255, 106, 0, 0.2);
+  background: #0E1A34;
+  border: 1px solid rgba(59, 130, 246, 0.2);
   border-radius: 20px;
   transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .card-solid:hover {
-  border-color: rgba(255, 170, 0, 0.5);
-  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 20px rgba(255, 106, 0, 0.15);
+  border-color: rgba(74, 222, 128, 0.5);
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.7), 0 0 20px rgba(59, 130, 246, 0.15);
 }
 
 .neon-glow-orange {
-  box-shadow: 0 0 35px rgba(255, 106, 0, 0.55);
+  box-shadow: 0 0 35px rgba(59, 130, 246, 0.55);
 }
 
 .neon-glow-amber {
-  box-shadow: 0 0 35px rgba(255, 170, 0, 0.55);
+  box-shadow: 0 0 35px rgba(74, 222, 128, 0.55);
 }
 
 .neon-glow-green {
@@ -98,23 +98,23 @@
 }
 
 .card-hover:hover {
-  border-color: rgba(255, 170, 0, 0.7);
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 10px 40px rgba(255, 106, 0, 0.35);
+  border-color: rgba(74, 222, 128, 0.7);
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.85), 0 10px 40px rgba(59, 130, 246, 0.35);
   transform: translateY(-3px) scale(1.01);
 }
 
-/* Vibrant Orange & Amber Buttons */
+/* Vibrant Blue & Light Green Buttons */
 .btn-orange {
-  background: linear-gradient(135deg, #FF6A00 0%, #FF3D00 100%);
+  background: linear-gradient(135deg, #3B82F6 0%, #22C55E 100%);
   color: #FFFFFF;
   font-weight: 700;
-  box-shadow: 0 6px 25px rgba(255, 106, 0, 0.45);
+  box-shadow: 0 6px 25px rgba(59, 130, 246, 0.45);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .btn-orange:hover {
   filter: brightness(1.15);
-  box-shadow: 0 10px 40px rgba(255, 106, 0, 0.7);
+  box-shadow: 0 10px 40px rgba(59, 130, 246, 0.7);
   transform: translateY(-2px) scale(1.02);
 }
 
@@ -123,24 +123,24 @@
 }
 
 .btn-amber {
-  background: linear-gradient(135deg, #FFAA00 0%, #FF6A00 100%);
-  color: #120A05;
+  background: linear-gradient(135deg, #00D2FF 0%, #3B82F6 100%);
+  color: #FFFFFF;
   font-weight: 700;
-  box-shadow: 0 6px 25px rgba(255, 170, 0, 0.45);
+  box-shadow: 0 6px 25px rgba(59, 130, 246, 0.45);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .btn-amber:hover {
   filter: brightness(1.15);
-  box-shadow: 0 10px 35px rgba(255, 170, 0, 0.7);
+  box-shadow: 0 10px 35px rgba(59, 130, 246, 0.7);
   transform: translateY(-2px) scale(1.02);
 }
 
 .btn-emerald {
-  background: linear-gradient(135deg, #10B981 0%, #059669 100%);
+  background: linear-gradient(135deg, #4ADE80 0%, #15803D 100%);
   color: #FFFFFF;
   font-weight: 700;
-  box-shadow: 0 6px 25px rgba(16, 185, 129, 0.45);
+  box-shadow: 0 6px 25px rgba(74, 222, 128, 0.45);
   transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -149,17 +149,17 @@
   0% {
     top: 4%;
     opacity: 0.8;
-    box-shadow: 0 0 18px #FFAA00, 0 0 35px #FF6A00;
+    box-shadow: 0 0 18px #00D2FF, 0 0 35px #3B82F6;
   }
   50% {
     top: 94%;
     opacity: 1;
-    box-shadow: 0 0 28px #FF6A00, 0 0 50px #FF3D00;
+    box-shadow: 0 0 28px #3B82F6, 0 0 50px #10B981;
   }
   100% {
     top: 4%;
     opacity: 0.8;
-    box-shadow: 0 0 18px #FFAA00, 0 0 35px #FF6A00;
+    box-shadow: 0 0 18px #00D2FF, 0 0 35px #3B82F6;
   }
 }
 

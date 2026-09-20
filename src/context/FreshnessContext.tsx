@@ -55,6 +55,7 @@ interface FreshnessContextType {
   resolveAlert: (alertId: string) => Promise<void>;
   deleteAlert: (alertId: string) => Promise<void>;
   deleteHistoryRecord: (id: string) => void;
+  clearHistory: () => Promise<void>;
   reloadHistory: () => Promise<void>;
   triggerSimulatedBreach: (type: 'temperature' | 'gas' | 'humidity') => Promise<void>;
 }
@@ -329,6 +330,11 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
   };
 
+  const clearHistory = async () => {
+    await FirebaseService.clearScanHistory(currentUser?.uid);
+    setScanHistory([]);
+  };
+
   const reloadHistory = async () => {
     const data = await FirebaseService.getScanHistory(currentUser?.uid);
     setScanHistory(data);
@@ -376,6 +382,7 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         resolveAlert,
         deleteAlert,
         deleteHistoryRecord,
+        clearHistory,
         reloadHistory,
         triggerSimulatedBreach,
       }}

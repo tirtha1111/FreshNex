@@ -135,9 +135,9 @@ export function subscribeToSensorData(
       }
     }
 
-    const temperature = Number(target.temperature ?? target.temp ?? target.t ?? 27.4);
-    const humidity = Number(target.humidity ?? target.hum ?? target.h ?? 61.2);
-    const gas = Number(target.mq135_raw ?? target.gas ?? target.gas_ppm ?? target.mq135 ?? target.mq2 ?? target.voc ?? 360);
+    const temperature = Number(target.temperature ?? target.temp ?? target.t ?? 4.2);
+    const humidity = Number(target.humidity ?? target.hum ?? target.h ?? 62.0);
+    const gas = Number(target.mq135_raw ?? target.gas ?? target.gas_ppm ?? target.mq135 ?? target.mq2 ?? target.voc ?? 120);
     const timestamp = Number(target.timestamp ?? target.time ?? target.last_update ?? Date.now());
 
     callback({
@@ -181,9 +181,9 @@ export function subscribeToSensorData(
                       }
                     }
                     const def = DEFAULT_SENSOR_DATA[cleanId] || DEFAULT_SENSOR_DATA.FRX1004 || {
-                      temperature: 27.4,
-                      humidity: 61.2,
-                      gas: 360,
+                      temperature: 4.2,
+                      humidity: 62.0,
+                      gas: 120,
                       timestamp: Date.now()
                     };
                     callback(def);
@@ -329,10 +329,34 @@ export async function getScanHistory(userUid?: string): Promise<ScanHistoryRecor
   return DEFAULT_SCAN_HISTORY;
 }
 
+/**
+ * Clear scan history for a user
+ */
+export async function clearScanHistory(userUid?: string): Promise<void> {
+  // Clear local cache
+  try {
+    localStorage.setItem('freshnex_scan_history', JSON.stringify([]));
+  } catch (e) {
+    console.warn('LocalStorage clear history error:', e);
+  }
+
+  // Also sync to Realtime Database if user is authenticated
+  const db = getDirectDatabase();
+  if (db && userUid) {
+    try {
+      const historyRef = ref(db, `history/${userUid}`);
+      await set(historyRef, null);
+    } catch (err) {
+      console.warn('Firebase clear history failed:', err);
+    }
+  }
+}
+
 export class FirebaseService {
   static getItemById = getItemById;
   static subscribeToSensorData = subscribeToSensorData;
   static saveScanHistory = saveScanHistory;
   static getScanHistory = getScanHistory;
+  static clearScanHistory = clearScanHistory;
 }
 

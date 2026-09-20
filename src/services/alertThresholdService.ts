@@ -275,42 +275,7 @@ export function subscribeToFirebaseAlerts(
       const stored = localStorage.getItem('freshnex_realtime_alerts');
       if (stored) return JSON.parse(stored);
     } catch {}
-    return [
-      {
-        id: 'init-alert-1',
-        type: 'Temperature Spike',
-        title: 'Scan Alert: Gas Level Elevated',
-        message: 'Chicken #FRX0643 VOC sensor detected 320 ppm, exceeding optimal threshold (250 ppm).',
-        severity: 'warning',
-        metric: 'gas',
-        currentValue: 320,
-        thresholdValue: 250,
-        unit: 'ppm',
-        deviceId: '#FRX0643',
-        itemId: 'FRX0643',
-        itemName: 'Chicken Breast',
-        timestamp: Date.now() - 1000 * 60 * 35,
-        read: false,
-        resolved: false,
-      },
-      {
-        id: 'init-alert-2',
-        type: 'Optimal State',
-        title: 'Optimal Freshness Confirmed',
-        message: 'Tomato #FRX1004 freshness score calculated at 92% with normal temperature and gas readings.',
-        severity: 'success',
-        metric: 'general',
-        currentValue: 4.2,
-        thresholdValue: 8.0,
-        unit: '°C',
-        deviceId: '#FRX1004',
-        itemId: 'FRX1004',
-        itemName: 'Fresh Tomatoes',
-        timestamp: Date.now() - 1000 * 60 * 120,
-        read: true,
-        resolved: true,
-      }
-    ];
+    return [];
   };
 
   // Immediate callback with initial state

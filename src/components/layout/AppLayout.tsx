@@ -31,7 +31,7 @@ export const AppLayout: React.FC = () => {
   ];
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-[#140C08] text-[#FDF8F5] relative">
+    <div className="flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100 relative">
       {/* Background Animated Ambient Lights */}
       <AnimatedBackground />
 
@@ -104,7 +104,7 @@ export const AppLayout: React.FC = () => {
         </main>
 
         {/* Mobile Bottom Navigation */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-[#140C08]/90 backdrop-blur-xl border-t border-[#3D261A] px-2 flex items-center justify-around z-40">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/80 px-2 flex items-center justify-around z-40">
           {mobileNav.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path || (item.path.startsWith('/live-data') && location.pathname.startsWith('/live-data'));
@@ -118,12 +118,12 @@ export const AppLayout: React.FC = () => {
                 {isActive && (
                   <motion.div
                     layoutId="mobileNavActive"
-                    className="absolute inset-0 bg-[#FF6A00]/15 rounded-xl border border-[#FF6A00]/30"
+                    className="absolute inset-0 bg-[#4ADE80]/15 rounded-xl border border-[#4ADE80]/30"
                     transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                   />
                 )}
-                <Icon className={`w-5 h-5 relative z-10 transition-colors ${isActive ? 'text-[#FF6A00]' : 'text-[#8C7A70]'}`} />
-                <span className={`text-[10px] font-bold mt-1 relative z-10 ${isActive ? 'text-[#FF6A00]' : 'text-[#8C7A70]'}`}>
+                <Icon className={`w-5 h-5 relative z-10 transition-colors ${isActive ? 'text-[#4ADE80]' : 'text-slate-500'}`} />
+                <span className={`text-[10px] font-bold mt-1 relative z-10 ${isActive ? 'text-[#4ADE80]' : 'text-slate-500'}`}>
                   {item.label}
                 </span>
               </Link>

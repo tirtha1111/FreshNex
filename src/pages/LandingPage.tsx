@@ -30,6 +30,31 @@ import { AnimatedBackground } from '../components/common/AnimatedBackground';
 export const LandingPage: React.FC = () => {
   const navigate = useNavigate();
   const [videoModalOpen, setVideoModalOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(() => typeof window !== 'undefined' ? window.innerWidth < 768 : false);
+
+  React.useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth < 768);
+    };
+    window.addEventListener('resize', handleResize);
+    
+    if (isMobile) {
+      navigate('/login', { replace: true });
+    }
+
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isMobile, navigate]);
+
+  if (isMobile) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-4">
+        <div className="w-10 h-10 border-3 border-[#4ADE80] border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs text-slate-400 font-bold mt-4 tracking-wider uppercase">
+          Redirecting to Login...
+        </p>
+      </div>
+    );
+  }
 
   // Animation variants
   const containerVariants = {

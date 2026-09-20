@@ -29,41 +29,43 @@ export const Logo: React.FC<LogoProps> = ({ className = '', size = 'md', linkTo 
       className={`flex items-center gap-2.5 font-bold tracking-tight select-none ${className}`}
     >
       {/* Precision Leaf/Sprout Emblem */}
-      <div className={`relative flex items-center justify-center rounded-xl bg-gradient-to-br from-[#FF6A00]/25 to-[#FFAA00]/10 border border-[#FF6A00]/40 p-1.5 shadow-[0_0_20px_rgba(255,106,0,0.3)] ${iconSizes[size]}`}>
+      <div className={`relative flex items-center justify-center rounded-xl bg-gradient-to-br from-[#3B82F6]/25 to-[#4ADE80]/10 border border-[#3B82F6]/40 p-1.5 shadow-[0_0_20px_rgba(74,222,128,0.3)] ${iconSizes[size]}`}>
         <svg
           viewBox="0 0 24 24"
           fill="none"
           xmlns="http://www.w3.org/2000/svg"
-          className="w-full h-full text-[#FF6A00]"
+          className="w-full h-full text-[#4ADE80]"
         >
+          {/* Leaf Infinity Emblem resembling the uploaded logo */}
           <path
-            d="M12 2C7.5 2 3.8 5.7 3.8 10.2C3.8 15.5 8.5 19.5 12 22C15.5 19.5 20.2 15.5 20.2 10.2C20.2 5.7 16.5 2 12 2Z"
-            stroke="currentColor"
-            strokeWidth="2"
+            d="M2.5 12C2.5 8.5 5.5 6.5 8 8C10.5 9.5 13.5 14.5 16 16C18.5 17.5 21.5 15.5 21.5 12C21.5 8.5 18.5 6.5 16 8C13.5 9.5 10.5 14.5 8 16C5.5 17.5 2.5 15.5 2.5 12Z"
+            stroke="#3B82F6"
+            strokeWidth="2.5"
             strokeLinecap="round"
             strokeLinejoin="round"
-            fill="rgba(255, 106, 0, 0.15)"
           />
           <path
-            d="M12 22V10M12 10C10 8 7 8 7 8M12 14C14 12 17 12 17 12"
-            stroke="#FFAA00"
-            strokeWidth="2"
-            strokeLinecap="round"
+            d="M16 8C18 5 21 6 22 9C20 11 17 10 16 8Z"
+            fill="#4ADE80"
+          />
+          <path
+            d="M17.5 11.5C19.5 9.5 21.5 10.5 22 13C20 14.5 18.5 13.5 17.5 11.5Z"
+            fill="#22C55E"
           />
         </svg>
       </div>
 
       {/* Brand Typography */}
       <div className={`flex items-center tracking-tight font-extrabold ${textSizes[size]}`}>
-        <span className="text-[#FDF8F5]">Fresh</span>
-        <span className="text-[#FF6A00] drop-shadow-[0_0_12px_rgba(255,106,0,0.4)]">Nex</span>
+        <span className="text-[#F8FAFC]">Fresh</span>
+        <span className="text-[#4ADE80] drop-shadow-[0_0_12px_rgba(74,222,128,0.4)]">Nex</span>
       </div>
     </motion.div>
   );
 
   if (linkTo) {
     return (
-      <Link to={linkTo} className="inline-block focus:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00] rounded-xl">
+      <Link to={linkTo} className="inline-block focus:outline-none focus-visible:ring-2 focus-visible:ring-[#4ADE80] rounded-xl">
         {content}
       </Link>
     );

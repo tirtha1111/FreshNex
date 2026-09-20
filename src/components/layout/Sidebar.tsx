@@ -48,12 +48,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
   };
 
   return (
-    <aside className="w-64 bg-[#110B07] border-r border-[#3D261A] flex flex-col justify-between h-full select-none shadow-xl z-20">
+    <aside className="w-64 bg-slate-950 border-r border-slate-800/80 flex flex-col justify-between h-full select-none shadow-xl z-20">
       {/* Top Section */}
       <div className="p-5">
         {/* Brand Logo with subtle hover motion */}
         <motion.div 
-          className="pb-6 mb-2 border-b border-[#3D261A]/60"
+          className="pb-6 mb-2 border-b border-slate-800/60"
           whileHover={{ scale: 1.02 }}
           transition={{ type: 'spring', stiffness: 400, damping: 20 }}
         >
@@ -81,27 +81,27 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
                   transition={{ type: 'spring', stiffness: 500, damping: 28 }}
                   className={`flex items-center gap-3 px-3.5 py-2.5 rounded-xl font-medium text-sm transition-all duration-200 relative z-10 ${
                     isActive
-                      ? 'text-[#FF6A00] font-semibold'
-                      : 'text-[#B8A89E] hover:text-[#FDF8F5] hover:bg-[#261A12]/60'
+                      ? 'text-[#4ADE80] font-semibold'
+                      : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-slate-800/60'
                   }`}
                 >
                   {isActive && (
                     <motion.div
                       layoutId="sidebarActiveBackground"
-                      className="absolute inset-0 bg-[#FF6A00]/15 rounded-xl border border-[#FF6A00]/30 shadow-[0_0_20px_rgba(255,106,0,0.18)]"
+                      className="absolute inset-0 bg-[#4ADE80]/15 rounded-xl border border-[#4ADE80]/30 shadow-[0_0_20px_rgba(74,222,128,0.18)]"
                       transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                     />
                   )}
 
                   <Icon
                     className={`w-4 h-4 transition-transform duration-200 relative z-10 ${
-                      isActive ? 'text-[#FF6A00]' : 'text-[#8C7A70]'
+                      isActive ? 'text-[#4ADE80]' : 'text-[#64748B]'
                     }`}
                   />
                   <span className="relative z-10">{item.name}</span>
 
                   {item.badge !== undefined && item.badge > 0 && (
-                    <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#FF6A00] text-[#140C08] relative z-10 animate-pulse">
+                    <span className="ml-auto px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-[#3B82F6] text-white relative z-10 animate-pulse">
                       {item.badge}
                     </span>
                   )}
@@ -120,21 +120,21 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
       </div>
 
       {/* Bottom User Profile Section */}
-      <div className="p-4 border-t border-[#3D261A]/60 bg-[#140C08]/80">
+      <div className="p-4 border-t border-slate-800/60 bg-slate-950/80">
         <motion.div 
           whileHover={{ scale: 1.02 }}
-          className="flex items-center justify-between p-2.5 rounded-xl bg-[#261A12]/90 border border-[#3D261A] shadow-md"
+          className="flex items-center justify-between p-2.5 rounded-xl bg-slate-900 border border-slate-800 shadow-md"
         >
           <div className="flex items-center gap-2.5 min-w-0">
             {/* Avatar Pill */}
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#FF6A00] to-[#FFAA00] flex items-center justify-center font-bold text-[#140C08] text-xs shrink-0 shadow-md">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#3B82F6] to-[#4ADE80] flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-md">
               {userProfile?.name?.charAt(0) || userProfile?.email?.charAt(0)?.toUpperCase() || 'U'}
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-bold text-[#FDF8F5] truncate">
+              <p className="text-xs font-bold text-[#F8FAFC] truncate">
                 {userProfile?.name || userProfile?.email || 'User'}
               </p>
-              <span className="text-[10px] font-medium text-[#8C7A70] block uppercase tracking-wider">
+              <span className="text-[10px] font-medium text-[#64748B] block uppercase tracking-wider">
                 {userProfile?.role === 'admin' ? 'Admin' : 'User'}
               </span>
             </div>
@@ -146,7 +146,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
             whileTap={{ scale: 0.9 }}
             onClick={handleLogout}
             title="Log Out"
-            className="p-1.5 text-[#8C7A70] hover:text-[#FF5A67] hover:bg-[#FF5A67]/15 rounded-lg transition-colors cursor-pointer"
+            className="p-1.5 text-[#64748B] hover:text-[#FF5A67] hover:bg-[#FF5A67]/15 rounded-lg transition-colors cursor-pointer"
           >
             <LogOut className="w-3.5 h-3.5" />
           </motion.button>

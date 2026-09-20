@@ -20,13 +20,13 @@ export const HistoryPage: React.FC = () => {
   const [searchParams] = useSearchParams();
   const initialQuery = searchParams.get('q') || '';
 
-  const { history, deleteHistoryRecord, clearHistory, scanItem } = useFreshness();
+  const { scanHistory, deleteHistoryRecord, clearHistory, scanItem } = useFreshness();
   const [searchFilter, setSearchFilter] = useState(initialQuery);
   const [statusFilter, setStatusFilter] = useState<'all' | 'fresh' | 'at risk' | 'expired'>('all');
 
-  const filteredHistory = history.filter((item) => {
+  const filteredHistory = scanHistory.filter((item) => {
     const matchesSearch = 
-      item.productName.toLowerCase().includes(searchFilter.toLowerCase()) ||
+      item.itemName.toLowerCase().includes(searchFilter.toLowerCase()) ||
       item.tagId.toLowerCase().includes(searchFilter.toLowerCase());
     
     const matchesStatus = 
@@ -44,7 +44,7 @@ export const HistoryPage: React.FC = () => {
   const handleExportCSV = () => {
     const headers = 'Product,Tag ID,Timestamp,Score,Status,Temp,Humidity,Gas\n';
     const rows = filteredHistory.map(h => 
-      `"${h.productName}","${h.tagId}","${h.timestamp}",${h.freshnessScore},"${h.status}",${h.sensorReadings.temperature},${h.sensorReadings.humidity},${h.sensorReadings.gas}`
+      `"${h.itemName}","${h.tagId}","${h.timestamp}",${h.freshnessScore},"${h.status}",${h.temperature},${h.humidity},${h.gas}`
     ).join('\n');
 
     const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
@@ -86,7 +86,7 @@ export const HistoryPage: React.FC = () => {
             <span>Export CSV</span>
           </motion.button>
 
-          {history.length > 0 && (
+          {scanHistory.length > 0 && (
             <motion.button
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.96 }}
@@ -179,9 +179,9 @@ export const HistoryPage: React.FC = () => {
                       <td className="p-4 font-bold text-[#FDF8F5]">
                         <div className="flex items-center gap-2.5">
                           <div className="w-8 h-8 rounded-lg bg-[#261A12] border border-[#3D261A] flex items-center justify-center text-[#FF6A00] font-bold">
-                            {item.productName.charAt(0)}
+                            {item.itemName.charAt(0)}
                           </div>
-                          <span>{item.productName}</span>
+                          <span>{item.itemName}</span>
                         </div>
                       </td>
 
@@ -210,9 +210,9 @@ export const HistoryPage: React.FC = () => {
                       </td>
 
                       <td className="p-4 text-[#B8A89E] font-mono text-[11px]">
-                        <span>{item.sensorReadings.temperature}°C</span> •{' '}
-                        <span>{item.sensorReadings.humidity}%</span> •{' '}
-                        <span>{item.sensorReadings.gas}ppm</span>
+                        <span>{item.temperature}°C</span> •{' '}
+                        <span>{item.humidity}%</span> •{' '}
+                        <span>{item.gas}ppm</span>
                       </td>
 
                       <td className="p-4 text-right">
