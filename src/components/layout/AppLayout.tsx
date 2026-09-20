@@ -6,19 +6,11 @@ import { Topbar } from './Topbar';
 import { Home, QrCode, Activity, History, User, X } from 'lucide-react';
 import { useFreshness } from '../../context/FreshnessContext';
 import { AnimatedBackground } from '../common/AnimatedBackground';
-import { RealtimeAlertToast } from '../common/RealtimeAlertToast';
 
 export const AppLayout: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const location = useLocation();
-  const { 
-    activeItem, 
-    alerts, 
-    markAlertAsRead, 
-    resolveAlert, 
-    isAudioMuted, 
-    toggleAudioMute 
-  } = useFreshness();
+  const { activeItem } = useFreshness();
 
   const liveDataPath = activeItem ? `/live-data/${activeItem.id}` : '/live-data/FRX1004';
 
@@ -34,15 +26,6 @@ export const AppLayout: React.FC = () => {
     <div className="flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100 relative">
       {/* Background Animated Ambient Lights */}
       <AnimatedBackground />
-
-      {/* Realtime Floating Sensor Alert Toasts */}
-      <RealtimeAlertToast 
-        alerts={alerts} 
-        onDismiss={markAlertAsRead}
-        onResolve={resolveAlert}
-        isMuted={isAudioMuted}
-        onToggleMute={toggleAudioMute}
-      />
 
       {/* Desktop Fixed Left Sidebar */}
       <div className="hidden md:flex h-full shrink-0 z-20 relative">
