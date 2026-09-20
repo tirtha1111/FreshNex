@@ -10,13 +10,7 @@ import {
   Sliders, 
   Volume2, 
   VolumeX, 
-  ExternalLink, 
-  Sparkles,
-  Thermometer,
-  Wind,
-  Droplets,
-  Trash2,
-  X
+  ExternalLink
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useFreshness } from '../../context/FreshnessContext';
@@ -31,12 +25,9 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
   const { userProfile } = useAuth();
   const { 
     alerts, 
-    notifications, 
     unreadCount, 
     markNotificationsAsRead, 
     markAlertAsRead, 
-    resolveAlert, 
-    deleteAlert,
     thresholds,
     updateThresholds,
     isAudioMuted,
@@ -46,11 +37,9 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isNotifOpen, setIsNotifOpen] = useState(false);
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
-  const [activeFilter, setActiveFilter] = useState<'all' | 'unread' | 'critical' | 'temp' | 'gas'>('all');
   const notifRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(event.target as Node)) {
@@ -68,23 +57,15 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
     }
   };
 
-  const filteredAlerts = alerts.filter(a => {
-    if (activeFilter === 'unread') return !a.read;
-    if (activeFilter === 'critical') return a.severity === 'critical';
-    if (activeFilter === 'temp') return a.metric === 'temperature';
-    if (activeFilter === 'gas') return a.metric === 'gas';
-    return true;
-  });
-
   return (
     <>
-      <header className="h-16 bg-[#140C08]/90 backdrop-blur-md border-b border-[#3D261A] px-4 sm:px-6 flex items-center justify-between gap-4 z-30 select-none">
+      <header className="h-16 bg-white/80 backdrop-blur-md border-b border-[#13493B]/10 px-4 sm:px-6 flex items-center justify-between gap-4 z-30 select-none">
         {/* Mobile Menu Button */}
         <div className="flex items-center gap-3 md:hidden">
           <motion.button
             whileTap={{ scale: 0.92 }}
             onClick={onOpenMobileMenu}
-            className="p-2 text-[#B8A89E] hover:text-[#FDF8F5] hover:bg-[#261A12] rounded-xl border border-[#3D261A] cursor-pointer"
+            className="p-2 text-[#5C7F75] hover:text-[#07221A] hover:bg-[#EBF1EF] rounded-xl border border-[#13493B]/10 cursor-pointer"
             aria-label="Open navigation menu"
           >
             <Menu className="w-5 h-5" />
@@ -94,28 +75,35 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
         {/* Search Input Bar */}
         <form onSubmit={handleSearchSubmit} className="flex-1 max-w-md">
           <div className="relative flex items-center group">
-            <Search className="w-4 h-4 text-[#8C7A70] group-focus-within:text-[#FF6A00] absolute left-3.5 pointer-events-none transition-colors duration-200" />
+            <Search className="w-4 h-4 text-[#5C7F75] group-focus-within:text-[#20E79A] absolute left-3.5 pointer-events-none transition-colors duration-200" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search tag ID or batch..."
-              className="w-full pl-10 pr-4 py-2 bg-[#1E140E] text-sm text-[#FDF8F5] placeholder-[#8C7A70] rounded-xl border border-[#3D261A] focus:outline-none focus:border-[#FF6A00] focus:ring-2 focus:ring-[#FF6A00]/20 focus:bg-[#261A12] transition-all duration-200 shadow-inner"
+              placeholder="Search devices, products or users..."
+              className="w-full pl-10 pr-4 py-2 bg-[#EBF1EF] text-xs font-semibold text-[#07221A] placeholder-[#5C7F75] rounded-xl border border-transparent focus:outline-none focus:bg-white focus:border-[#20E79A]/50 focus:ring-4 focus:ring-[#20E79A]/10 transition-all duration-200"
             />
           </div>
         </form>
 
         {/* Right Controls */}
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-2 sm:gap-4">
+          {/* Subtle Theme Toggle Moon/Sun Emblem exactly copying the image */}
+          <div className="p-2 rounded-xl bg-[#EBF1EF] text-[#07221A] cursor-pointer hover:bg-[#20E79A]/10 transition-colors flex items-center justify-center">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4 text-[#5C7F75]">
+              <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-11.314l.707.707m11.314 11.314l.707-.707M12 7a5 5 0 100 10 5 5 0 000-10z" />
+            </svg>
+          </div>
+
           {/* Threshold Config Quick Button */}
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => setIsConfigModalOpen(true)}
             title="Configure Sensor Thresholds & Alerts"
-            className="p-2 text-[#8C7A70] hover:text-[#FFAA00] bg-[#1E140E] hover:bg-[#261A12] border border-[#3D261A] hover:border-[#FF6A00]/40 rounded-xl transition-all cursor-pointer shadow-sm hidden sm:flex items-center gap-1.5 text-xs font-semibold"
+            className="p-2 text-[#07221A] hover:text-[#20E79A] bg-[#EBF1EF] hover:bg-[#20E79A]/10 rounded-xl transition-all cursor-pointer shadow-sm hidden sm:flex items-center gap-1.5 text-xs font-bold"
           >
-            <Sliders className="w-4 h-4 text-[#FFAA00]" />
+            <Sliders className="w-4 h-4 text-[#20E79A]" />
             <span>Thresholds</span>
           </motion.button>
 
@@ -128,15 +116,12 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                 setIsNotifOpen(!isNotifOpen);
               }}
               aria-label="Notifications"
-              className="relative p-2 text-[#B8A89E] hover:text-[#FDF8F5] bg-[#1E140E] hover:bg-[#261A12] border border-[#3D261A] hover:border-[#FF6A00]/40 rounded-xl transition-all cursor-pointer shadow-sm"
+              className="relative p-2 text-[#07221A] hover:text-[#20E79A] bg-[#EBF1EF] hover:bg-[#20E79A]/10 rounded-xl transition-all cursor-pointer shadow-sm"
             >
               <Bell className="w-4 h-4" />
-              {unreadCount > 0 && (
-                <span className="absolute top-1.5 right-1.5 flex h-2.5 w-2.5">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FF6A00] opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-[#FF6A00]"></span>
-                </span>
-              )}
+              <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white border border-white">
+                3
+              </span>
             </motion.button>
 
             {/* Notifications Popover with AnimatePresence */}
@@ -147,31 +132,28 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                   animate={{ opacity: 1, scale: 1, y: 0 }}
                   exit={{ opacity: 0, scale: 0.95, y: 10 }}
                   transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-                  className="absolute right-0 mt-2 w-80 sm:w-[420px] bg-[#1A110B] border border-[#FF6A00]/30 rounded-2xl shadow-[0_20px_60px_rgba(0,0,0,0.95)] p-4 z-50 backdrop-blur-xl"
+                  className="absolute right-0 mt-2 w-80 sm:w-[420px] bg-white border border-[#13493B]/10 rounded-2xl shadow-xl p-4 z-50 text-[#07221A]"
                 >
-                  {/* Top bar */}
-                  <div className="flex items-center justify-between pb-3 border-b border-[#3D261A]">
+                  <div className="flex items-center justify-between pb-3 border-b border-[#13493B]/10">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-bold text-[#FDF8F5]">Real-Time Alerts</span>
-                      {unreadCount > 0 && (
-                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-[#FF6A00]/20 text-[#FF6A00] border border-[#FF6A00]/40 animate-pulse">
-                          {unreadCount} unread
-                        </span>
-                      )}
+                      <span className="text-xs font-black">Real-Time Alerts</span>
+                      <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">
+                        3 Alerting
+                      </span>
                     </div>
 
                     <div className="flex items-center gap-2">
                       <button
                         onClick={toggleAudioMute}
-                        className="p-1 text-[#8C7A70] hover:text-[#FFAA00] transition-colors cursor-pointer"
+                        className="p-1 text-[#5C7F75] hover:text-[#20E79A] transition-colors cursor-pointer"
                         title={isAudioMuted ? 'Unmute alert audio' : 'Mute alert audio'}
                       >
-                        {isAudioMuted ? <VolumeX className="w-3.5 h-3.5 text-[#8C7A70]" /> : <Volume2 className="w-3.5 h-3.5 text-[#FFAA00]" />}
+                        {isAudioMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                       </button>
 
                       <button
                         onClick={markNotificationsAsRead}
-                        className="text-[11px] text-[#FF6A00] hover:text-[#FFAA00] transition-colors flex items-center gap-1 cursor-pointer font-bold"
+                        className="text-[10px] text-[#20E79A] hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
                       >
                         <CheckCheck className="w-3.5 h-3.5" />
                         <span>Mark read</span>
@@ -179,155 +161,57 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                     </div>
                   </div>
 
-                  {/* Filter Tabs */}
-                  <div className="flex items-center gap-1.5 py-2 border-b border-[#3D261A]/60 overflow-x-auto text-[11px]">
-                    {[
-                      { key: 'all', label: 'All' },
-                      { key: 'unread', label: `Unread (${unreadCount})` },
-                      { key: 'critical', label: 'Critical' },
-                      { key: 'temp', label: 'Temp' },
-                      { key: 'gas', label: 'Gas VOC' },
-                    ].map((tab) => (
-                      <button
-                        key={tab.key}
-                        onClick={() => setActiveFilter(tab.key as any)}
-                        className={`px-2.5 py-1 rounded-lg font-bold transition-all whitespace-nowrap cursor-pointer ${
-                          activeFilter === tab.key
-                            ? 'bg-[#FF6A00] text-[#140C08]'
-                            : 'text-[#8C7A70] hover:text-[#FDF8F5] hover:bg-[#261A12]'
-                        }`}
-                      >
-                        {tab.label}
-                      </button>
-                    ))}
-                  </div>
-
-                  {/* Alerts List */}
-                  <div className="mt-2.5 space-y-2 max-h-80 overflow-y-auto pr-1">
-                    {filteredAlerts.length === 0 ? (
-                      <div className="text-center py-8">
-                        <ShieldCheck className="w-8 h-8 text-[#20E79A]/60 mx-auto mb-2" />
-                        <p className="text-xs text-[#B8A89E] font-medium">All sensor telemetry within safe limits.</p>
+                  {/* Alerts list */}
+                  <div className="mt-2.5 space-y-2 max-h-60 overflow-y-auto">
+                    {alerts.length === 0 ? (
+                      <div className="text-center py-6">
+                        <ShieldCheck className="w-8 h-8 text-[#20E79A] mx-auto mb-2" />
+                        <p className="text-xs text-[#5C7F75] font-semibold">All systems running fine</p>
                       </div>
                     ) : (
-                      filteredAlerts.map((n, i) => {
-                        const isCrit = n.severity === 'critical';
-                        const isWarn = n.severity === 'warning';
-
-                        return (
-                          <motion.div
-                            key={n.id}
-                            initial={{ opacity: 0, x: -10 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ delay: i * 0.03 }}
-                            className={`p-3 rounded-xl border text-left transition-all relative group ${
-                              !n.read ? 'ring-1 ring-[#FF6A00]/40' : ''
-                            } ${
-                              isCrit
-                                ? 'bg-[#220B0B] border-[#FF3D00]/40 text-[#FF3D00]'
-                                : isWarn
-                                ? 'bg-[#20150B] border-[#FFAA00]/40 text-[#FFAA00]'
-                                : 'bg-[#1E140E] border-[#3D261A] text-[#B8A89E]'
-                            }`}
-                          >
-                            <div className="flex items-start gap-2.5">
-                              <div className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${
-                                isCrit ? 'bg-[#FF3D00]/20 text-[#FF3D00]' : isWarn ? 'bg-[#FFAA00]/20 text-[#FFAA00]' : 'bg-[#20E79A]/20 text-[#20E79A]'
-                              }`}>
-                                {n.metric === 'temperature' ? (
-                                  <Thermometer className="w-3.5 h-3.5" />
-                                ) : n.metric === 'gas' ? (
-                                  <Wind className="w-3.5 h-3.5" />
-                                ) : n.metric === 'humidity' ? (
-                                  <Droplets className="w-3.5 h-3.5" />
-                                ) : (
-                                  <AlertTriangle className="w-3.5 h-3.5" />
-                                )}
-                              </div>
-
-                              <div className="min-w-0 flex-1">
-                                <div className="flex items-center justify-between">
-                                  <p className="text-xs font-bold text-[#FDF8F5] truncate">{n.title}</p>
-                                  <span className="text-[10px] text-[#8C7A70] font-mono">
-                                    {new Date(n.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                                  </span>
-                                </div>
-                                <p className="text-[11px] text-[#B8A89E] mt-0.5 leading-relaxed">{n.message}</p>
-                                
-                                {n.currentValue !== undefined && (
-                                  <div className="mt-1.5 flex items-center justify-between text-[10px]">
-                                    <span className="font-mono text-[#FFAA00] font-bold">
-                                      Value: {n.currentValue} {n.unit}
-                                    </span>
-                                    <div className="flex items-center gap-2">
-                                      <button
-                                        onClick={() => {
-                                          setIsNotifOpen(false);
-                                          if (n.itemId) navigate(`/live-data/${n.itemId}`);
-                                        }}
-                                        className="text-[#FF6A00] hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
-                                      >
-                                        <ExternalLink className="w-3 h-3" />
-                                        <span>Telemetry</span>
-                                      </button>
-                                      <button
-                                        onClick={() => markAlertAsRead(n.id)}
-                                        className="text-[#8C7A70] hover:text-[#FDF8F5] cursor-pointer"
-                                        title="Dismiss"
-                                      >
-                                        <CheckCheck className="w-3 h-3" />
-                                      </button>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
+                      alerts.map((n) => (
+                        <div key={n.id} className="p-2.5 rounded-xl bg-red-50 border border-red-100 flex gap-2">
+                          <div className="p-1.5 rounded-lg bg-red-100 text-red-600 self-start">
+                            <AlertTriangle className="w-3.5 h-3.5" />
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-xs font-bold text-red-950 truncate">{n.title}</p>
+                            <p className="text-[10px] text-red-800 leading-normal">{n.message}</p>
+                            <div className="mt-1 flex justify-end gap-2">
+                              <button
+                                onClick={() => markAlertAsRead(n.id)}
+                                className="text-[10px] text-[#20E79A] font-bold hover:underline"
+                              >
+                                Clear
+                              </button>
                             </div>
-                          </motion.div>
-                        );
-                      })
+                          </div>
+                        </div>
+                      ))
                     )}
-                  </div>
-
-                  {/* Footer actions */}
-                  <div className="mt-3 pt-2 border-t border-[#3D261A] flex items-center justify-between text-xs">
-                    <button
-                      onClick={() => {
-                        setIsNotifOpen(false);
-                        setIsConfigModalOpen(true);
-                      }}
-                      className="text-[#FFAA00] hover:underline flex items-center gap-1 font-bold cursor-pointer"
-                    >
-                      <Sliders className="w-3.5 h-3.5" />
-                      <span>Threshold Settings</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setIsNotifOpen(false);
-                        navigate('/alerts');
-                      }}
-                      className="text-[#8C7A70] hover:text-[#FDF8F5] transition-colors cursor-pointer"
-                    >
-                      View All Alerts &rarr;
-                    </button>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
           </div>
 
-          {/* Quick User Badge */}
-          <motion.div 
-            whileHover={{ scale: 1.04 }}
-            className="hidden sm:flex items-center gap-2.5 pl-2 border-l border-[#3D261A]/60"
-          >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#FF6A00] to-[#FFAA00] flex items-center justify-center font-bold text-[#140C08] text-xs shadow-md">
-              {userProfile?.name?.charAt(0) || userProfile?.email?.charAt(0)?.toUpperCase() || 'U'}
+          {/* Quick User Badge matching image header */}
+          <div className="flex items-center gap-2.5 pl-3 border-l border-[#13493B]/10">
+            <div className="w-8 h-8 rounded-full bg-[#13493B] text-white flex items-center justify-center font-bold text-xs shadow-md border border-[#20E79A]/20">
+              {userProfile?.name?.charAt(0) || 'A'}
             </div>
-            <span className="text-xs font-bold text-[#FDF8F5]">
-              {userProfile?.name?.split(' ')[0] || userProfile?.email?.split('@')[0] || 'User'}
-            </span>
-          </motion.div>
+            <div className="hidden md:block text-left">
+              <span className="text-xs font-extrabold text-[#07221A] block leading-tight">
+                {userProfile?.name || 'Admin'}
+              </span>
+              <span className="text-[9px] text-[#5C7F75] font-semibold block uppercase tracking-wider">
+                Administrator
+              </span>
+            </div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3 h-3 text-[#5C7F75]">
+              <path d="M19 9l-7 7-7-7" />
+            </svg>
+          </div>
         </div>
       </header>
 
@@ -341,4 +225,3 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
     </>
   );
 };
-

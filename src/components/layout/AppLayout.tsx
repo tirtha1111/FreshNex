@@ -23,12 +23,12 @@ export const AppLayout: React.FC = () => {
   ];
 
   return (
-    <div className="flex h-screen w-screen overflow-hidden bg-slate-950 text-slate-100 relative">
-      {/* Background Animated Ambient Lights */}
-      <AnimatedBackground />
+    <div className="flex h-screen w-screen overflow-hidden bg-[#F4F7F6] text-[#07221A] relative">
+      {/* Background Animated Ambient Lights - Disabled on light dashboard to maintain pristine high-contrast cards */}
+      <div className="absolute inset-0 bg-[#F4F7F6] pointer-events-none" />
 
       {/* Desktop Fixed Left Sidebar */}
-      <div className="hidden md:flex h-full shrink-0 z-20 relative">
+      <div className="hidden md:flex h-full shrink-0 z-20 relative shadow-lg">
         <Sidebar />
       </div>
 
@@ -87,7 +87,7 @@ export const AppLayout: React.FC = () => {
         </main>
 
         {/* Mobile Bottom Navigation */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-slate-950/95 backdrop-blur-xl border-t border-slate-800/80 px-2 flex items-center justify-around z-40">
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-xl border-t border-[#13493B]/10 px-2 flex items-center justify-around z-40">
           {mobileNav.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path || (item.path.startsWith('/live-data') && location.pathname.startsWith('/live-data'));
@@ -101,12 +101,12 @@ export const AppLayout: React.FC = () => {
                 {isActive && (
                   <motion.div
                     layoutId="mobileNavActive"
-                    className="absolute inset-0 bg-[#4ADE80]/15 rounded-xl border border-[#4ADE80]/30"
+                    className="absolute inset-0 bg-[#20E79A]/10 rounded-xl border border-[#20E79A]/30"
                     transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                   />
                 )}
-                <Icon className={`w-5 h-5 relative z-10 transition-colors ${isActive ? 'text-[#4ADE80]' : 'text-slate-500'}`} />
-                <span className={`text-[10px] font-bold mt-1 relative z-10 ${isActive ? 'text-[#4ADE80]' : 'text-slate-500'}`}>
+                <Icon className={`w-5 h-5 relative z-10 transition-colors ${isActive ? 'text-[#20E79A]' : 'text-slate-400'}`} />
+                <span className={`text-[10px] font-bold mt-1 relative z-10 ${isActive ? 'text-[#07221A]' : 'text-slate-400'}`}>
                   {item.label}
                 </span>
               </Link>

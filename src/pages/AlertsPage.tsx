@@ -11,12 +11,9 @@ import {
   Trash2, 
   ExternalLink, 
   Sliders, 
-  Sparkles, 
   Volume2, 
   VolumeX, 
-  Search, 
-  Filter, 
-  Radio
+  Search
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useFreshness } from '../context/FreshnessContext';
@@ -43,20 +40,17 @@ export const AlertsPage: React.FC = () => {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
 
   const filteredAlerts = alerts.filter(alert => {
-    // Search match
     if (searchFilter.trim()) {
       const q = searchFilter.toLowerCase();
       const matchText = (alert.title + ' ' + alert.message + ' ' + (alert.itemName || '') + ' ' + (alert.deviceId || '')).toLowerCase();
       if (!matchText.includes(q)) return false;
     }
 
-    // Severity match
     if (severityFilter === 'unread' && alert.read) return false;
     if (severityFilter === 'critical' && alert.severity !== 'critical') return false;
     if (severityFilter === 'warning' && alert.severity !== 'warning') return false;
     if (severityFilter === 'resolved' && !alert.resolved) return false;
 
-    // Metric match
     if (metricFilter !== 'all' && alert.metric !== metricFilter) return false;
 
     return true;
@@ -67,37 +61,28 @@ export const AlertsPage: React.FC = () => {
 
   const containerVariants = {
     hidden: { opacity: 0 },
-    visible: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.05,
-      },
-    },
+    visible: { opacity: 1, transition: { staggerChildren: 0.05 } }
   };
 
   const itemVariants = {
     hidden: { opacity: 0, y: 15 },
-    visible: {
-      opacity: 1,
-      y: 0,
-      transition: { duration: 0.35, ease: [0.16, 1, 0.3, 1] },
-    },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.35, ease: 'easeOut' } }
   };
 
   return (
-    <div className="space-y-6 select-none max-w-6xl mx-auto pb-12">
+    <div className="space-y-6 select-none max-w-6xl mx-auto pb-12 font-sans">
       {/* Top Banner & Title */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#3D261A]">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#13493B]/10">
         <div>
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FF6A00]/10 border border-[#FF6A00]/30 text-[11px] font-extrabold text-[#FFAA00] uppercase tracking-wider mb-2">
-            <span className="w-2 h-2 rounded-full bg-[#20E79A] animate-ping" />
-            <span>Firebase Real-Time Notification Stream</span>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#EBFBF4] border border-[#20E79A]/20 text-[10px] font-black text-[#20E79A] uppercase tracking-wider mb-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-[#20E79A] animate-pulse" />
+            <span>Real-Time Stream Online</span>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-[#FDF8F5] tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-serif italic font-black text-[#07221A] tracking-tight">
             Real-Time Alerts & Thresholds
           </h1>
-          <p className="text-xs sm:text-sm text-[#B8A89E] mt-1">
-            Automated sensor threshold monitoring and anomaly detection synchronized with Firebase.
+          <p className="text-xs font-bold text-[#5C7F75] mt-1">
+            Automated sensor threshold monitoring and anomaly detection logs.
           </p>
         </div>
 
@@ -107,9 +92,9 @@ export const AlertsPage: React.FC = () => {
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.96 }}
             onClick={() => setIsConfigModalOpen(true)}
-            className="px-4 py-2 rounded-xl text-xs font-bold text-[#FFAA00] bg-[#1E140E] hover:bg-[#261A12] border border-[#FF6A00]/40 flex items-center gap-1.5 cursor-pointer transition-colors shadow-sm"
+            className="px-4 py-2 rounded-xl text-xs font-bold text-[#07221A] bg-white hover:bg-[#F4F7F6] border border-[#13493B]/10 flex items-center gap-1.5 cursor-pointer shadow-sm"
           >
-            <Sliders className="w-4 h-4 text-[#FFAA00]" />
+            <Sliders className="w-4 h-4 text-[#20E79A]" />
             <span>Threshold Rules</span>
           </motion.button>
 
@@ -117,10 +102,10 @@ export const AlertsPage: React.FC = () => {
             whileHover={{ scale: 1.04 }}
             whileTap={{ scale: 0.96 }}
             onClick={toggleAudioMute}
-            className="p-2 rounded-xl text-xs font-bold text-[#B8A89E] bg-[#1E140E] hover:bg-[#261A12] border border-[#3D261A] cursor-pointer transition-colors"
+            className="p-2 rounded-xl bg-white hover:bg-[#F4F7F6] border border-[#13493B]/10 cursor-pointer transition-colors"
             title={isAudioMuted ? 'Unmute alert chimes' : 'Mute alert chimes'}
           >
-            {isAudioMuted ? <VolumeX className="w-4 h-4 text-[#8C7A70]" /> : <Volume2 className="w-4 h-4 text-[#FFAA00]" />}
+            {isAudioMuted ? <VolumeX className="w-4 h-4 text-slate-400" /> : <Volume2 className="w-4 h-4 text-[#20E79A]" />}
           </motion.button>
 
           {unreadCount > 0 && (
@@ -128,9 +113,9 @@ export const AlertsPage: React.FC = () => {
               whileHover={{ scale: 1.04 }}
               whileTap={{ scale: 0.96 }}
               onClick={markNotificationsAsRead}
-              className="px-3.5 py-2 rounded-xl text-xs font-bold text-[#140C08] btn-orange flex items-center gap-1.5 cursor-pointer shadow-md"
+              className="px-4 py-2 rounded-xl text-xs font-black text-white bg-[#07221A] hover:bg-[#134336] flex items-center gap-1.5 cursor-pointer shadow-md"
             >
-              <CheckCheck className="w-4 h-4 text-[#140C08]" />
+              <CheckCheck className="w-4 h-4 text-[#20E79A]" />
               <span>Mark All Read</span>
             </motion.button>
           )}
@@ -140,70 +125,70 @@ export const AlertsPage: React.FC = () => {
       {/* Summary KPI Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Total Alerts */}
-        <div className="card-solid p-4.5 rounded-2xl border border-[#3D261A] flex items-center justify-between shadow-md">
+        <div className="bg-white p-5 rounded-3xl border border-[#13493B]/10 flex items-center justify-between shadow-sm">
           <div className="space-y-1">
-            <span className="text-[11px] font-bold text-[#8C7A70] uppercase tracking-wider">Total Alerts</span>
-            <p className="text-2xl font-black text-[#FDF8F5]">{alerts.length}</p>
+            <span className="text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block">Total Alerts</span>
+            <p className="text-2xl font-black text-[#07221A]">{alerts.length}</p>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-[#FF6A00]/15 text-[#FF6A00] flex items-center justify-center border border-[#FF6A00]/30">
+          <div className="w-11 h-11 rounded-full bg-[#EBF5FF] text-[#3B82F6] flex items-center justify-center">
             <Bell className="w-5 h-5" />
           </div>
         </div>
 
         {/* Critical Spikes */}
-        <div className="card-solid p-4.5 rounded-2xl border border-[#FF3D00]/30 flex items-center justify-between shadow-md bg-gradient-to-br from-[#220B0B]/80 to-[#140C08]">
+        <div className="bg-white p-5 rounded-3xl border border-[#13493B]/10 flex items-center justify-between shadow-sm">
           <div className="space-y-1">
-            <span className="text-[11px] font-bold text-[#FF5A67] uppercase tracking-wider">Critical Spikes</span>
-            <p className="text-2xl font-black text-[#FF3D00]">{criticalCount}</p>
+            <span className="text-[10px] font-bold text-red-600 uppercase tracking-wider block">Critical Spikes</span>
+            <p className="text-2xl font-black text-red-600">{criticalCount}</p>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-[#FF3D00]/20 text-[#FF3D00] flex items-center justify-center border border-[#FF3D00]/40">
+          <div className="w-11 h-11 rounded-full bg-[#FFECEE] text-red-600 flex items-center justify-center">
             <AlertTriangle className="w-5 h-5" />
           </div>
         </div>
 
         {/* Warning Thresholds */}
-        <div className="card-solid p-4.5 rounded-2xl border border-[#FFAA00]/30 flex items-center justify-between shadow-md bg-gradient-to-br from-[#20150B]/80 to-[#140C08]">
+        <div className="bg-white p-5 rounded-3xl border border-[#13493B]/10 flex items-center justify-between shadow-sm">
           <div className="space-y-1">
-            <span className="text-[11px] font-bold text-[#FFAA00] uppercase tracking-wider">Threshold Warnings</span>
-            <p className="text-2xl font-black text-[#FFAA00]">{warningCount}</p>
+            <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wider block">Warnings</span>
+            <p className="text-2xl font-black text-orange-600">{warningCount}</p>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-[#FFAA00]/20 text-[#FFAA00] flex items-center justify-center border border-[#FFAA00]/40">
+          <div className="w-11 h-11 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center">
             <Wind className="w-5 h-5" />
           </div>
         </div>
 
         {/* Active Threshold Config Summary */}
-        <div className="card-solid p-4.5 rounded-2xl border border-[#3D261A] flex items-center justify-between shadow-md">
+        <div className="bg-white p-5 rounded-3xl border border-[#13493B]/10 flex items-center justify-between shadow-sm">
           <div className="space-y-1 min-w-0">
-            <span className="text-[11px] font-bold text-[#8C7A70] uppercase tracking-wider">Trigger Rules</span>
-            <p className="text-xs font-bold text-[#20E79A] truncate font-mono">
-              T &gt; {thresholds.tempMax}°C | Gas &gt; {thresholds.gasWarning}ppm
+            <span className="text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block">Trigger Rules</span>
+            <p className="text-xs font-black text-[#20E79A] truncate font-mono">
+              T &gt; {thresholds.tempMax}°C | G &gt; {thresholds.gasWarning}ppm
             </p>
           </div>
-          <div className="w-11 h-11 rounded-xl bg-[#20E79A]/15 text-[#20E79A] flex items-center justify-center border border-[#20E79A]/30">
+          <div className="w-11 h-11 rounded-full bg-[#EBFBF4] text-[#20E79A] flex items-center justify-center">
             <ShieldCheck className="w-5 h-5" />
           </div>
         </div>
       </div>
 
       {/* Interactive Controls & Filters */}
-      <div className="p-4 rounded-2xl bg-[#1A110B] border border-[#3D261A] flex flex-col md:flex-row items-center justify-between gap-3">
+      <div className="p-4 rounded-2xl bg-white border border-[#13493B]/10 flex flex-col md:flex-row items-center justify-between gap-3 shadow-sm">
         {/* Search */}
         <div className="relative w-full md:w-72">
-          <Search className="w-4 h-4 text-[#8C7A70] absolute left-3 top-2.5 pointer-events-none" />
+          <Search className="w-4 h-4 text-[#5C7F75] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
             type="text"
             value={searchFilter}
             onChange={(e) => setSearchFilter(e.target.value)}
-            placeholder="Search alerts (e.g. Chicken, 480ppm)..."
-            className="w-full pl-9 pr-3 py-1.5 bg-[#140C08] border border-[#3D261A] rounded-xl text-xs text-[#FDF8F5] placeholder-[#8C7A70] focus:outline-none focus:border-[#FF6A00]"
+            placeholder="Search alerts (e.g. Temperature)..."
+            className="w-full pl-10 pr-3 py-2 bg-[#EBF1EF] text-xs font-semibold text-[#07221A] placeholder-[#5C7F75] rounded-xl border border-transparent focus:outline-none focus:bg-white focus:border-[#20E79A]/50 focus:ring-4 focus:ring-[#20E79A]/10 transition-all duration-200"
           />
         </div>
 
         {/* Filters */}
         <div className="flex items-center gap-2 flex-wrap w-full md:w-auto text-xs">
           {/* Severity filter pills */}
-          <div className="flex items-center gap-1 bg-[#140C08] p-1 rounded-xl border border-[#3D261A]">
+          <div className="flex items-center gap-1 bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10">
             {[
               { id: 'all', label: 'All' },
               { id: 'unread', label: `Unread (${unreadCount})` },
@@ -214,10 +199,10 @@ export const AlertsPage: React.FC = () => {
               <button
                 key={f.id}
                 onClick={() => setSeverityFilter(f.id as any)}
-                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ${
                   severityFilter === f.id
-                    ? 'bg-[#FF6A00] text-[#140C08]'
-                    : 'text-[#8C7A70] hover:text-[#FDF8F5]'
+                    ? 'bg-white text-[#07221A] shadow-sm'
+                    : 'text-[#5C7F75] hover:text-[#07221A]'
                 }`}
               >
                 {f.label}
@@ -226,7 +211,7 @@ export const AlertsPage: React.FC = () => {
           </div>
 
           {/* Metric filter pills */}
-          <div className="flex items-center gap-1 bg-[#140C08] p-1 rounded-xl border border-[#3D261A]">
+          <div className="flex items-center gap-1 bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10">
             {[
               { id: 'all', label: 'All Metrics' },
               { id: 'temperature', label: 'Temp' },
@@ -236,10 +221,10 @@ export const AlertsPage: React.FC = () => {
               <button
                 key={m.id}
                 onClick={() => setMetricFilter(m.id as any)}
-                className={`px-2.5 py-1 rounded-lg font-bold transition-all cursor-pointer ${
+                className={`px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ${
                   metricFilter === m.id
-                    ? 'bg-[#FFAA00] text-[#140C08]'
-                    : 'text-[#8C7A70] hover:text-[#FDF8F5]'
+                    ? 'bg-white text-[#07221A] shadow-sm'
+                    : 'text-[#5C7F75] hover:text-[#07221A]'
                 }`}
               >
                 {m.label}
@@ -254,15 +239,15 @@ export const AlertsPage: React.FC = () => {
         variants={containerVariants}
         initial="hidden"
         animate="visible"
-        className="space-y-3"
+        className="space-y-3.5"
       >
          {filteredAlerts.length === 0 ? (
-          <div className="card-solid p-12 text-center space-y-4 rounded-3xl border border-[#3D261A]">
-            <div className="w-16 h-16 rounded-2xl bg-[#20E79A]/15 text-[#20E79A] border border-[#20E79A]/30 flex items-center justify-center mx-auto shadow-lg">
+          <div className="bg-white p-12 text-center space-y-4 rounded-[28px] border border-[#13493B]/10 shadow-sm">
+            <div className="w-16 h-16 rounded-[20px] bg-[#EBFBF4] text-[#20E79A] flex items-center justify-center mx-auto shadow-sm">
               <ShieldCheck className="w-8 h-8" />
             </div>
-            <h3 className="text-lg font-bold text-[#FDF8F5]">No Alerts Matching Criteria</h3>
-            <p className="text-xs text-[#8C7A70] max-w-sm mx-auto">
+            <h3 className="text-lg font-black text-[#07221A] tracking-tight">No Alerts Matching Criteria</h3>
+            <p className="text-xs font-semibold text-[#5C7F75] max-w-sm mx-auto leading-relaxed">
               All connected IoT telemetry sensors are currently operating within safe baseline threshold limits.
             </p>
           </div>
@@ -276,33 +261,25 @@ export const AlertsPage: React.FC = () => {
               <motion.div
                 key={alert.id}
                 variants={itemVariants}
-                className={`p-4 sm:p-5 rounded-2xl border transition-all duration-200 relative overflow-hidden shadow-md ${
-                  !alert.read ? 'ring-1 ring-[#FF6A00]/50' : ''
-                } ${
-                  isCrit
-                    ? 'bg-[#200B0B]/90 border-[#FF3D00]/40 text-[#FDF8F5]'
-                    : isWarn
-                    ? 'bg-[#1E1208]/90 border-[#FFAA00]/40 text-[#FDF8F5]'
-                    : 'bg-[#180F0A]/90 border-[#3D261A] text-[#FDF8F5]'
-                }`}
+                className="bg-white p-5 rounded-3xl border border-[#13493B]/10 shadow-sm relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4"
               >
-                {/* Ambient side indicator */}
+                {/* Left accent color indicator bar */}
                 <div 
                   className={`absolute left-0 top-0 bottom-0 w-1.5 ${
-                    isResolved ? 'bg-[#20E79A]' : isCrit ? 'bg-[#FF3D00]' : isWarn ? 'bg-[#FFAA00]' : 'bg-[#FF6A00]'
+                    isResolved ? 'bg-[#20E79A]' : isCrit ? 'bg-red-500' : isWarn ? 'bg-orange-400' : 'bg-[#20E79A]'
                   }`}
                 />
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pl-2">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pl-2 w-full">
                   {/* Left info */}
-                  <div className="flex items-start gap-3.5 min-w-0">
+                  <div className="flex items-start gap-4 min-w-0">
                     <div 
-                      className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 border ${
+                      className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${
                         isCrit
-                          ? 'bg-[#FF3D00]/20 text-[#FF3D00] border-[#FF3D00]/40'
+                          ? 'bg-[#FFECEE] text-red-600'
                           : isWarn
-                          ? 'bg-[#FFAA00]/20 text-[#FFAA00] border-[#FFAA00]/40'
-                          : 'bg-[#20E79A]/20 text-[#20E79A] border-[#20E79A]/40'
+                          ? 'bg-orange-50 text-orange-500'
+                          : 'bg-[#EBFBF4] text-[#20E79A]'
                       }`}
                     >
                       {alert.metric === 'temperature' ? (
@@ -316,38 +293,38 @@ export const AlertsPage: React.FC = () => {
                       )}
                     </div>
 
-                    <div className="min-w-0 flex-1 space-y-1">
+                    <div className="min-w-0 flex-1 space-y-1 text-left">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <span className={`text-[10px] font-extrabold uppercase tracking-wider px-2 py-0.5 rounded-full border ${
+                        <span className={`text-[9px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full ${
                           isCrit
-                            ? 'bg-[#FF3D00]/25 text-[#FF3D00] border-[#FF3D00]/40 animate-pulse'
+                            ? 'bg-red-100 text-red-700 animate-pulse'
                             : isWarn
-                            ? 'bg-[#FFAA00]/25 text-[#FFAA00] border-[#FFAA00]/40'
-                            : 'bg-[#20E79A]/25 text-[#20E79A] border-[#20E79A]/40'
+                            ? 'bg-orange-100 text-orange-700'
+                            : 'bg-green-100 text-green-700'
                         }`}>
                           {isCrit ? 'Critical Spike' : isWarn ? 'Threshold Warning' : 'Resolved'}
                         </span>
 
                         {alert.deviceId && (
-                          <span className="text-[11px] font-mono font-bold text-[#FFAA00] px-2 py-0.5 rounded-md bg-[#140C08] border border-[#3D261A]">
+                          <span className="text-[10px] font-mono font-bold text-[#07221A] px-2 py-0.5 rounded-md bg-[#F4F7F6] border border-[#13493B]/10">
                             Tag: {alert.deviceId}
                           </span>
                         )}
 
-                        <span className="text-[11px] text-[#8C7A70] font-mono">
+                        <span className="text-[10px] text-[#5C7F75] font-semibold font-mono">
                           {new Date(alert.timestamp).toLocaleString()}
                         </span>
                       </div>
 
-                      <h4 className="text-sm font-bold text-[#FDF8F5]">{alert.title}</h4>
-                      <p className="text-xs text-[#B8A89E] leading-relaxed">{alert.message}</p>
+                      <h4 className="text-sm font-black text-[#07221A]">{alert.title}</h4>
+                      <p className="text-xs font-semibold text-[#5C7F75] leading-relaxed">{alert.message}</p>
 
                       {alert.currentValue !== undefined && (
-                        <div className="flex items-center gap-3 pt-1 text-xs font-mono">
-                          <span className="text-[#FFAA00] font-bold">
+                        <div className="flex items-center gap-3 pt-1 text-xs font-mono font-bold">
+                          <span className="text-red-500">
                             Current: {alert.currentValue} {alert.unit}
                           </span>
-                          <span className="text-[#8C7A70]">
+                          <span className="text-[#5C7F75]">
                             Safe Threshold: {alert.thresholdValue} {alert.unit}
                           </span>
                         </div>
@@ -367,9 +344,9 @@ export const AlertsPage: React.FC = () => {
                           navigate('/live-data');
                         }
                       }}
-                      className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#140C08] bg-[#FF6A00] hover:bg-[#FFAA00] flex items-center gap-1.5 cursor-pointer transition-colors shadow-sm"
+                      className="px-4 py-2 rounded-full text-xs font-black text-[#07221A] bg-[#F4F7F6] hover:bg-[#EBF1EF] flex items-center gap-1.5 cursor-pointer shadow-sm"
                     >
-                      <ExternalLink className="w-3.5 h-3.5" />
+                      <ExternalLink className="w-3.5 h-3.5 text-[#20E79A]" />
                       <span>Telemetry</span>
                     </motion.button>
 
@@ -378,7 +355,7 @@ export const AlertsPage: React.FC = () => {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => resolveAlert(alert.id)}
-                        className="px-3 py-1.5 rounded-xl text-xs font-bold text-[#20E79A] bg-[#20E79A]/15 hover:bg-[#20E79A]/25 border border-[#20E79A]/30 flex items-center gap-1 cursor-pointer transition-colors"
+                        className="px-4 py-2 rounded-full text-xs font-black text-white bg-[#07221A] hover:bg-[#134336] flex items-center gap-1 cursor-pointer transition-colors"
                       >
                         <CheckCheck className="w-3.5 h-3.5" />
                         <span>Acknowledge</span>
@@ -389,7 +366,7 @@ export const AlertsPage: React.FC = () => {
                       whileHover={{ scale: 1.1 }}
                       whileTap={{ scale: 0.9 }}
                       onClick={() => deleteAlert(alert.id)}
-                      className="p-2 rounded-xl text-[#8C7A70] hover:text-[#FF5A67] hover:bg-[#FF5A67]/15 transition-colors cursor-pointer"
+                      className="p-2 rounded-full hover:bg-red-50 text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
                       title="Delete alert"
                     >
                       <Trash2 className="w-4 h-4" />
