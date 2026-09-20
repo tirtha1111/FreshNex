@@ -1,123 +1,172 @@
+import { FreshnessStatus } from '../utils/freshnessEngine';
+
 export type Role = 'user' | 'admin';
 
-export interface DeviceData {
-  device_id: string;
-  product: string;
-  temperature: number;
-  humidity: number;
-  mq135_raw: number;
-  online: boolean;
-  profile_id?: string;
-  last_update?: number;
+export interface FoodItem {
+  id: string;
+  name: string;
+  category: string;
+  image: string;
+  batchId: string;
+  tagId: string;
+  description?: string;
+  optimalTemp?: string;
+  optimalHumidity?: string;
+  maxGas?: number;
 }
 
-export interface UserRecord {
+export interface SensorData {
+  temperature: number;
+  humidity: number;
+  gas: number;
+  timestamp: number;
+}
+
+export interface HistoricalReadingPoint {
+  time: string;
+  timestamp: number;
+  temperature: number;
+  humidity: number;
+  gas: number;
+}
+
+export interface ScanHistoryRecord {
+  id: string;
+  itemId: string;
+  itemName: string;
+  tagId: string;
+  itemImage?: string;
+  temperature: number;
+  humidity: number;
+  gas: number;
+  freshnessScore: number;
+  status: FreshnessStatus;
+  timestamp: number;
+  dateStr?: string;
+  timeStr?: string;
+}
+
+export interface UserProfile {
   uid: string;
   name: string;
   email: string;
   role: Role;
-  createdAt?: number;
+  avatar?: string;
+  memberSince?: string;
+  organization?: string;
+}
+
+export interface UserSettings {
+  emailNotifications: boolean;
+  scanAlerts: boolean;
+  systemUpdates: boolean;
+  theme: 'Dark' | 'Light';
+  language: 'English' | 'Spanish' | 'French' | 'German';
+}
+
+export interface AnalyticsSummary {
+  totalScans: number;
+  totalScansChange: number;
+  freshItems: number;
+  freshItemsChange: number;
+  atRisk: number;
+  atRiskChange: number;
+  expired: number;
+  expiredChange: number;
+}
+
+// Backward compatibility types for legacy components
+export interface DeviceData {
+  id?: string;
+  device_id?: string;
+  name?: string;
+  product?: string;
+  temperature?: number;
+  humidity?: number;
+  gasLevel?: number;
+  mq135_raw?: number;
+  lastUpdated?: number;
+  last_update?: number;
+  status?: string;
+  online?: boolean;
+  assignedProduct?: string;
+}
+
+export interface UserRecord {
+  uid: string;
+  email: string;
+  name: string;
+  role: Role;
+  createdAt: number;
+  lastLogin?: number;
+  isActive?: boolean;
 }
 
 export interface UserScanItem {
-  id: string;
-  device_id: string;
-  product: string;
-  scanned_at: number;
+  id?: string;
+  scanId?: string;
+  productId?: string;
+  product?: string;
+  device_id?: string;
+  name?: string;
+  scannedAt?: number;
+  scanned_at?: number;
+  status?: string;
+  temperature?: number;
+  humidity?: number;
+  gasLevel?: number;
 }
 
 export interface SensorHistoryEntry {
-  id: string;
+  id?: string;
   timestamp: number;
   temperature: number;
   humidity: number;
-  mq135_raw: number;
+  gasLevel?: number;
+  mq135_raw?: number;
 }
 
 export interface ProductProfile {
   id: string;
   name: string;
   category?: string;
-  temperature_min: number | null;
-  temperature_max: number | null;
-  humidity_min: number | null;
-  humidity_max: number | null;
-  mq135_threshold: number | null;
+  temperature_min?: number;
+  temperature_max?: number;
+  humidity_min?: number;
+  humidity_max?: number;
+  mq135_threshold?: number;
+  tempMin?: number;
+  tempMax?: number;
+  humMin?: number;
+  humMax?: number;
+  gasMax?: number;
+  expiryDate?: string;
 }
 
 export interface SensorAlert {
   id: string;
-  device_id: string;
-  product_name?: string;
-  type: 'Temperature' | 'Humidity' | 'Air Sensor' | 'Device Offline';
-  severity: 'Low' | 'Medium' | 'High' | 'Critical';
+  type: string;
   message: string;
   timestamp: number;
-  resolved: boolean;
+  severity: 'low' | 'medium' | 'high';
+  read: boolean;
 }
 
-// Backwards compatibility legacy aliases
 export interface Product {
   id: string;
   name: string;
   category: string;
-  batchId: string;
-  rfidTag: string;
-  qrCode: string;
-  deviceId: string;
-  createdAt: string;
-  expiryDate: string;
   tempMin: number;
   tempMax: number;
   humMin: number;
   humMax: number;
   gasMax: number;
-  imageUrl?: string;
+  expiryDate: string;
 }
 
 export interface LiveReading {
-  productId: string;
   temperature: number;
   humidity: number;
   gasLevel: number;
-  airQuality: number;
   timestamp: number;
-}
-
-export interface Device {
-  id: string;
-  name: string;
-  status: 'ONLINE' | 'OFFLINE';
-  lastSeen: number;
-  location: string;
-  sensorStatus: {
-    tempHum: 'OK' | 'ERROR' | 'OFFLINE';
-    gasAir: 'OK' | 'ERROR' | 'OFFLINE';
-    rfid: 'OK' | 'ERROR' | 'OFFLINE';
-  };
-}
-
-export interface Alert {
-  id: string;
-  productId: string;
-  productName?: string;
-  type: 'High Temperature' | 'Low Temperature' | 'High Humidity' | 'Low Humidity' | 'High Gas Level' | 'Sensor Offline' | 'Device Offline';
-  severity: 'Low' | 'Medium' | 'High' | 'Critical';
-  message: string;
-  timestamp: number;
-  resolved: boolean;
-}
-
-export interface UserProfile {
-  name: string;
-  email: string;
-  organization: string;
-  role: Role;
-  profileImage?: string;
-}
-
-export interface UserSettings {
-  notificationsEnabled: boolean;
-  tempUnit: 'C' | 'F';
-  alertSoundEnabled: boolean;
 }

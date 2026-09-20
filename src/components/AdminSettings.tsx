@@ -1,149 +1,147 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Settings, Save, Database, ShieldCheck, ArrowLeft, RefreshCw } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { isFirebaseConfigured } from '../firebase/firebase';
+import { Settings, ShieldCheck, Database, Copy, Check, Lock, Cpu, Server } from 'lucide-react';
 
 export const AdminSettings: React.FC = () => {
-  const { userSettings, updateSettings } = useApp();
-  const navigate = useNavigate();
+  const { applyFirebaseConfig } = useApp();
+  const [copied, setCopied] = useState(false);
 
-  const [notificationsEnabled, setNotificationsEnabled] = useState(userSettings.notificationsEnabled);
-  const [temperatureUnit, setTemperatureUnit] = useState(userSettings.temperatureUnit);
-  const [refreshInterval, setRefreshInterval] = useState(userSettings.refreshInterval);
-  const [isSaving, setIsSaving] = useState(false);
-  const [success, setSuccess] = useState('');
+  const [apiKey, setApiKey] = useState('');
+  const [dbUrl, setDbUrl] = useState('');
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSaving(true);
-    setSuccess('');
-
-    try {
-      await updateSettings({
-        notificationsEnabled,
-        temperatureUnit,
-        refreshInterval
-      });
-      setSuccess('System preferences successfully synchronized with cloud database!');
-      setTimeout(() => setSuccess(''), 2500);
-    } catch (err) {
-      console.error('Failed to update settings:', err);
-    } finally {
-      setIsSaving(false);
+  const securityRulesJson = `{
+  "rules": {
+    "devices": {
+      ".read": true,
+      ".write": "auth != null"
+    },
+    "users": {
+      "$uid": {
+        ".read": "auth != null",
+        ".write": "auth != null && (auth.uid === $uid || root.child('users').child(auth.uid).child('role').val() === 'admin')"
+      }
+    },
+    "userScans": {
+      "$uid": {
+        ".read": "auth != null && auth.uid === $uid",
+        ".write": "auth != null && auth.uid === $uid"
+      }
+    },
+    "history": {
+      ".read": "auth != null",
+      ".write": "auth != null"
+    },
+    "productProfiles": {
+      ".read": true,
+      ".write": "auth != null && root.child('users').child(auth.uid).child('role').val() === 'admin'"
     }
+  }
+}`;
+
+  const handleCopyRules = () => {
+    navigator.clipboard.writeText(securityRulesJson);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
+
+  const handleSaveFirebase = (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+    if (!apiKey || !dbUrl) {
+      setErrorMessage('Please enter at least an API Key and Database URL.');
+      return;
+    }
+    applyFirebaseConfig({
+      apiKey,
+      authDomain: '',
+      databaseURL: dbUrl,
+      projectId: '',
+      storageBucket: '',
+      messagingSenderId: '',
+      appId: ''
+    });
   };
 
   return (
-    <div className="space-y-6 select-none text-[#edeff2]">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/5 pb-4">
-        <div>
-          <button 
-            onClick={() => navigate('/admin')}
-            className="flex items-center gap-1 text-[11px] font-black text-[#21c55d] uppercase tracking-wider mb-1 cursor-pointer hover:underline"
-          >
-            <ArrowLeft className="w-3.5 h-3.5" />
-            <span>Control Console</span>
-          </button>
-          <h1 className="text-2xl font-black text-white tracking-tight">
-            Node System Settings
-          </h1>
-          <p className="text-xs text-slate-400 font-semibold mt-0.5">
-            Configure system-wide notifications, refresh loops, and device sync baselines.
-          </p>
-        </div>
+    <div className="space-y-6 max-w-4xl mx-auto text-[#FDF8F5]">
+      <div>
+        <h1 className="text-2xl font-black text-[#FDF8F5] tracking-tight">System Settings & Security</h1>
+        <p className="text-xs text-[#B8A89E] font-medium">IoT telemetry parameters, database connection & security rules</p>
       </div>
 
-      <div className="max-w-xl bg-[#141416] border border-white/5 rounded-3xl p-6 shadow-xl space-y-6">
-        <div className="flex items-center gap-2.5 text-[#21c55d] border-b border-white/5 pb-4">
-          <Settings className="w-5 h-5" />
-          <h3 className="text-sm font-black uppercase tracking-wider">Cloud Engine Configuration</h3>
+      {/* Database Security Rules Section */}
+      <div className="glass-card rounded-3xl p-6 border border-[#FF6A00]/25 shadow-xl space-y-3">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <Lock className="w-5 h-5 text-[#FFAA00]" />
+            <div>
+              <h3 className="text-base font-bold text-[#FDF8F5]">Firebase Realtime Database Security Rules</h3>
+              <p className="text-xs text-[#B8A89E]">Deploy these rules to protect your production database</p>
+            </div>
+          </div>
+          <button
+            onClick={handleCopyRules}
+            className="px-3.5 py-2 rounded-xl bg-[#FF6A00]/15 text-[#FFAA00] font-bold text-xs hover:bg-[#FF6A00]/25 border border-[#FF6A00]/30 transition-colors flex items-center gap-1.5 cursor-pointer"
+          >
+            {copied ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
+            <span>{copied ? 'COPIED!' : 'COPY RULES'}</span>
+          </button>
         </div>
 
-        <form onSubmit={handleSave} className="space-y-5">
-          {/* Notifications Toggle */}
-          <div className="flex items-center justify-between p-3.5 bg-[#0b0b0c] border border-white/5 rounded-2xl">
-            <div>
-              <h4 className="text-xs font-black text-white">Spontaneous Warning Emails</h4>
-              <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Dispatches instant alert emails during threshold temperature spikes.</p>
-            </div>
-            <label className="relative inline-flex items-center cursor-pointer select-none">
-              <input 
-                type="checkbox" 
-                checked={notificationsEnabled}
-                onChange={(e) => setNotificationsEnabled(e.target.checked)}
-                className="sr-only peer"
-              />
-              <div className="w-11 h-6 bg-white/10 rounded-full peer peer-focus:ring-0 peer-checked:after:translate-x-full after:content-[''] after:absolute after:top-0.5 after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[#21c55d]" />
-            </label>
-          </div>
+        <pre className="p-4 rounded-2xl bg-[#110A07] text-[#FFAA00] font-mono text-xs overflow-x-auto border border-[#FF6A00]/20 leading-relaxed">
+          {securityRulesJson}
+        </pre>
+      </div>
 
-          {/* Temperature unit */}
+      {/* Connection & System Configuration Form */}
+      <div className="glass-card rounded-3xl p-6 border border-[#FF6A00]/25 shadow-xl space-y-4">
+        <div className="flex items-center gap-2.5">
+          <Database className="w-5 h-5 text-[#FF6A00]" />
           <div>
-            <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">
-              Default Metric Unit
-            </label>
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                onClick={() => setTemperatureUnit('C')}
-                className={`py-3 rounded-xl text-xs font-black border transition-all cursor-pointer ${
-                  temperatureUnit === 'C'
-                    ? 'bg-[#21c55d] text-[#0b0b0c] border-transparent'
-                    : 'bg-white/5 text-slate-300 border-white/5 hover:border-white/10'
-                }`}
-              >
-                Celsius (°C)
-              </button>
-              <button
-                type="button"
-                onClick={() => setTemperatureUnit('F')}
-                className={`py-3 rounded-xl text-xs font-black border transition-all cursor-pointer ${
-                  temperatureUnit === 'F'
-                    ? 'bg-[#21c55d] text-[#0b0b0c] border-transparent'
-                    : 'bg-white/5 text-slate-300 border-white/5 hover:border-white/10'
-                }`}
-              >
-                Fahrenheit (°F)
-              </button>
-            </div>
+            <h3 className="text-base font-bold text-[#FDF8F5]">Database Connection Config</h3>
+            <p className="text-xs text-[#B8A89E]">Status: {isFirebaseConfigured ? 'Connected to Firebase' : 'Demo Mode'}</p>
           </div>
+        </div>
 
-          {/* Refresh interval loop */}
-          <div>
-            <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider mb-2">
-              Realtime Loop Sync Interval
-            </label>
-            <select
-              value={refreshInterval}
-              onChange={(e) => setRefreshInterval(parseInt(e.target.value))}
-              className="w-full h-11 px-3.5 rounded-xl bg-[#141416] border border-white/5 text-xs font-bold focus:border-[#21c55d] focus:outline-none transition-all"
-            >
-              <option value="5000">High Speed (5 seconds)</option>
-              <option value="15000">Standard (15 seconds)</option>
-              <option value="30000">Eco Mode (30 seconds)</option>
-              <option value="60000">Static (1 minute)</option>
-            </select>
-          </div>
-
-          {success && (
-            <div className="p-3.5 rounded-xl bg-emerald-500/10 border border-emerald-500/15 text-[#21c55d] text-xs font-semibold flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4" />
-              <span>{success}</span>
+        <form onSubmit={handleSaveFirebase} className="space-y-3">
+          {errorMessage && (
+            <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-medium">
+              {errorMessage}
             </div>
           )}
+          <div>
+            <label className="text-xs font-bold text-[#FDF8F5] uppercase block mb-1">
+              Firebase API Key
+            </label>
+            <input
+              type="text"
+              value={apiKey}
+              onChange={e => setApiKey(e.target.value)}
+              placeholder="e.g. AIzaSy..."
+              className="w-full bg-[#1C1410] border border-[#FF6A00]/30 px-3.5 py-2.5 rounded-xl text-xs font-mono text-[#FDF8F5] focus:outline-none focus:border-[#FFAA00]"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs font-bold text-[#FDF8F5] uppercase block mb-1">
+              Firebase Realtime Database URL
+            </label>
+            <input
+              type="text"
+              value={dbUrl}
+              onChange={e => setDbUrl(e.target.value)}
+              placeholder="https://your-project-default-rtdb.firebaseio.com"
+              className="w-full bg-[#1C1410] border border-[#FF6A00]/30 px-3.5 py-2.5 rounded-xl text-xs font-mono text-[#FDF8F5] focus:outline-none focus:border-[#FFAA00]"
+            />
+          </div>
 
           <button
             type="submit"
-            disabled={isSaving}
-            className="w-full h-11 rounded-xl bg-[#21c55d] text-[#0b0b0c] text-xs font-black shadow-lg shadow-emerald-500/10 hover:brightness-110 active:scale-98 transition-all flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+            className="px-5 py-2.5 rounded-xl btn-orange font-bold text-xs shadow-md cursor-pointer"
           >
-            {isSaving ? (
-              <RefreshCw className="w-4 h-4 animate-spin" />
-            ) : (
-              <Save className="w-4 h-4" />
-            )}
-            <span>{isSaving ? 'SYNCHRONIZING...' : 'SAVE SYSTEM CONFIG'}</span>
+            UPDATE CONNECTION
           </button>
         </form>
       </div>

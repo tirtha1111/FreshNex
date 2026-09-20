@@ -1,264 +1,329 @@
 import React, { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { motion, AnimatePresence } from 'motion/react';
 import { 
-  ChevronLeft, 
-  Leaf, 
-  MapPin, 
-  Clock, 
+  ArrowLeft, 
   Thermometer, 
   Droplets, 
   Wind, 
-  CheckCircle2, 
-  Sparkles
+  Activity, 
+  ChevronRight, 
+  History, 
+  Info,
+  Wifi,
+  X
 } from 'lucide-react';
-import { 
-  LineChart, 
-  Line, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  ResponsiveContainer 
-} from 'recharts';
+import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
+import { WifiSettings } from './WifiSettings';
 
 export const ProductDetails: React.FC = () => {
-  const productId = useParams<{ productId: string }>().productId;
+  const { productId } = useParams<{ productId: string }>();
   const navigate = useNavigate();
-  const { getProductTelemetry } = useApp();
+  const { devicesMap, sensorHistory } = useApp();
 
-  const [selectedRange, setSelectedRange] = useState<'1H' | '6H' | '1D' | '1W' | '1M'>('1D');
+  const deviceId = productId ? productId.toUpperCase() : 'YGS-FD-000124';
+  const device = devicesMap[deviceId] || {
+    device_id: deviceId,
+    product: 'Milk',
+    temperature: 27.4,
+    humidity: 61.2,
+    mq135_raw: 1320,
+    online: true,
+    last_update: Date.now()
+  };
 
-  const data = getProductTelemetry(productId || 'YGS-FD-000124');
-  const { product, device, history } = data;
+  const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
+  const [historyFilter, setHistoryFilter] = useState<'1H' | '24H' | '7D' | '30D'>('24H');
+  const [showWifiSettings, setShowWifiSettings] = useState<boolean>(false);
 
-  // Chart dataset tailored for the selected range
-  const chartData = history && history.length > 0 ? history : [
-    { time: '12 AM', temp: 3.8, humidity: 64, gas: 110 },
-    { time: '6 AM', temp: 4.0, humidity: 63, gas: 115 },
-    { time: '12 PM', temp: 4.5, humidity: 60, gas: 125 },
-    { time: '6 PM', temp: 4.2, humidity: 62, gas: 120 },
-    { time: '12 AM', temp: 4.1, humidity: 62, gas: 118 },
-  ];
+  // Format last update time
+  const lastUpdateTime = device.last_update 
+    ? new Date(device.last_update).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+    : 'Just now';
 
-  const currentTemp = device?.temperature ?? 4.2;
-  const currentHumidity = device?.humidity ?? 62;
-  const currentGas = device?.mq135_raw ?? 120;
+  // Sensor History for this device
+  const rawHistoryList = sensorHistory[deviceId] || [];
+
+  const chartData = rawHistoryList.slice(0, 15).reverse().map((h) => ({
+    time: new Date(h.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+    temp: h.temperature,
+    humidity: h.humidity,
+    mq135: h.mq135_raw
+  }));
 
   return (
-    <div className="space-y-4 pb-8 select-none text-[#edeff2]">
-      {/* Top Bar */}
-      <div className="flex items-center justify-between pt-1">
+    <div className="space-y-5 max-w-2xl mx-auto pb-10 text-[#FDF8F5]">
+      {/* Header Bar */}
+      <div className="flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
-          className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 text-white flex items-center justify-center shadow-xs hover:bg-white/10 transition-colors cursor-pointer"
+          className="w-10 h-10 rounded-2xl glass-card flex items-center justify-center text-[#FFAA00] hover:bg-[#FF6A00]/20 border border-[#FF6A00]/25 transition-colors cursor-pointer"
         >
-          <ChevronLeft className="w-5 h-5" />
+          <ArrowLeft className="w-5 h-5" />
         </button>
-
-        <h1 className="text-sm font-black tracking-widest text-slate-400 uppercase font-mono">
-          Live Data
-        </h1>
-
-        {/* Live status badge */}
-        <div className="px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-[#21c55d] text-xs font-black flex items-center gap-1.5 shadow-xs">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#21c55d] animate-pulse" />
-          <span>LIVE</span>
+        <div className="text-center">
+          <h2 className="text-base font-black text-[#FDF8F5]">Product Details</h2>
+          <p className="text-[10px] font-mono font-bold text-[#FFAA00]">{device.device_id}</p>
         </div>
+        <button
+          onClick={() => setShowHistoryModal(true)}
+          className="w-10 h-10 rounded-2xl glass-card flex items-center justify-center text-[#FFAA00] hover:bg-[#FF6A00]/20 border border-[#FF6A00]/25 transition-colors cursor-pointer"
+          title="View Sensor History"
+        >
+          <History className="w-5 h-5" />
+        </button>
       </div>
 
-      {/* Product Overview Card */}
-      <div className="w-full rounded-3xl bg-[#141416] border border-white/5 p-4 shadow-xs flex items-center gap-4">
-        <div className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-2xl shadow-inner shrink-0">
-          🥗
-        </div>
+      {/* Main Product Status Banner */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.98 }}
+        animate={{ opacity: 1, scale: 1 }}
+        className="glass-card rounded-3xl p-5 sm:p-6 border border-[#FF6A00]/25 shadow-xl space-y-4"
+      >
+        <div className="flex items-start justify-between">
+          <div>
+            <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#FFAA00] bg-[#FF6A00]/15 border border-[#FF6A00]/30 px-2.5 py-1 rounded-full">
+              Package Telemetry
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-black text-[#FDF8F5] mt-1">
+              {device.product || 'Milk'}
+            </h1>
+            <p className="text-xs font-mono font-bold text-[#B8A89E] mt-0.5">
+              ID: {device.device_id}
+            </p>
+          </div>
 
-        <div className="flex-1 overflow-hidden space-y-1">
-          <h2 className="text-sm font-black text-white truncate">
-            {product?.name || 'Organic Lettuce'}
-          </h2>
-          <p className="text-[10px] text-slate-500 font-mono font-bold truncate">
-            TAG ID: {product?.batchNumber || 'FRX20250316001'}
-          </p>
-          
-          {/* Status Badges */}
-          <div className="flex items-center gap-1.5 pt-0.5 flex-wrap">
-            <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-500/15 text-[#21c55d] border border-emerald-500/25">
-              FRESH
-            </span>
-            <span className="px-2 py-0.5 rounded-full text-[9px] font-black bg-emerald-500/15 text-[#21c55d] border border-emerald-500/25">
-              SAFE
-            </span>
+          <div className="text-right">
+            <div className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-extrabold ${
+              device.online 
+                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' 
+                : 'bg-[#1C1410] text-[#8C7A70] border border-[#FF6A00]/20'
+            }`}>
+              <span className={`w-2 h-2 rounded-full ${device.online ? 'bg-emerald-400 animate-ping' : 'bg-[#8C7A70]'}`} />
+              <span>{device.online ? 'LIVE DATA' : 'OFFLINE'}</span>
+            </div>
+            <p className="text-[10px] text-[#8C7A70] font-medium mt-1">
+              Updated: {lastUpdateTime}
+            </p>
           </div>
         </div>
+
+        {/* Status Indicator */}
+        <div className="p-3.5 rounded-2xl bg-gradient-to-r from-[#FF6A00]/15 to-[#FFAA00]/10 border border-[#FF6A00]/25 flex items-center justify-between">
+          <div className="flex items-center gap-2.5">
+            <Activity className="w-5 h-5 text-[#FFAA00] animate-pulse" />
+            <div>
+              <p className="text-xs font-bold text-[#FDF8F5]">Monitoring Status</p>
+              <p className="text-[10px] text-[#B8A89E]">Subscribed to ESP32 sensor stream</p>
+            </div>
+          </div>
+          <span className="px-3 py-1 rounded-xl btn-orange font-extrabold text-xs shadow-xs">
+            Monitoring
+          </span>
+        </div>
+
+        <button
+          onClick={() => setShowWifiSettings(true)}
+          className="w-full py-3 px-4 rounded-2xl border border-[#FF6A00]/35 bg-[#FF6A00]/10 hover:bg-[#FF6A00]/20 text-[#FFAA00] font-extrabold text-xs flex items-center justify-center gap-2 transition-all cursor-pointer shadow-xs"
+        >
+          <Wifi className="w-4 h-4" />
+          <span>CONFIGURE DEPLOYED WI-FI (BLE)</span>
+        </button>
+      </motion.div>
+
+      {/* 3 Large Telemetry Sensor Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        {/* 1. TEMPERATURE CARD */}
+        <motion.div
+          whileHover={{ y: -2 }}
+          className="glass-card p-5 rounded-3xl border border-[#FF6A00]/25 shadow-lg relative overflow-hidden"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold text-[#FDF8F5] uppercase tracking-wider">Temperature</span>
+            <div className="w-10 h-10 rounded-2xl bg-orange-500/15 text-[#FFAA00] flex items-center justify-center border border-orange-500/30">
+              <Thermometer className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-3xl font-black text-[#FDF8F5]">{device.temperature}</span>
+            <span className="text-base font-bold text-[#FFAA00]">°C</span>
+          </div>
+          <p className="text-[10px] font-semibold text-[#8C7A70] mt-1">DHT22 Thermal Sensor</p>
+        </motion.div>
+
+        {/* 2. HUMIDITY CARD */}
+        <motion.div
+          whileHover={{ y: -2 }}
+          className="glass-card p-5 rounded-3xl border border-[#FF6A00]/25 shadow-lg relative overflow-hidden"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold text-[#FDF8F5] uppercase tracking-wider">Humidity</span>
+            <div className="w-10 h-10 rounded-2xl bg-[#FF6A00]/15 text-[#FF6A00] flex items-center justify-center border border-[#FF6A00]/30">
+              <Droplets className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-3xl font-black text-[#FDF8F5]">{device.humidity}</span>
+            <span className="text-base font-bold text-[#FFAA00]">%</span>
+          </div>
+          <p className="text-[10px] font-semibold text-[#8C7A70] mt-1">Relative Air Moisture</p>
+        </motion.div>
+
+        {/* 3. MQ-135 GAS / AIR CARD */}
+        <motion.div
+          whileHover={{ y: -2 }}
+          className="glass-card p-5 rounded-3xl border border-[#FF6A00]/25 shadow-lg relative overflow-hidden"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-bold text-[#FDF8F5] uppercase tracking-wider">Air Sensor</span>
+            <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+              <Wind className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-3xl font-black text-[#FDF8F5]">{device.mq135_raw}</span>
+            <span className="text-xs font-bold text-[#8C7A70]">RAW</span>
+          </div>
+          <p className="text-[10px] font-semibold text-[#8C7A70] mt-1">MQ-135 Gas Sensor</p>
+        </motion.div>
       </div>
 
-      {/* 3 Stat Boxes in a row */}
-      <div className="grid grid-cols-3 gap-2.5">
-        {/* 1. Temperature */}
-        <div className="p-3.5 rounded-2xl bg-[#141416] border border-white/5 shadow-xs flex flex-col justify-between h-28">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[9px] font-mono font-extrabold uppercase text-slate-500">Temp</span>
-            <Thermometer className="w-4 h-4 text-amber-500" />
-          </div>
-          <p className="text-base font-black text-white leading-none mt-1">{currentTemp}°C</p>
-          <div className="mt-1">
-            <span className="px-2 py-0.5 rounded-lg text-[8px] font-black bg-emerald-500/10 text-[#21c55d] border border-emerald-500/15 block text-center uppercase tracking-wider">
-              Optimal
-            </span>
-          </div>
-        </div>
-
-        {/* 2. Humidity */}
-        <div className="p-3.5 rounded-2xl bg-[#141416] border border-white/5 shadow-xs flex flex-col justify-between h-28">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[9px] font-mono font-extrabold uppercase text-slate-500">Humid</span>
-            <Droplets className="w-4 h-4 text-sky-400" />
-          </div>
-          <p className="text-base font-black text-white leading-none mt-1">{currentHumidity}%</p>
-          <div className="mt-1">
-            <span className="px-2 py-0.5 rounded-lg text-[8px] font-black bg-emerald-500/10 text-[#21c55d] border border-emerald-500/15 block text-center uppercase tracking-wider">
-              Normal
-            </span>
-          </div>
-        </div>
-
-        {/* 3. Gas Level */}
-        <div className="p-3.5 rounded-2xl bg-[#141416] border border-white/5 shadow-xs flex flex-col justify-between h-28">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-[9px] font-mono font-extrabold uppercase text-slate-500">Gas</span>
-            <Wind className="w-4 h-4 text-emerald-400" />
-          </div>
-          <p className="text-base font-black text-white leading-none mt-1">{currentGas} <span className="text-[9px] font-normal text-slate-500">ppm</span></p>
-          <div className="mt-1">
-            <span className="px-2 py-0.5 rounded-lg text-[8px] font-black bg-emerald-500/10 text-[#21c55d] border border-emerald-500/15 block text-center uppercase tracking-wider">
-              Safe
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Info Row: Last Updated & Location */}
-      <div className="w-full rounded-2xl bg-[#141416] border border-white/5 p-3.5 shadow-xs flex items-center justify-between text-[11px] font-bold text-slate-400">
-        <div className="flex items-center gap-1.5">
-          <Clock className="w-3.5 h-3.5 text-slate-500" />
-          <span>Last Check: <strong className="text-white font-black">10:24 AM</strong></span>
-        </div>
-        <div className="flex items-center gap-1 text-[#21c55d] font-black">
-          <MapPin className="w-3.5 h-3.5" />
-          <span className="uppercase font-mono">Cold Storage A</span>
-        </div>
-      </div>
-
-      {/* Chart Section: Sensor Data (Last 24 Hours) */}
-      <div className="w-full rounded-3xl bg-[#141416] border border-white/5 p-4 shadow-xs space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-xs font-black text-white uppercase tracking-wider">
-            SENSOR CURVES
-          </h3>
-          
-          {/* Timeframe pill tabs */}
-          <div className="flex items-center gap-1 bg-[#0b0b0c] p-1 rounded-xl border border-white/5">
-            {(['1H', '6H', '1D', '1W', '1M'] as const).map(tab => (
-              <button
-                key={tab}
-                onClick={() => setSelectedRange(tab)}
-                className={`px-2 py-0.5 rounded-lg text-[9px] font-mono font-extrabold tracking-wide transition-all cursor-pointer ${
-                  selectedRange === tab 
-                    ? 'bg-[#21c55d] text-[#0b0b0c] font-black shadow-xs' 
-                    : 'text-slate-500 hover:text-white'
-                }`}
-              >
-                {tab}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Legend */}
-        <div className="flex items-center justify-center gap-4 text-[9px] font-bold text-slate-500 pt-1 uppercase tracking-wide">
-          <div className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-            <span>Temp</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-sky-400" />
-            <span>Humidity</span>
-          </div>
-          <div className="flex items-center gap-1">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#21c55d]" />
-            <span>Gas</span>
-          </div>
-        </div>
-
-        {/* Recharts multi-line chart */}
-        <div className="w-full h-44 pt-2">
-          <ResponsiveContainer width="100%" height="100%">
-            <LineChart data={chartData} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="rgba(255, 255, 255, 0.03)" vertical={false} />
-              <XAxis 
-                dataKey="time" 
-                tick={{ fontSize: 9, fill: '#64748b', fontFamily: 'monospace' }} 
-                axisLine={false} 
-                tickLine={false} 
-              />
-              <YAxis 
-                domain={[0, 200]} 
-                ticks={[0, 50, 100, 150, 200]} 
-                tick={{ fontSize: 9, fill: '#64748b', fontFamily: 'monospace' }} 
-                axisLine={false} 
-                tickLine={false} 
-              />
-              <Tooltip 
-                contentStyle={{ 
-                  backgroundColor: '#141416', 
-                  borderRadius: '16px', 
-                  color: '#fff', 
-                  fontSize: '10px',
-                  border: '1px solid rgba(255, 255, 255, 0.08)',
-                  boxShadow: '0 10px 25px rgba(0,0,0,0.5)'
-                }} 
-              />
-              <Line 
-                type="monotone" 
-                dataKey="temp" 
-                stroke="#f59e0b" 
-                strokeWidth={2.5} 
-                dot={{ r: 2, fill: '#f59e0b' }} 
-              />
-              <Line 
-                type="monotone" 
-                dataKey="humidity" 
-                stroke="#38bdf8" 
-                strokeWidth={2.5} 
-                dot={{ r: 2, fill: '#38bdf8' }} 
-              />
-              <Line 
-                type="monotone" 
-                dataKey="gas" 
-                stroke="#21c55d" 
-                strokeWidth={2.5} 
-                dot={{ r: 2, fill: '#21c55d' }} 
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
-
-      {/* Recommendation Card */}
-      <div className="w-full rounded-3xl bg-[#21c55d]/10 border border-[#21c55d]/20 p-4 shadow-xs flex items-center gap-3.5">
-        <div className="w-11 h-11 rounded-2xl bg-[#21c55d] text-[#0b0b0c] flex items-center justify-center shrink-0 shadow-md">
-          <CheckCircle2 className="w-5 h-5 stroke-[2.5px]" />
-        </div>
+      {/* Sensor Calibration Note */}
+      <div className="p-4 rounded-2xl glass-card border border-[#FF6A00]/20 text-xs text-[#D6C8C0] flex items-start gap-3">
+        <Info className="w-5 h-5 text-[#FFAA00] shrink-0 mt-0.5" />
         <div>
-          <h4 className="text-xs font-black text-white uppercase tracking-wider">
-            Telemetry Optimal
-          </h4>
-          <p className="text-[11px] text-slate-400 font-semibold">
-            This food package is fully fresh and ready for consumption.
+          <p className="font-bold text-[#FDF8F5]">Sensor Guidance</p>
+          <p className="text-[11px] text-[#B8A89E] mt-0.5 leading-relaxed">
+            MQ-135 reports raw gas sensor readings. Freshness evaluation uses configured baseline thresholds per food product.
           </p>
         </div>
       </div>
+
+      {/* Action Button: VIEW SENSOR HISTORY */}
+      <button
+        onClick={() => setShowHistoryModal(true)}
+        className="w-full py-4 px-6 rounded-2xl btn-orange font-bold text-sm shadow-xl hover:brightness-110 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+      >
+        <History className="w-5 h-5" />
+        <span>VIEW SENSOR HISTORY</span>
+        <ChevronRight className="w-4 h-4 ml-auto" />
+      </button>
+
+      {/* SENSOR HISTORY MODAL */}
+      <AnimatePresence>
+        {showHistoryModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              className="glass-card w-full max-w-2xl rounded-3xl p-6 bg-[#160E0A] shadow-2xl border border-[#FF6A00]/30 max-h-[90vh] overflow-y-auto space-y-4"
+            >
+              <div className="flex items-center justify-between pb-3 border-b border-[#FF6A00]/20">
+                <div>
+                  <h3 className="text-lg font-black text-[#FDF8F5]">Sensor Telemetry History</h3>
+                  <p className="text-xs text-[#B8A89E]">Device: {device.device_id} ({device.product})</p>
+                </div>
+                <button
+                  onClick={() => setShowHistoryModal(false)}
+                  className="w-8 h-8 rounded-full bg-[#1C1410] border border-[#FF6A00]/25 text-[#B8A89E] flex items-center justify-center hover:text-white cursor-pointer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+
+              {/* Filter Tabs */}
+              <div className="flex gap-2">
+                {(['1H', '24H', '7D', '30D'] as const).map(f => (
+                  <button
+                    key={f}
+                    onClick={() => setHistoryFilter(f)}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      historyFilter === f
+                        ? 'btn-orange shadow-xs'
+                        : 'bg-[#FF6A00]/10 border border-[#FF6A00]/20 text-[#B8A89E] hover:text-white'
+                    }`}
+                  >
+                    {f}
+                  </button>
+                ))}
+              </div>
+
+              {chartData.length === 0 ? (
+                <div className="p-8 text-center text-[#B8A89E] text-xs font-bold bg-[#FF6A00]/5 border border-[#FF6A00]/15 rounded-2xl">
+                  No historical readings available yet for this device.
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Temperature Chart */}
+                  <div>
+                    <h4 className="text-xs font-bold text-[#FDF8F5] uppercase mb-2 flex items-center gap-1.5">
+                      <Thermometer className="w-4 h-4 text-[#FF6A00]" /> Temperature (°C)
+                    </h4>
+                    <div className="h-44 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#3D261A" />
+                          <XAxis dataKey="time" stroke="#8C7A70" fontSize={10} />
+                          <YAxis stroke="#8C7A70" fontSize={10} domain={['auto', 'auto']} />
+                          <Tooltip contentStyle={{ backgroundColor: '#1C1410', borderColor: '#FF6A00', color: '#FDF8F5' }} />
+                          <Line type="monotone" dataKey="temp" stroke="#FF6A00" strokeWidth={2.5} dot={{ r: 3 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* Humidity Chart */}
+                  <div>
+                    <h4 className="text-xs font-bold text-[#FDF8F5] uppercase mb-2 flex items-center gap-1.5">
+                      <Droplets className="w-4 h-4 text-[#FFAA00]" /> Humidity (%)
+                    </h4>
+                    <div className="h-44 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#3D261A" />
+                          <XAxis dataKey="time" stroke="#8C7A70" fontSize={10} />
+                          <YAxis stroke="#8C7A70" fontSize={10} domain={['auto', 'auto']} />
+                          <Tooltip contentStyle={{ backgroundColor: '#1C1410', borderColor: '#FFAA00', color: '#FDF8F5' }} />
+                          <Line type="monotone" dataKey="humidity" stroke="#FFAA00" strokeWidth={2.5} dot={{ r: 3 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+
+                  {/* MQ-135 Chart */}
+                  <div>
+                    <h4 className="text-xs font-bold text-[#FDF8F5] uppercase mb-2 flex items-center gap-1.5">
+                      <Wind className="w-4 h-4 text-emerald-400" /> MQ-135 Gas Raw
+                    </h4>
+                    <div className="h-44 w-full">
+                      <ResponsiveContainer width="100%" height="100%">
+                        <LineChart data={chartData}>
+                          <CartesianGrid strokeDasharray="3 3" stroke="#3D261A" />
+                          <XAxis dataKey="time" stroke="#8C7A70" fontSize={10} />
+                          <YAxis stroke="#8C7A70" fontSize={10} domain={['auto', 'auto']} />
+                          <Tooltip contentStyle={{ backgroundColor: '#1C1410', borderColor: '#10B981', color: '#FDF8F5' }} />
+                          <Line type="monotone" dataKey="mq135" stroke="#10B981" strokeWidth={2.5} dot={{ r: 3 }} />
+                        </LineChart>
+                      </ResponsiveContainer>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      <AnimatePresence>
+        {showWifiSettings && (
+          <WifiSettings
+            deviceId={device.device_id}
+            onClose={() => setShowWifiSettings(false)}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 };

@@ -2,28 +2,28 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { DeviceData } from '../types';
-import { ChevronRight, QrCode } from 'lucide-react';
+import { PackageCheck, ChevronRight, Cpu, Plus, QrCode } from 'lucide-react';
 
 export const Products: React.FC = () => {
-  const { devicesMap } = useApp();
+  const { devicesMap, userScans } = useApp();
   const navigate = useNavigate();
 
   // Combine unique devices from scans or devicesMap
   const deviceList: DeviceData[] = Object.values(devicesMap);
 
   return (
-    <div className="space-y-5 max-w-md md:max-w-3xl mx-auto text-[#edeff2]">
-      <div className="flex items-center justify-between pt-1">
+    <div className="space-y-4 max-w-3xl mx-auto">
+      <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-lg font-black text-white tracking-tight">MONITORED CONTAINERS</h1>
-          <p className="text-[11px] text-slate-500 font-semibold">Active IoT nodes linked to your account</p>
+          <h1 className="text-2xl font-black text-[#1A120D] tracking-tight">Monitored Packages</h1>
+          <p className="text-xs text-slate-500 font-medium">IoT packages linked to your FreshNex account</p>
         </div>
         <button
           onClick={() => navigate('/scan')}
-          className="px-3 py-2 rounded-xl bg-[#21c55d] text-[#0b0b0c] text-xs font-black shadow-lg shadow-emerald-500/10 hover:scale-105 active:scale-95 transition-all flex items-center gap-1.5 cursor-pointer"
+          className="px-4 py-2 rounded-xl bg-gradient-to-r from-[#FF6A00] to-[#FF6A00] text-white text-xs font-bold shadow-md hover:brightness-110 flex items-center gap-1.5"
         >
           <QrCode className="w-4 h-4" />
-          <span>SCAN</span>
+          <span>SCAN NEW</span>
         </button>
       </div>
 
@@ -32,45 +32,45 @@ export const Products: React.FC = () => {
           <div
             key={dev.device_id}
             onClick={() => navigate(`/products/${dev.device_id}`)}
-            className="p-4 rounded-3xl bg-[#141416] border border-white/5 hover:border-[#21c55d]/40 hover:bg-[#141416]/80 transition-all cursor-pointer shadow-md space-y-3.5 group"
+            className="glass-card glass-card-hover p-4 rounded-2xl cursor-pointer border border-white/80 shadow-md space-y-3"
           >
             <div className="flex items-start justify-between">
               <div className="flex items-center gap-3">
-                <div className="w-11 h-11 rounded-2xl bg-white/5 border border-white/10 text-[#21c55d] flex items-center justify-center font-black text-base shadow-xs shrink-0 group-hover:scale-105 transition-transform">
+                <div className="w-12 h-12 rounded-2xl bg-[#FF6A00]/15 text-[#FF6A00] flex items-center justify-center font-black text-base shadow-xs">
                   {dev.product ? dev.product.charAt(0).toUpperCase() : 'M'}
                 </div>
-                <div className="overflow-hidden">
-                  <h3 className="text-xs font-black text-white truncate group-hover:text-[#21c55d] transition-colors">{dev.product || 'Food Package'}</h3>
-                  <p className="text-[10px] font-mono font-bold text-slate-500 truncate">{dev.device_id}</p>
+                <div>
+                  <h3 className="text-sm font-bold text-[#1A120D]">{dev.product || 'Food Package'}</h3>
+                  <p className="text-xs font-mono font-bold text-[#E65C00]">{dev.device_id}</p>
                 </div>
               </div>
 
-              <span className={`px-2 py-0.5 rounded-full text-[8px] font-mono font-black ${
-                dev.online ? 'bg-emerald-500/10 text-[#21c55d] border border-emerald-500/20' : 'bg-white/5 text-slate-500 border border-white/5'
+              <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-black ${
+                dev.online ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
               }`}>
                 {dev.online ? 'ONLINE' : 'OFFLINE'}
               </span>
             </div>
 
-            <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-[#0b0b0c]/85 border border-white/5 text-center">
+            <div className="grid grid-cols-3 gap-2 p-2.5 rounded-xl bg-[#FF6A00]/10/70 text-center">
               <div>
-                <span className="text-[8px] font-mono font-black text-slate-500 uppercase block">Temp</span>
-                <span className="text-xs font-black text-white mt-0.5 block">{dev.temperature}°C</span>
+                <span className="text-[9px] font-bold text-slate-400 uppercase block">Temp</span>
+                <span className="text-xs font-black text-[#1A120D]">{dev.temperature}°C</span>
               </div>
               <div>
-                <span className="text-[8px] font-mono font-black text-slate-500 uppercase block">Humid</span>
-                <span className="text-xs font-black text-white mt-0.5 block">{dev.humidity}%</span>
+                <span className="text-[9px] font-bold text-slate-400 uppercase block">Humidity</span>
+                <span className="text-xs font-black text-[#1A120D]">{dev.humidity}%</span>
               </div>
               <div>
-                <span className="text-[8px] font-mono font-black text-slate-500 uppercase block">MQ-135</span>
-                <span className="text-xs font-black text-white mt-0.5 block">{dev.mq135_raw}</span>
+                <span className="text-[9px] font-bold text-slate-400 uppercase block">MQ-135</span>
+                <span className="text-xs font-black text-[#1A120D]">{dev.mq135_raw}</span>
               </div>
             </div>
 
-            <div className="flex items-center justify-between pt-1 text-[9px] font-mono font-bold text-slate-500">
-              <span className="uppercase">STATUS: SECURE</span>
-              <span className="text-[#21c55d] flex items-center gap-0.5 font-black group-hover:translate-x-0.5 transition-transform">
-                TELEMETRY <ChevronRight className="w-3.5 h-3.5" />
+            <div className="flex items-center justify-between pt-1 text-[10px] text-slate-400 font-medium">
+              <span>Status: Monitoring</span>
+              <span className="text-[#FF6A00] font-bold flex items-center gap-0.5">
+                View Details <ChevronRight className="w-3.5 h-3.5" />
               </span>
             </div>
           </div>

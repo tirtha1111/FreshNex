@@ -1,128 +1,92 @@
-import React, { useState } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom';
-import { AppProvider, useApp } from './context/AppContext';
-import { Splash } from './components/Splash';
-import { Layout } from './components/Navigation';
-import { AuthScreen } from './components/Auth';
-import { Dashboard } from './components/Dashboard';
-import { ScanProduct } from './components/ScanProduct';
-import { ProductDetails } from './components/ProductDetails';
-import { Products } from './components/Products';
-import { HistoryPage } from './components/History';
-import { Alerts } from './components/Alerts';
-import { ProfileSettings } from './components/ProfileSettings';
+import React from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { AuthProvider, useAuth } from './context/AuthContext';
+import { FreshnessProvider } from './context/FreshnessContext';
+import { AppLayout } from './components/layout/AppLayout';
 
-// Admin Components
-import { AdminDashboard } from './components/AdminDashboard';
-import { AdminDevices } from './components/AdminDevices';
-import { AdminProducts } from './components/AdminProducts';
-import { AdminUsers } from './components/AdminUsers';
-import { AdminAlerts } from './components/AdminAlerts';
-import { AdminSettings } from './components/AdminSettings';
+// Pages
+import { LandingPage } from './pages/LandingPage';
+import { LoginPage } from './pages/LoginPage';
+import { SignUpPage } from './pages/SignUpPage';
+import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
+import { AboutPage } from './pages/AboutPage';
 
-const AppContent: React.FC = () => {
-  const { currentUser, userRole, isLoading } = useApp();
-  const [showSplash, setShowSplash] = useState<boolean>(true);
-  const navigate = useNavigate();
+import { DashboardPage } from './pages/DashboardPage';
+import { ScanPage } from './pages/ScanPage';
+import { LiveDataPage } from './pages/LiveDataPage';
+import { AlertsPage } from './pages/AlertsPage';
+import { HistoryPage } from './pages/HistoryPage';
+import { AnalyticsPage } from './pages/AnalyticsPage';
+import { ProfilePage } from './pages/ProfilePage';
+import { SettingsPage } from './pages/SettingsPage';
 
-  if (showSplash) {
-    return (
-      <Splash 
-        onFinish={(targetMode) => {
-          setShowSplash(false);
-          if (targetMode === 'signup') {
-            navigate('/signup');
-          } else {
-            navigate('/login');
-          }
-        }} 
-      />
-    );
-  }
+// Protected Route Guard
+const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+  const { currentUser, isDemoMode, isLoading } = useAuth();
+  const location = useLocation();
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#0b0b0c] flex flex-col items-center justify-center p-4 select-none">
-        <div className="w-10 h-10 border-4 border-[#21c55d] border-t-transparent rounded-full animate-spin shadow-[0_0_12px_rgba(33,197,93,0.2)]" />
-        <p className="text-[10px] text-slate-400 font-mono font-black mt-5 tracking-widest uppercase">
-          Initializing FreshNex Telemetry Engine...
+      <div className="min-h-screen bg-[#140C08] flex flex-col items-center justify-center p-4">
+        <div className="w-10 h-10 border-3 border-[#FF6A00] border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs text-[#B8A89E] font-bold mt-4 tracking-wider uppercase">
+          Loading FreshNex Platform...
         </p>
       </div>
     );
   }
 
+  // If user is not authenticated
   if (!currentUser) {
-    return (
-      <Routes>
-        <Route 
-          path="/login" 
-          element={
-            <AuthScreen 
-              initialMode="login" 
-              onBackToWelcome={() => setShowSplash(true)} 
-            />
-          } 
-        />
-        <Route 
-          path="/signup" 
-          element={
-            <AuthScreen 
-              initialMode="signup" 
-              onBackToWelcome={() => setShowSplash(true)} 
-            />
-          } 
-        />
-        <Route 
-          path="/forgot-password" 
-          element={
-            <AuthScreen 
-              initialMode="forgot" 
-              onBackToWelcome={() => setShowSplash(true)} 
-            />
-          } 
-        />
-        <Route path="*" element={<Navigate to="/login" replace />} />
-      </Routes>
-    );
+    return <Navigate to="/login" state={{ from: location }} replace />;
   }
 
+  return <>{children}</>;
+};
+
+const AppRoutes: React.FC = () => {
   return (
-    <Layout>
-      <Routes>
-        {userRole === 'admin' ? (
-          <>
-            <Route path="/admin" element={<AdminDashboard />} />
-            <Route path="/admin/devices" element={<AdminDevices />} />
-            <Route path="/admin/products" element={<AdminProducts />} />
-            <Route path="/admin/users" element={<AdminUsers />} />
-            <Route path="/admin/alerts" element={<AdminAlerts />} />
-            <Route path="/admin/settings" element={<AdminSettings />} />
-            <Route path="*" element={<Navigate to="/admin" replace />} />
-          </>
-        ) : (
-          <>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/scan" element={<ScanProduct />} />
-            <Route path="/products/:productId" element={<ProductDetails />} />
-            <Route path="/products" element={<Products />} />
-            <Route path="/scan-history" element={<HistoryPage />} />
-            <Route path="/alerts" element={<Alerts />} />
-            <Route path="/profile" element={<ProfileSettings />} />
-            <Route path="/settings" element={<ProfileSettings />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </>
-        )}
-      </Routes>
-    </Layout>
+    <Routes>
+      {/* Public Pages */}
+      <Route path="/" element={<LandingPage />} />
+      <Route path="/about" element={<AboutPage />} />
+      <Route path="/login" element={<LoginPage />} />
+      <Route path="/signup" element={<SignUpPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+
+      {/* Protected Dashboard & Monitoring Routes */}
+      <Route
+        element={
+          <ProtectedRoute>
+            <AppLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/scan" element={<ScanPage />} />
+        <Route path="/live-data" element={<LiveDataPage />} />
+        <Route path="/live-data/:itemId" element={<LiveDataPage />} />
+        <Route path="/alerts" element={<AlertsPage />} />
+        <Route path="/history" element={<HistoryPage />} />
+        <Route path="/analytics" element={<AnalyticsPage />} />
+        <Route path="/profile" element={<ProfilePage />} />
+        <Route path="/settings" element={<SettingsPage />} />
+      </Route>
+
+      {/* Fallback to Home */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   );
 };
 
 export default function App() {
   return (
-    <AppProvider>
-      <BrowserRouter>
-        <AppContent />
-      </BrowserRouter>
-    </AppProvider>
+    <AuthProvider>
+      <FreshnessProvider>
+        <BrowserRouter>
+          <AppRoutes />
+        </BrowserRouter>
+      </FreshnessProvider>
+    </AuthProvider>
   );
 }

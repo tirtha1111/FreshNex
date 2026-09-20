@@ -65,7 +65,7 @@ export const Devices: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-3">
         <div>
           <h2 className="text-xl font-black text-slate-950 tracking-tight flex items-center gap-2">
-            <Cpu className="w-5.5 h-5.5 text-sky-500" />
+            <Cpu className="w-5.5 h-5.5 text-[#FF6A00]" />
             ESP32 / RFID Hardware Manager
           </h2>
           <p className="text-xs text-slate-500">Deploy wireless receivers, trace MAC addresses, and manage gateway connections.</p>
@@ -73,7 +73,7 @@ export const Devices: React.FC = () => {
 
         <button
           onClick={() => setIsRegistering(!isRegistering)}
-          className="px-4 py-2.5 bg-gradient-to-r from-sky-600 to-blue-600 text-white font-extrabold text-xs rounded-xl shadow shadow-blue-100 flex items-center gap-2 hover:shadow-md cursor-pointer whitespace-nowrap self-start sm:self-center"
+          className="px-4 py-2.5 bg-gradient-to-r from-[#FF6A00] to-[#FFAA00] text-white font-extrabold text-xs rounded-xl shadow shadow-[#FF6A00]/100 flex items-center gap-2 hover:shadow-md cursor-pointer whitespace-nowrap self-start sm:self-center"
         >
           {isRegistering ? 'Cancel Registry' : 'Register IoT Node'}
           {isRegistering ? null : <Plus className="w-4 h-4" />}
@@ -87,13 +87,13 @@ export const Devices: React.FC = () => {
         <form onSubmit={handleSubmit} className="bg-white border border-slate-100 p-6 rounded-3xl shadow-sm space-y-4 max-w-xl animate-fade-in">
           <div className="flex items-center justify-between border-b border-slate-50 pb-2">
             <h3 className="text-sm font-black text-slate-950 uppercase tracking-wider flex items-center gap-1.5">
-              <Sparkles className="w-4.5 h-4.5 text-sky-500" />
+              <Sparkles className="w-4.5 h-4.5 text-[#FF6A00]" />
               Provision Edge Receiver Node
             </h3>
             <button
               type="button"
               onClick={handleGenerateMac}
-              className="text-[10px] font-extrabold text-sky-600 uppercase hover:underline cursor-pointer"
+              className="text-[10px] font-extrabold text-[#FF6A00] uppercase hover:underline cursor-pointer"
             >
               Generate Mock MAC
             </button>
@@ -107,7 +107,7 @@ export const Devices: React.FC = () => {
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="e.g. Coldroom A Main Receiver" 
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold focus:outline-none focus:border-sky-500"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#FF6A00]"
               />
             </div>
 
@@ -118,7 +118,7 @@ export const Devices: React.FC = () => {
                 value={macAddress}
                 onChange={(e) => setMacAddress(e.target.value)}
                 placeholder="e.g. 24:0A:C4:05:08:C2" 
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold focus:outline-none focus:border-sky-500"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-semibold focus:outline-none focus:border-[#FF6A00]"
               />
             </div>
 
@@ -127,7 +127,7 @@ export const Devices: React.FC = () => {
               <select 
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
-                className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-slate-600 focus:outline-none focus:border-sky-500"
+                className="w-full px-3 py-2 bg-slate-50 border border-slate-100 rounded-xl text-xs font-bold text-slate-600 focus:outline-none focus:border-[#FF6A00]"
               >
                 <option value="Coldroom A">Coldroom A (Vegetables / Fruits)</option>
                 <option value="Coldroom B">Coldroom B (Dairy / Bakery)</option>
@@ -168,7 +168,7 @@ export const Devices: React.FC = () => {
             return (
               <div 
                 key={dev.id}
-                className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4 hover:shadow hover:border-sky-200 transition-all"
+                className="bg-white border border-slate-100 rounded-2xl p-5 shadow-sm space-y-4 hover:shadow hover:border-[#FF6A00]/30 transition-all"
               >
                 {/* Status indicator row */}
                 <div className="flex items-center justify-between">
@@ -207,7 +207,7 @@ export const Devices: React.FC = () => {
                   <div className="flex justify-between font-bold">
                     <span className="text-slate-400">Location:</span>
                     <span className="text-slate-700 flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-sky-500" />
+                      <MapPin className="w-3 h-3 text-[#FF6A00]" />
                       {dev.location}
                     </span>
                   </div>
@@ -223,7 +223,7 @@ export const Devices: React.FC = () => {
                       {associatedProducts.map(p => (
                         <div key={p.id} className="text-[10px] font-bold text-slate-700 flex items-center justify-between">
                           <span className="truncate max-w-[150px]">{p.name}</span>
-                          <span className="text-sky-600 bg-sky-50 px-1 py-0.5 rounded text-[9px] shrink-0">{p.batchId}</span>
+                          <span className="text-[#FF6A00] bg-[#FF6A00]/10 px-1 py-0.5 rounded text-[9px] shrink-0">{p.batchId}</span>
                         </div>
                       ))}
                     </div>

@@ -1,372 +1,199 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
-import { 
-  Bell, 
-  QrCode, 
-  Activity, 
-  Clock, 
-  FileText, 
-  Camera, 
-  ArrowRight, 
-  Leaf, 
-  Sparkles,
-  ShieldCheck,
-  ChevronRight,
-  TrendingUp,
-  Thermometer,
-  Droplets,
-  Wind,
-  Plus,
-  Compass,
-  MessageSquare,
-  HelpCircle
-} from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
+import { QrCode, ArrowRight, ShieldCheck, Cpu, Clock, ChevronRight, Activity, Sparkles } from 'lucide-react';
 
 export const Dashboard: React.FC = () => {
-  const { userRecord, scanHistory, devicesMap } = useApp();
+  const { userRecord, userScans, devicesMap } = useApp();
   const navigate = useNavigate();
 
-  const userName = userRecord?.name?.split(' ')[0] || 'Alex';
-  const latestScan = scanHistory && scanHistory.length > 0 ? scanHistory[0] : null;
-
-  // Food Safety AI Assistant Q&A State
-  const [activeQuestion, setActiveQuestion] = useState<string | null>(null);
-  const [aiAnswer, setAiAnswer] = useState<string | null>(null);
-  const [isAiLoading, setIsAiLoading] = useState(false);
-
-  const qaSuggestions = [
-    {
-      q: "How to prolong Strawberry shelf-life?",
-      a: "Store strawberries unwashed in a single layer lined with paper towels in a shallow container. Wash them only right before eating. Ideal temperature: 0°C to 2°C with 90% humidity."
-    },
-    {
-      q: "Is 12°C temperature safe for Milk?",
-      a: "No, milk should always be stored below 4°C. At 12°C, bacterial growth accelerates rapidly, causing milk to spoil within hours. Ensure your dairy chiller is adjusted."
-    },
-    {
-      q: "What is optimal Lettuce humidity?",
-      a: "Leafy greens like Organic Lettuce thrive in high humidity (90% to 95%). Use a perforated storage container or wrapped damp cloth to maintain freshness."
-    }
-  ];
-
-  const handleAskAi = (question: string, answer: string) => {
-    setActiveQuestion(question);
-    setIsAiLoading(true);
-    setAiAnswer(null);
-    setTimeout(() => {
-      setAiAnswer(answer);
-      setIsAiLoading(false);
-    }, 600);
-  };
-
-  // Dynamic Fridge Inventory Items based on scanned products or default list
-  const fridgeItems = [
-    {
-      id: 'YGS-FD-000124',
-      name: 'Organic Lettuce',
-      icon: '🥗',
-      defaultTemp: 4.5,
-      defaultHum: 85,
-      defaultGas: 120,
-      location: 'Cold Storage A'
-    },
-    {
-      id: 'item-2',
-      name: 'Strawberries',
-      icon: '🍓',
-      defaultTemp: 1.8,
-      defaultHum: 90,
-      defaultGas: 80,
-      location: 'Cold Storage B'
-    },
-    {
-      id: 'item-4',
-      name: 'Fresh Milk',
-      icon: '🥛',
-      defaultTemp: 3.2,
-      defaultHum: 62,
-      defaultGas: 150,
-      location: 'Dairy Chiller'
-    }
-  ];
+  // Get prototype or latest device readings for summary preview
+  const protoDevice = devicesMap['YGS-FD-000124'];
 
   return (
-    <div className="space-y-6 pb-8 select-none text-[#edeff2]">
-      {/* Top Header Bar */}
-      <div className="flex items-center justify-between pt-1">
+    <div className="space-y-6">
+      {/* Welcome Banner */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <span className="text-[9px] font-black tracking-widest text-[#21c55d] uppercase bg-emerald-500/10 border border-[#21c55d]/20 px-2.5 py-1 rounded-full">
-            IoT Freshness Hub
-          </span>
-          <h1 className="text-xl md:text-2xl font-black text-[#edeff2] tracking-tight mt-2.5">
-            Welcome back, {userName}!
+          <h1 className="text-2xl sm:text-3xl font-black text-[#FDF8F5] tracking-tight">
+            Welcome back, <span className="text-[#FF7B00]">{userRecord?.name || 'User'}</span> 👋
           </h1>
-          <p className="text-xs font-semibold text-slate-400 mt-0.5">
-            Pantry freshness index looks excellent today.
+          <p className="text-xs sm:text-sm font-medium text-[#B8A89E] mt-1">
+            Real-time IoT food safety monitoring & QR package verification
           </p>
         </div>
 
-        <div className="flex items-center gap-2.5">
-          {/* Bell with red notification badge */}
-          <button
-            onClick={() => navigate('/alerts')}
-            className="w-10 h-10 rounded-2xl bg-[#141416] border border-white/5 text-slate-300 flex items-center justify-center relative shadow-xs hover:bg-[#141416]/80 hover:scale-105 active:scale-95 transition-all cursor-pointer"
+        {/* Prototype Quick Status Badge */}
+        {protoDevice && (
+          <div 
+            onClick={() => navigate('/products/YGS-FD-000124')}
+            className="glass-card p-3 rounded-2xl flex items-center gap-3 cursor-pointer hover:border-[#FF6A00]/60 transition-all shadow-lg border border-[#FF6A00]/25"
           >
-            <Bell className="w-5 h-5" />
-            <span className="absolute top-2.5 right-2.5 w-2 h-2 rounded-full bg-red-500 ring-2 ring-[#0b0b0c]" />
-          </button>
-
-          {/* User Profile Avatar circle */}
-          <button
-            onClick={() => navigate('/profile')}
-            className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-[#1267D6] to-[#21c55d] text-white text-xs font-black flex items-center justify-center shadow-lg shadow-emerald-500/10 hover:scale-105 active:scale-95 transition-all cursor-pointer"
-          >
-            {userRecord?.name 
-              ? userRecord.name.split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase() 
-              : 'AJ'}
-          </button>
-        </div>
-      </div>
-
-      {/* Hero Banner Card */}
-      <div className="relative w-full rounded-3xl bg-gradient-to-br from-[#141416] via-[#101012] to-[#0b0b0c] p-6 text-white shadow-xl border border-white/5 overflow-hidden">
-        {/* Glowing background ambient lights */}
-        <div className="absolute top-0 right-0 w-48 h-48 rounded-full bg-[#21c55d]/10 blur-3xl pointer-events-none animate-pulse" />
-        <div className="absolute bottom-0 right-10 w-36 h-36 rounded-full bg-sky-400/5 blur-2xl pointer-events-none" />
-
-        <div className="relative z-10 flex items-center justify-between">
-          <div className="space-y-2 max-w-[210px]">
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[8.5px] font-black uppercase tracking-widest bg-white/5 text-emerald-400 border border-white/10">
-              <Leaf className="w-3.5 h-3.5 text-emerald-400 fill-emerald-400/20" />
-              <span>Verified Harvest</span>
-            </span>
-            <h2 className="text-xl font-black leading-tight text-white pt-1">
-              Smarter Storage.<br />Zero Waste.
-            </h2>
-            <p className="text-[11px] text-slate-300 font-semibold leading-relaxed">
-              FreshNex combines custom ESP32 node arrays to track atmospheric safety indexes in real time.
-            </p>
-          </div>
-
-          {/* Fresh vegetable crate visual mockup */}
-          <div className="w-24 h-24 rounded-2xl bg-white/5 border border-white/10 p-2 flex flex-col items-center justify-center text-center shadow-inner relative shrink-0">
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-tr from-[#21c55d] to-[#1267D6] flex items-center justify-center shadow-md mb-1.5">
-              <Leaf className="w-5 h-5 text-white" />
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center font-bold text-xs relative border border-emerald-500/30">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping mr-1" />
+              LIVE
             </div>
-            <span className="text-[9px] font-extrabold text-[#21c55d] uppercase tracking-wider block">
-              100% Secure
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Navigation grid */}
-      <div className="grid grid-cols-2 gap-3.5">
-        {/* 1. Live IoT Scanner */}
-        <button
-          onClick={() => navigate('/scan')}
-          className="p-4 rounded-3xl bg-[#141416] border border-white/5 shadow-xs hover:border-[#21c55d]/30 hover:shadow-md transition-all text-left flex flex-col justify-between h-32 cursor-pointer group"
-        >
-          <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-[#21c55d] flex items-center justify-center group-hover:scale-105 transition-all">
-            <QrCode className="w-5 h-5 stroke-[2.2px]" />
-          </div>
-          <div>
-            <h3 className="text-xs font-black text-[#edeff2]">Scan Tag</h3>
-            <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Deploy new QR / RFID</p>
-          </div>
-        </button>
-
-        {/* 2. Primary Telemetry */}
-        <button
-          onClick={() => {
-            const targetId = latestScan?.productId || 'YGS-FD-000124';
-            navigate(`/products/${targetId}`);
-          }}
-          className="p-4 rounded-3xl bg-[#141416] border border-white/5 shadow-xs hover:border-[#21c55d]/30 hover:shadow-md transition-all text-left flex flex-col justify-between h-32 cursor-pointer group"
-        >
-          <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 border border-emerald-500/20 text-[#21c55d] flex items-center justify-center group-hover:scale-105 transition-all">
-            <Activity className="w-5 h-5 stroke-[2.2px]" />
-          </div>
-          <div>
-            <h3 className="text-xs font-black text-[#edeff2]">Atmosphere</h3>
-            <p className="text-[10px] text-slate-400 font-semibold mt-0.5">Live sensor logs</p>
-          </div>
-        </button>
-      </div>
-
-      {/* VIRTUAL FRIDGE FRESHNESS TRACKER */}
-      <div className="w-full rounded-3xl bg-[#141416] border border-white/5 p-5 shadow-xs space-y-4">
-        <div className="flex items-center justify-between">
-          <div>
-            <h3 className="text-xs font-black text-[#edeff2] uppercase tracking-wide flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-[#21c55d]" />
-              <span>Active Freshness Tracker</span>
-            </h3>
-            <p className="text-[10px] text-slate-400 font-semibold">Real-time status of your food containers</p>
-          </div>
-          <span className="px-2.5 py-0.5 rounded-full text-[9px] font-black bg-emerald-500/10 text-[#21c55d] border border-emerald-500/20">
-            {fridgeItems.length} Tracked
-          </span>
-        </div>
-
-        {/* List of tracked items */}
-        <div className="space-y-3">
-          {fridgeItems.map((item) => {
-            const liveDevice = devicesMap[item.id];
-            const liveTemp = liveDevice ? liveDevice.temperature : item.defaultTemp;
-            const liveHum = liveDevice ? liveDevice.humidity : item.defaultHum;
-            const liveGas = liveDevice ? liveDevice.mq135_raw : item.defaultGas;
-
-            let freshnessScore = 98;
-            if (liveTemp > 8) freshnessScore -= (liveTemp - 8) * 10;
-            if (liveGas > 1500) freshnessScore -= (liveGas - 1500) * 0.05;
-            freshnessScore = Math.max(12, Math.min(100, Math.round(freshnessScore)));
-
-            const isFresh = freshnessScore > 75;
-            const isWarning = freshnessScore <= 75 && freshnessScore > 40;
-
-            return (
-              <div
-                key={item.id}
-                onClick={() => navigate(`/products/${item.id}`)}
-                className="p-3.5 rounded-2xl bg-[#0b0b0c] border border-white/5 hover:border-[#21c55d]/40 hover:bg-[#0b0b0c]/80 transition-all flex items-center justify-between cursor-pointer group"
-              >
-                <div className="flex items-center gap-3">
-                  <div className="w-11 h-11 rounded-xl bg-white/5 border border-white/10 flex items-center justify-center text-xl shrink-0 group-hover:scale-105 transition-transform">
-                    {item.icon}
-                  </div>
-                  <div>
-                    <h4 className="text-xs font-black text-[#edeff2] group-hover:text-[#21c55d] transition-colors">
-                      {item.name}
-                    </h4>
-                    <div className="flex items-center gap-2 mt-1 text-[9px] font-bold text-slate-400">
-                      <span className="flex items-center gap-0.5">
-                        <Thermometer className="w-3 h-3 text-amber-500" />
-                        <span>{liveTemp}°C</span>
-                      </span>
-                      <span className="flex items-center gap-0.5">
-                        <Droplets className="w-3 h-3 text-sky-500" />
-                        <span>{liveHum}%</span>
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center gap-3.5">
-                  <div className="text-right">
-                    <span className="text-[9px] font-extrabold text-slate-400 block">Freshness Index</span>
-                    <div className="flex items-center gap-2 mt-0.5">
-                      <div className="w-16 h-1.5 bg-white/10 rounded-full overflow-hidden">
-                        <div 
-                          className={`h-full rounded-full transition-all duration-500 ${
-                            isFresh ? 'bg-emerald-500' : isWarning ? 'bg-amber-500' : 'bg-red-500'
-                          }`}
-                          style={{ width: `${freshnessScore}%` }}
-                        />
-                      </div>
-                      <span className={`text-[10px] font-black ${
-                        isFresh ? 'text-emerald-500' : isWarning ? 'text-amber-500' : 'text-red-500'
-                      }`}>
-                        {freshnessScore}%
-                      </span>
-                    </div>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-slate-400 group-hover:translate-x-0.5 transition-transform" />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* FOOD SAFETY AI ASSISTANT */}
-      <div className="w-full rounded-3xl bg-[#141416] border border-white/5 p-5 shadow-xs space-y-4">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-xl bg-[#21c55d]/10 text-[#21c55d] flex items-center justify-center border border-[#21c55d]/20">
-            <Sparkles className="w-4 h-4 fill-[#21c55d]/20" />
-          </div>
-          <div>
-            <h3 className="text-xs font-black text-[#edeff2] uppercase tracking-wide">Food Safety AI Guide</h3>
-            <p className="text-[10px] text-slate-400 font-semibold">Instant scientific storage recommendations</p>
-          </div>
-        </div>
-
-        {/* Suggestion Chips */}
-        <div className="flex flex-wrap gap-2 pt-1">
-          {qaSuggestions.map((item, idx) => (
-            <button
-              key={idx}
-              onClick={() => handleAskAi(item.q, item.a)}
-              className={`px-3 py-2 rounded-xl text-[10px] font-bold text-left transition-all border cursor-pointer ${
-                activeQuestion === item.q 
-                  ? 'bg-[#21c55d] text-[#0b0b0c] border-transparent shadow-md font-extrabold' 
-                  : 'bg-white/5 text-slate-300 border-white/5 hover:border-white/10 hover:bg-white/10'
-              }`}
-            >
-              {item.q}
-            </button>
-          ))}
-        </div>
-
-        {/* Output Screen */}
-        <AnimatePresence mode="wait">
-          {activeQuestion && (
-            <motion.div
-              initial={{ opacity: 0, y: 4 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -4 }}
-              className="p-4 rounded-2xl bg-[#0b0b0c] border border-white/5 shadow-xs space-y-2"
-            >
-              <p className="text-[10px] font-black text-[#21c55d] uppercase tracking-wider flex items-center gap-1">
-                <span>AI Guidance</span>
-                <span className="w-1.5 h-1.5 rounded-full bg-white/10" />
-                <span className="text-slate-400 normal-case font-bold">{activeQuestion}</span>
+            <div>
+              <p className="text-xs font-bold text-[#FDF8F5]">{protoDevice.product} ({protoDevice.device_id})</p>
+              <p className="text-[10px] text-[#FFAA00] font-mono font-semibold">
+                {protoDevice.temperature}°C • {protoDevice.humidity}% • MQ135: {protoDevice.mq135_raw}
               </p>
-              
-              {isAiLoading ? (
-                <div className="flex items-center gap-1.5 py-1 text-xs text-slate-400 font-semibold">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#21c55d] animate-bounce" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#21c55d] animate-bounce [animation-delay:0.2s]" />
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#21c55d] animate-bounce [animation-delay:0.4s]" />
-                  <span>Analyzing food parameters...</span>
-                </div>
-              ) : (
-                <p className="text-xs text-slate-300 font-semibold leading-relaxed">
-                  {aiAnswer}
-                </p>
-              )}
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+            <ChevronRight className="w-4 h-4 text-[#B8A89E]" />
+          </div>
+        )}
       </div>
 
-      {/* Main Status / Scan Prompt Card */}
-      <div className="w-full rounded-3xl bg-[#141416] border border-white/5 p-6 shadow-xs text-center flex flex-col items-center justify-center space-y-4">
-        {/* Big Blue QR Code Circle with radial gradient */}
-        <div className="w-16 h-16 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-[#21c55d]">
-          <QrCode className="w-8 h-8 stroke-[1.8px]" />
-        </div>
+      {/* Hero QR Scan Card */}
+      <motion.div
+        initial={{ opacity: 0, y: 15 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4 }}
+        className="glass-panel p-6 sm:p-8 text-[#FDF8F5] relative overflow-hidden shadow-2xl border border-[#FF6A00]/30 bg-gradient-to-br from-[#26160E]/90 via-[#1C120C]/85 to-[#0F0A07]/95"
+      >
+        {/* Decorative glowing background elements */}
+        <div className="absolute right-[-10%] top-[-10%] w-64 h-64 rounded-full bg-[#FF6A00]/15 blur-3xl pointer-events-none" />
+        <div className="absolute left-[-5%] bottom-[-20%] w-56 h-56 rounded-full bg-[#FFAA00]/15 blur-3xl pointer-events-none" />
 
-        <div className="space-y-1 max-w-xs">
-          <h3 className="text-xs font-black text-[#edeff2] uppercase tracking-wider">
-            {latestScan ? 'Latest Registered Tag' : 'No Active Scans'}
-          </h3>
-          <p className="text-xs text-slate-400 font-semibold leading-relaxed">
-            {latestScan 
-              ? `${latestScan.productName || 'Organic Lettuce'} was loaded successfully from cold storage.` 
-              : 'Deploy or scan a freshness tag to inspect temperature and gas curves.'}
+        <div className="relative z-10 max-w-xl space-y-4">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#FF6A00]/15 backdrop-blur-md border border-[#FF6A00]/35 text-xs font-bold text-[#FFAA00]">
+            <Sparkles className="w-3.5 h-3.5 text-[#FFAA00]" />
+            <span>Instant ESP32 Telemetry Lookup</span>
+          </div>
+
+          <h2 className="text-3xl sm:text-4xl font-black tracking-tight leading-tight text-[#FDF8F5]">
+            Scan the Code.<br />
+            <span className="text-transparent bg-clip-text bg-gradient-to-r from-[#FF6A00] via-[#FF9020] to-[#FFAA00] drop-shadow-[0_0_20px_rgba(255,106,0,0.4)]">
+              Know the Truth.
+            </span>
+          </h2>
+
+          <p className="text-sm font-medium text-[#D6C8C0] leading-relaxed max-w-md">
+            Scan the QR code on your food package to view live monitoring data directly from ESP32 sensors.
           </p>
+
+          <div className="pt-2">
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
+              onClick={() => navigate('/scan')}
+              className="py-4 px-8 rounded-2xl font-black text-sm text-[#FFFFFF] btn-orange transition-all flex items-center justify-center gap-3 cursor-pointer shadow-xl shadow-[#FF6A00]/40"
+            >
+              <QrCode className="w-5 h-5 text-white" />
+              <span>SCAN PRODUCT</span>
+              <ArrowRight className="w-4 h-4 text-white" />
+            </motion.button>
+          </div>
+        </div>
+      </motion.div>
+
+      {/* Feature Cards Grid */}
+      <div className="grid grid-cols-3 gap-3">
+        <div 
+          onClick={() => navigate('/scan')}
+          className="glass-card card-hover p-3.5 sm:p-4 rounded-2xl text-center cursor-pointer flex flex-col items-center border border-[#FF6A00]/25"
+        >
+          <div className="w-10 h-10 rounded-xl bg-[#FF6A00]/15 text-[#FFAA00] flex items-center justify-center mb-2 shadow-sm border border-[#FF6A00]/30">
+            <QrCode className="w-5 h-5" />
+          </div>
+          <span className="text-xs font-bold text-[#FDF8F5]">QR Scanner</span>
+          <span className="text-[10px] text-[#B8A89E] mt-0.5">Live Camera</span>
         </div>
 
-        <button
-          onClick={() => navigate('/scan')}
-          className="w-full max-w-xs h-11 rounded-2xl font-black text-xs text-[#0b0b0c] bg-[#21c55d] shadow-lg shadow-emerald-500/10 hover:brightness-110 active:scale-98 transition-all flex items-center justify-center gap-2 cursor-pointer"
+        <div 
+          onClick={() => navigate('/products')}
+          className="glass-card card-hover p-3.5 sm:p-4 rounded-2xl text-center cursor-pointer flex flex-col items-center border border-[#FF6A00]/25"
         >
-          <Camera className="w-4 h-4" />
-          <span>Launch Scanner</span>
-        </button>
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center mb-2 shadow-sm border border-emerald-500/30">
+            <Cpu className="w-5 h-5" />
+          </div>
+          <span className="text-xs font-bold text-[#FDF8F5]">My Packages</span>
+          <span className="text-[10px] text-[#B8A89E] mt-0.5">Track Devices</span>
+        </div>
+
+        <div 
+          onClick={() => navigate('/scan-history')}
+          className="glass-card card-hover p-3.5 sm:p-4 rounded-2xl text-center cursor-pointer flex flex-col items-center border border-[#FF6A00]/25"
+        >
+          <div className="w-10 h-10 rounded-xl bg-[#FFAA00]/15 text-[#FFAA00] flex items-center justify-center mb-2 shadow-sm border border-[#FFAA00]/30">
+            <Clock className="w-5 h-5" />
+          </div>
+          <span className="text-xs font-bold text-[#FDF8F5]">Scan History</span>
+          <span className="text-[10px] text-[#B8A89E] mt-0.5">Past Logs</span>
+        </div>
+      </div>
+
+      {/* Recently Scanned Section */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-base font-bold text-[#FDF8F5] flex items-center gap-2">
+            <Clock className="w-4 h-4 text-[#FFAA00]" />
+            <span>Recently Scanned</span>
+          </h3>
+          <button
+            onClick={() => navigate('/scan-history')}
+            className="text-xs font-bold text-[#FFAA00] hover:underline"
+          >
+            View All ({userScans.length})
+          </button>
+        </div>
+
+        {userScans.length === 0 ? (
+          <div className="glass-card p-6 rounded-2xl text-center border border-[#FF6A00]/20">
+            <p className="text-xs text-[#B8A89E]">No packages scanned yet.</p>
+            <button
+              onClick={() => navigate('/scan')}
+              className="mt-2 text-xs font-bold text-[#FFAA00] hover:underline"
+            >
+              Scan your first package now →
+            </button>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {userScans.slice(0, 4).map((scan) => {
+              const deviceData = devicesMap[scan.device_id] || {
+                device_id: scan.device_id,
+                product: scan.product || 'Food Package',
+                temperature: 27.4,
+                humidity: 61.2,
+                mq135_raw: 1320,
+                online: true,
+                last_update: scan.scanned_at
+              };
+
+              return (
+                <div
+                  key={scan.id}
+                  onClick={() => navigate(`/products/${scan.device_id}`)}
+                  className="glass-card card-hover p-4 rounded-2xl cursor-pointer flex items-center justify-between border border-[#FF6A00]/20"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#FF6A00]/20 to-[#FFAA00]/10 border border-[#FF6A00]/30 text-[#FFAA00] flex items-center justify-center font-black text-sm shadow-sm">
+                      {scan.product ? scan.product.charAt(0).toUpperCase() : 'P'}
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-bold text-[#FDF8F5]">{scan.product || 'Food Package'}</h4>
+                      <p className="text-xs font-mono font-semibold text-[#FFAA00]">{scan.device_id}</p>
+                      <p className="text-[10px] text-[#B8A89E] mt-0.5">
+                        Scanned: {new Date(scan.scanned_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="text-right">
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      LIVE
+                    </span>
+                    <p className="text-xs font-bold text-[#FDF8F5] mt-1 font-mono">
+                      {deviceData.temperature}°C | {deviceData.humidity}%
+                    </p>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -1,278 +1,287 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { motion, AnimatePresence } from 'motion/react';
 import jsQR from 'jsqr';
 import { 
-  ChevronLeft, 
+  ArrowLeft, 
   Zap, 
+  ZapOff, 
+  QrCode, 
+  Search, 
+  AlertCircle, 
   Camera, 
-  Radio, 
-  ShieldCheck, 
-  Wifi, 
   RefreshCw,
-  QrCode,
-  Sparkles
+  Info
 } from 'lucide-react';
-import { motion } from 'motion/react';
 
 export const ScanProduct: React.FC = () => {
   const navigate = useNavigate();
-  const { handleScanSuccess } = useApp();
+  const { fetchDeviceById, addScanToHistory } = useApp();
 
-  const [flashlightOn, setFlashlightOn] = useState<boolean>(false);
-  const [manualCode, setManualCode] = useState<string>('');
-  const [showManualInput, setShowManualInput] = useState<boolean>(false);
-  const [cameraActive, setCameraActive] = useState<boolean>(false);
-  const [scanStatusText, setScanStatusText] = useState<string>('SCANNING...');
-  
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const streamRef = useRef<MediaStream | null>(null);
-  const animationFrameId = useRef<number | null>(null);
 
-  // Attempt to start real device camera
+  const [hasPermission, setHasPermission] = useState<boolean | null>(null);
+  const [flashlight, setFlashlight] = useState<boolean>(false);
+  const [manualInput, setManualInput] = useState<string>('YGS-FD-000124');
+  const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [stream, setStream] = useState<MediaStream | null>(null);
+
+  // Initialize camera stream & scanner loop
   useEffect(() => {
     let active = true;
+    let animationFrameId: number;
 
-    async function startCamera() {
+    const startCamera = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          video: { facingMode: 'environment' }
+        const mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: 'environment', width: { ideal: 1280 }, height: { ideal: 720 } }
         });
-        if (!active) return;
-        streamRef.current = stream;
+
+        if (!active) {
+          mediaStream.getTracks().forEach(t => t.stop());
+          return;
+        }
+
+        setStream(mediaStream);
+        setHasPermission(true);
+
         if (videoRef.current) {
-          videoRef.current.srcObject = stream;
+          videoRef.current.srcObject = mediaStream;
           videoRef.current.setAttribute('playsinline', 'true');
           await videoRef.current.play();
-          setCameraActive(true);
         }
+
+        // Frame analyzer loop using jsQR
+        const scanCanvas = () => {
+          if (!active) return;
+          const video = videoRef.current;
+          const canvas = canvasRef.current;
+
+          if (video && video.readyState === video.HAVE_ENOUGH_DATA && canvas) {
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              canvas.width = video.videoWidth;
+              canvas.height = video.videoHeight;
+              ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+              const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: 'dontInvert'
+              });
+
+              if (code && code.data && !isProcessing) {
+                const scannedText = code.data.trim();
+                handleScanResult(scannedText);
+                return; // Stop scanning once found
+              }
+            }
+          }
+
+          animationFrameId = requestAnimationFrame(scanCanvas);
+        };
+
+        animationFrameId = requestAnimationFrame(scanCanvas);
+
       } catch (err) {
-        console.log('Camera not available, falling back to simulated scan viewfinder:', err);
-        setCameraActive(false);
+        console.warn('Camera access error or restricted:', err);
+        setHasPermission(false);
       }
-    }
+    };
 
     startCamera();
 
     return () => {
       active = false;
-      if (streamRef.current) {
-        streamRef.current.getTracks().forEach(track => track.stop());
-      }
-      if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
+      if (animationFrameId) cancelAnimationFrame(animationFrameId);
+      if (stream) {
+        stream.getTracks().forEach(t => t.stop());
       }
     };
   }, []);
 
-  // Frame processing loop for QR scanner
-  useEffect(() => {
-    if (!cameraActive) return;
-
-    const scanFrame = () => {
-      if (videoRef.current && canvasRef.current && videoRef.current.readyState === videoRef.current.HAVE_ENOUGH_DATA) {
-        const video = videoRef.current;
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-
-        if (ctx) {
-          canvas.height = video.videoHeight;
-          canvas.width = video.videoWidth;
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-          const code = jsQR(imageData.data, imageData.width, imageData.height, {
-            inversionAttempts: 'dontInvert',
-          });
-
-          if (code && code.data) {
-            triggerSuccess(code.data);
-            return;
-          }
+  const toggleFlashlight = async () => {
+    if (stream) {
+      const track = stream.getVideoTracks()[0];
+      if (track) {
+        try {
+          const newFlashState = !flashlight;
+          // @ts-ignore
+          await track.applyConstraints({ advanced: [{ torch: newFlashState }] });
+          setFlashlight(newFlashState);
+        } catch (e) {
+          console.warn('Torch constraint not supported on this device/browser.');
         }
       }
-      animationFrameId.current = requestAnimationFrame(scanFrame);
-    };
+    }
+  };
 
-    animationFrameId.current = requestAnimationFrame(scanFrame);
+  const handleScanResult = async (scannedId: string) => {
+    setIsProcessing(true);
+    setErrorMessage(null);
 
-    return () => {
-      if (animationFrameId.current) {
-        cancelAnimationFrame(animationFrameId.current);
+    // Clean scanned text
+    const cleanId = scannedId.trim().toUpperCase();
+
+    try {
+      const device = await fetchDeviceById(cleanId);
+
+      if (device) {
+        // Device found! Save to scan history and navigate to details
+        await addScanToHistory(device.device_id, device.product || 'Milk');
+        navigate(`/products/${device.device_id}`);
+      } else {
+        setErrorMessage(`FreshNex device "${cleanId}" not found in database.`);
+        setIsProcessing(false);
       }
-    };
-  }, [cameraActive]);
-
-  const triggerSuccess = (detectedCode: string) => {
-    setScanStatusText('CODE VERIFIED!');
-    handleScanSuccess(detectedCode);
-    setTimeout(() => {
-      navigate(`/products/${detectedCode}`);
-    }, 600);
+    } catch (err) {
+      setErrorMessage('Error querying device from Firebase.');
+      setIsProcessing(false);
+    }
   };
 
   const handleManualSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!manualCode.trim()) return;
-    triggerSuccess(manualCode.trim());
+    if (!manualInput.trim()) return;
+    handleScanResult(manualInput.trim());
   };
 
   return (
-    <div className="space-y-5 pb-8 select-none flex flex-col items-center text-[#edeff2]">
-      
+    <div className="space-y-4 max-w-lg mx-auto text-[#FDF8F5]">
       {/* Top Header Bar */}
-      <div className="w-full flex items-center justify-between pt-1">
+      <div className="flex items-center justify-between">
         <button
           onClick={() => navigate(-1)}
-          className="w-10 h-10 rounded-2xl bg-white/5 border border-white/10 text-white flex items-center justify-center shadow-xs hover:bg-white/10 transition-colors cursor-pointer"
+          className="w-10 h-10 rounded-2xl glass-card flex items-center justify-center text-[#FFAA00] hover:bg-[#FF6A00]/20 transition-colors border border-[#FF6A00]/20"
         >
-          <ChevronLeft className="w-5 h-5" />
+          <ArrowLeft className="w-5 h-5" />
         </button>
-
-        <h1 className="text-sm font-black tracking-widest text-slate-400 uppercase font-mono">
-          Scan QR / RFID
-        </h1>
-
+        <h2 className="text-lg font-black text-[#FDF8F5]">Scan Product</h2>
         <button
-          onClick={() => setFlashlightOn(!flashlightOn)}
-          className={`w-10 h-10 rounded-2xl border flex items-center justify-center shadow-xs transition-all cursor-pointer ${
-            flashlightOn 
-              ? 'bg-amber-400 text-[#0b0b0c] border-amber-500 shadow-md shadow-amber-400/30' 
-              : 'bg-white/5 border-white/10 text-white hover:bg-white/10'
+          onClick={toggleFlashlight}
+          className={`w-10 h-10 rounded-2xl glass-card flex items-center justify-center transition-colors border border-[#FF6A00]/20 ${
+            flashlight ? 'bg-[#FFAA00] text-[#120A05] shadow-lg shadow-[#FFAA00]/40' : 'text-[#FFAA00]'
           }`}
         >
-          <Zap className={`w-4 h-4 ${flashlightOn ? 'fill-amber-950 stroke-amber-950' : ''}`} />
+          {flashlight ? <Zap className="w-5 h-5 fill-current" /> : <ZapOff className="w-5 h-5" />}
         </button>
       </div>
 
-      {/* Subtitle */}
-      <p className="text-xs text-slate-400 font-semibold text-center -mt-1">
-        Position the QR code or RFID tag within the frame
-      </p>
+      {/* Main Scanner Viewport Card */}
+      <div className="glass-card rounded-3xl p-4 border border-[#FF6A00]/30 shadow-2xl relative overflow-hidden bg-[#110A07] text-white min-h-[360px] flex flex-col items-center justify-center">
+        {/* Hidden Canvas for QR Frame Extraction */}
+        <canvas ref={canvasRef} className="hidden" />
 
-      {/* Central Viewfinder Card */}
-      <div className="relative w-full max-w-sm aspect-square rounded-3xl bg-[#141416] border border-white/5 overflow-hidden shadow-2xl flex items-center justify-center p-4">
-        
-        {/* Real camera video background or simulated produce crate */}
-        {cameraActive ? (
-          <video
-            ref={videoRef}
-            className="absolute inset-0 w-full h-full object-cover"
-          />
+        {hasPermission === false ? (
+          <div className="text-center p-6 space-y-3">
+            <div className="w-16 h-16 rounded-full bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto border border-rose-500/30">
+              <Camera className="w-8 h-8" />
+            </div>
+            <h3 className="text-base font-bold text-white">Camera Access Required</h3>
+            <p className="text-xs text-[#B8A89E] max-w-xs">
+              Please allow camera permissions in your browser or use the manual Device ID entry form below.
+            </p>
+          </div>
         ) : (
-          <div className="absolute inset-0 bg-[#0d0d0f] flex flex-col items-center justify-center p-6 text-center">
-            {/* Visual simulation of produce crate with QR tag */}
-            <div className="relative w-48 h-40 rounded-2xl bg-gradient-to-tr from-[#1267D6]/10 to-[#21c55d]/10 border border-white/5 p-4 flex flex-col justify-between shadow-lg">
-              <div className="flex items-center justify-between">
-                <span className="text-[8px] font-mono font-black text-emerald-400 uppercase tracking-widest">
-                  FRX PRODUCE
-                </span>
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
+          <div className="relative w-full h-[320px] rounded-2xl overflow-hidden bg-black flex items-center justify-center">
+            {/* Live Video Viewport */}
+            <video
+              ref={videoRef}
+              className="w-full h-full object-cover"
+              playsInline
+              muted
+            />
+
+            {/* Orange/Amber Scanning Viewfinder Frame */}
+            <div className="absolute inset-0 flex items-center justify-center pointer-events-none p-6">
+              <div className="w-64 h-64 border-2 border-[#FFAA00]/50 rounded-3xl relative shadow-[0_0_50px_rgba(255,106,0,0.35)] bg-[#FF6A00]/5">
+                {/* Corner Accents */}
+                <div className="absolute -top-1 -left-1 w-8 h-8 border-t-4 border-l-4 border-[#FFAA00] rounded-tl-2xl" />
+                <div className="absolute -top-1 -right-1 w-8 h-8 border-t-4 border-r-4 border-[#FFAA00] rounded-tr-2xl" />
+                <div className="absolute -bottom-1 -left-1 w-8 h-8 border-b-4 border-l-4 border-[#FFAA00] rounded-bl-2xl" />
+                <div className="absolute -bottom-1 -right-1 w-8 h-8 border-b-4 border-r-4 border-[#FFAA00] rounded-br-2xl" />
+
+                {/* Animated Laser Beam */}
+                <div className="animate-laser" />
               </div>
-              <div className="w-14 h-14 bg-[#0b0b0c] rounded-xl mx-auto p-1 shadow-md flex items-center justify-center border border-white/5">
-                <QrCode className="w-9 h-9 text-[#21c55d]" />
-              </div>
-              <span className="text-[9px] font-mono font-extrabold text-slate-500 text-center uppercase tracking-wider">
-                FRX20250316001
+            </div>
+
+            {/* Instruction Overlay */}
+            <div className="absolute bottom-4 left-0 right-0 text-center pointer-events-none">
+              <span className="inline-block px-4 py-1.5 rounded-full bg-black/70 backdrop-blur-md text-xs font-bold text-[#FFAA00] border border-[#FF6A00]/30 shadow-md">
+                Align the FreshNex QR code inside the frame
               </span>
             </div>
           </div>
         )}
-
-        {/* Hidden processing canvas */}
-        <canvas ref={canvasRef} className="hidden" />
-
-        {/* Target Frame Corner Brackets [ ] */}
-        <div className="relative w-56 h-56 pointer-events-none z-10 flex flex-col justify-between">
-          {/* Top corners */}
-          <div className="flex justify-between">
-            <div className="w-8 h-8 border-t-4 border-l-4 border-[#21c55d] rounded-tl-xl shadow-[0_0_12px_rgba(33,197,93,0.4)]" />
-            <div className="w-8 h-8 border-t-4 border-r-4 border-[#21c55d] rounded-tr-xl shadow-[0_0_12px_rgba(33,197,93,0.4)]" />
-          </div>
-
-          {/* Glowing Animated Laser Scanning Bar */}
-          <motion.div
-            animate={{ y: [-80, 80, -80] }}
-            transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
-            className="w-full h-0.5 bg-gradient-to-r from-transparent via-[#21c55d] to-transparent shadow-[0_0_15px_#21c55d]"
-          />
-
-          {/* Bottom corners */}
-          <div className="flex justify-between">
-            <div className="w-8 h-8 border-b-4 border-l-4 border-[#21c55d] rounded-bl-xl shadow-[0_0_12px_rgba(33,197,93,0.4)]" />
-            <div className="w-8 h-8 border-b-4 border-r-4 border-[#21c55d] rounded-br-xl shadow-[0_0_12px_rgba(33,197,93,0.4)]" />
-          </div>
-        </div>
-
-        {/* Scanning... indicator at bottom of viewfinder */}
-        <div className="absolute bottom-4 z-20 px-4 py-1.5 rounded-full bg-[#0b0b0c]/80 backdrop-blur-md border border-white/5 flex items-center gap-2">
-          <RefreshCw className="w-3.5 h-3.5 text-[#21c55d] animate-spin" />
-          <span className="text-[10px] font-mono font-black text-[#21c55d] tracking-widest">
-            {scanStatusText}
-          </span>
-        </div>
       </div>
 
-      {/* 3 Feature Badges */}
-      <div className="w-full max-w-sm grid grid-cols-3 gap-2 text-center">
-        <div className="p-3 rounded-2xl bg-[#141416] border border-white/5 flex flex-col items-center">
-          <QrCode className="w-4.5 h-4.5 text-[#38bdf8] mb-1.5" />
-          <span className="text-[9px] font-mono font-black text-white uppercase tracking-wider">Auto Detect</span>
-          <span className="text-[8px] font-bold text-slate-500 mt-0.5">QR or RFID</span>
-        </div>
-
-        <div className="p-3 rounded-2xl bg-[#141416] border border-white/5 flex flex-col items-center">
-          <Radio className="w-4.5 h-4.5 text-[#21c55d] mb-1.5" />
-          <span className="text-[9px] font-mono font-black text-white uppercase tracking-wider">Real-time</span>
-          <span className="text-[8px] font-bold text-slate-500 mt-0.5">Sensing Data</span>
-        </div>
-
-        <div className="p-3 rounded-2xl bg-[#141416] border border-white/5 flex flex-col items-center">
-          <ShieldCheck className="w-4.5 h-4.5 text-purple-400 mb-1.5" />
-          <span className="text-[9px] font-mono font-black text-white uppercase tracking-wider">Secure</span>
-          <span className="text-[8px] font-bold text-slate-500 mt-0.5">Cloud Vault</span>
-        </div>
-      </div>
-
-      {/* Caption text */}
-      <p className="text-[10px] text-slate-500 font-bold uppercase tracking-wider text-center">
-        Keep the code steady for best results
-      </p>
-
-      {/* Instant Demo Scan Action */}
-      <div className="w-full max-w-sm space-y-3 pt-1">
-        <button
-          onClick={() => triggerSuccess('YGS-FD-000124')}
-          className="w-full h-12 rounded-2xl font-black text-xs text-[#0b0b0c] bg-[#21c55d] shadow-lg shadow-emerald-500/10 active:scale-[0.98] transition-all flex items-center justify-center gap-2 cursor-pointer"
+      {/* Error Message Toast */}
+      {errorMessage && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-3.5 rounded-2xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-bold flex items-center gap-2"
         >
-          <Sparkles className="w-4 h-4 text-emerald-950" />
-          <span>SIMULATE SCAN (Organic Lettuce)</span>
-        </button>
+          <AlertCircle className="w-5 h-5 shrink-0 text-rose-400" />
+          <span>{errorMessage}</span>
+        </motion.div>
+      )}
 
-        <button
-          onClick={() => setShowManualInput(!showManualInput)}
-          className="w-full text-center text-xs font-bold text-[#21c55d] hover:underline cursor-pointer py-1"
-        >
-          {showManualInput ? 'Hide manual code entry' : 'Or enter batch / tag ID manually'}
-        </button>
+      {/* Manual Device ID Search Fallback */}
+      <div className="glass-card rounded-2xl p-4 border border-[#FF6A00]/25 space-y-3">
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-bold text-[#FDF8F5] uppercase tracking-wider flex items-center gap-1.5">
+            <QrCode className="w-4 h-4 text-[#FFAA00]" />
+            <span>Manual Device ID Entry</span>
+          </label>
+          <span className="text-[10px] text-[#B8A89E] font-medium">Prototype: YGS-FD-000124</span>
+        </div>
 
-        {showManualInput && (
-          <form onSubmit={handleManualSubmit} className="flex gap-2">
+        <form onSubmit={handleManualSubmit} className="flex gap-2">
+          <div className="relative flex-1">
             <input
               type="text"
-              value={manualCode}
-              onChange={e => setManualCode(e.target.value)}
+              value={manualInput}
+              onChange={e => setManualInput(e.target.value)}
               placeholder="e.g. YGS-FD-000124"
-              className="flex-1 bg-white/5 px-3 py-2.5 rounded-xl text-xs border border-white/5 font-mono text-white outline-none focus:border-[#21c55d] placeholder:text-slate-600"
+              className="w-full bg-[#1C1410] border border-[#FF6A00]/30 px-3.5 py-2.5 rounded-xl text-sm font-mono font-bold text-[#FDF8F5] uppercase tracking-wider focus:outline-none focus:border-[#FFAA00]"
             />
-            <button
-              type="submit"
-              className="px-4 py-2.5 bg-[#21c55d] text-[#0b0b0c] rounded-xl text-xs font-black cursor-pointer"
-            >
-              Verify
-            </button>
-          </form>
-        )}
+          </div>
+          <button
+            type="submit"
+            disabled={isProcessing}
+            className="btn-orange px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all flex items-center gap-1.5 shrink-0 cursor-pointer"
+          >
+            {isProcessing ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <>
+                <Search className="w-4 h-4" />
+                <span>VERIFY</span>
+              </>
+            )}
+          </button>
+        </form>
+      </div>
+
+      {/* Prototype Quick Test Chip */}
+      <div 
+        onClick={() => handleScanResult('YGS-FD-000124')}
+        className="glass-card p-3.5 rounded-xl border border-[#FF6A00]/25 cursor-pointer hover:bg-[#FF6A00]/15 transition-colors flex items-center justify-between"
+      >
+        <div className="flex items-center gap-2.5">
+          <div className="w-8 h-8 rounded-lg bg-[#FFAA00]/15 text-[#FFAA00] flex items-center justify-center border border-[#FFAA00]/30">
+            <Info className="w-4 h-4" />
+          </div>
+          <div>
+            <p className="text-xs font-bold text-[#FDF8F5]">Quick Test Prototype Device</p>
+            <p className="text-[10px] text-[#B8A89E] font-mono">YGS-FD-000124 (Milk Package)</p>
+          </div>
+        </div>
+        <span className="text-xs font-bold text-[#FFAA00] hover:underline">SCAN NOW →</span>
       </div>
     </div>
   );

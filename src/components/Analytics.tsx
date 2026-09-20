@@ -60,7 +60,7 @@ export const Analytics: React.FC = () => {
     const evaluation = calculateFreshness(p, latestReading);
     if (evaluation.status === 'Fresh') freshCount++;
     else if (evaluation.status === 'Warning') warningCount++;
-    else if (evaluation.status === 'Unsafe') unsafeCount++;
+    else unsafeCount++;
   });
 
   const freshnessData = [
@@ -102,7 +102,7 @@ export const Analytics: React.FC = () => {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-slate-100 pb-3">
         <div>
           <h2 className="text-xl font-black text-slate-950 tracking-tight flex items-center gap-2">
-            <BarChart3 className="w-5.5 h-5.5 text-sky-500" />
+            <BarChart3 className="w-5.5 h-5.5 text-[#FF6A00]" />
             Food-Tech Analytics Center
           </h2>
           <p className="text-xs text-slate-500">Aggregate micro-climate profiles and batch degradation analysis logs.</p>

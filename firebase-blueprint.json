@@ -1,0 +1,80 @@
+{
+  "entities": {
+    "Alert": {
+      "title": "Alert",
+      "description": "Real-time alert notification generated when sensor thresholds are exceeded.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the alert",
+          "maxLength": 128
+        },
+        "deviceId": {
+          "type": "string",
+          "description": "Device or product tag ID that triggered the alert",
+          "maxLength": 128
+        },
+        "itemId": {
+          "type": "string",
+          "description": "Associated food item ID",
+          "maxLength": 128
+        },
+        "type": {
+          "type": "string",
+          "description": "Alert category or title",
+          "maxLength": 128
+        },
+        "severity": {
+          "type": "string",
+          "description": "Alert urgency severity level",
+          "enum": ["low", "medium", "warning", "high", "critical", "info"]
+        },
+        "metric": {
+          "type": "string",
+          "description": "Sensor metric that breached threshold",
+          "enum": ["temperature", "gas", "humidity", "general"]
+        },
+        "currentValue": {
+          "type": "number",
+          "description": "Sensor reading value when alert was triggered"
+        },
+        "thresholdValue": {
+          "type": "number",
+          "description": "Threshold limit that was exceeded"
+        },
+        "message": {
+          "type": "string",
+          "description": "Descriptive message with preservation advice",
+          "maxLength": 512
+        },
+        "timestamp": {
+          "type": "number",
+          "description": "Unix timestamp in milliseconds"
+        },
+        "read": {
+          "type": "boolean",
+          "description": "Read status of the alert"
+        },
+        "resolved": {
+          "type": "boolean",
+          "description": "Resolution status of the alert"
+        },
+        "userId": {
+          "type": "string",
+          "description": "User ID who received or owns the alert",
+          "maxLength": 128
+        }
+      },
+      "required": ["id", "type", "severity", "message", "timestamp", "read"]
+    }
+  },
+  "firestore": {
+    "/alerts/{alertId}": {
+      "schema": {
+        "$ref": "#/entities/Alert"
+      },
+      "description": "Collection of real-time sensor threshold alerts and notifications"
+    }
+  }
+}
