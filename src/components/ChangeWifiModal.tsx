@@ -82,6 +82,8 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
   const [wifiPassword, setWifiPassword] = useState<string>('');
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [isScanningWifi, setIsScanningWifi] = useState<boolean>(false);
+  const [wifiScanState, setWifiScanState] = useState<'idle' | 'scanning' | 'success' | 'zero_networks' | 'error'>('idle');
+  const [wifiScanError, setWifiScanError] = useState<string | null>(null);
 
   // Connection Progress Indicators (Step 6)
   const [progressChecklist, setProgressChecklist] = useState<{
@@ -315,18 +317,22 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
   // STEP 4 -> STEP 5: Scan Wi-Fi AP list
   const handleFetchWifiList = async () => {
     setIsScanningWifi(true);
+    setWifiScanError(null);
+    setWifiScanState('scanning');
     setErrorType(null);
     setErrorMessage('');
 
     if (isVirtual || !espDevice) {
       await new Promise(r => setTimeout(r, 600));
       setIsScanningWifi(false);
-      setScannedNetworks([
+      const mockNetworks = [
         { ssid: 'Home-WiFi_2.4G', rssi: -45, auth: 3 },
         { ssid: 'FreshNex_IoT_Warehouse', rssi: -58, auth: 3 },
         { ssid: 'Office_Guest_Network', rssi: -66, auth: 0 },
         { ssid: 'SmartLab_AP_24', rssi: -72, auth: 3 }
-      ]);
+      ];
+      setScannedNetworks(mockNetworks);
+      setWifiScanState('success');
       setStep(5);
       return;
     }
@@ -334,14 +340,21 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
     try {
       setStatusText('Scanning for 2.4GHz Wi-Fi networks via ESP32...');
       const networks = await espDevice.scanWifiList();
-      console.log('[ESP32-PROV] Wi-Fi networks found by ESP32:', networks);
+      console.log('[ESP32-PROV] Real Wi-Fi networks returned by ESP32:', networks);
       setScannedNetworks(networks);
       setIsScanningWifi(false);
+      if (networks.length === 0) {
+        setWifiScanState('zero_networks');
+      } else {
+        setWifiScanState('success');
+      }
       setStep(5);
     } catch (err: any) {
       console.error('[ESP32-PROV] Wi-Fi Scan error:', err);
       setScannedNetworks([]);
       setIsScanningWifi(false);
+      setWifiScanState('error');
+      setWifiScanError(err?.message || 'Wi-Fi scan request failed.');
       setStep(5);
     }
   };
@@ -808,8 +821,29 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
                 </button>
               </div>
 
-              {/* Scanned SSIDs list or Empty Banner */}
-              {scannedNetworks.length > 0 ? (
+              {/* Differentiated States: Scan Error (1, 3, 4, 5) vs Networks Found vs Zero Networks (2) */}
+              {wifiScanState === 'error' && wifiScanError ? (
+                <div className="p-4 rounded-2xl bg-red-950/40 border border-red-500/40 text-left space-y-2.5">
+                  <div className="flex items-center gap-2 text-red-400 font-bold text-xs">
+                    <AlertTriangle className="w-4 h-4 shrink-0 text-red-400" />
+                    <span>Wi-Fi Scan Request Failed</span>
+                  </div>
+                  <div className="text-xs text-red-200 font-mono leading-relaxed bg-black/40 p-3 rounded-xl border border-red-500/20">
+                    {wifiScanError}
+                  </div>
+                  <div className="flex items-center justify-between pt-1">
+                    <span className="text-[10px] text-red-300/70">Check ESP32 power & BLE connection.</span>
+                    <button
+                      type="button"
+                      onClick={handleFetchWifiList}
+                      className="px-3 py-1.5 bg-red-500/20 hover:bg-red-500/30 border border-red-500/40 rounded-lg text-red-200 font-bold text-xs flex items-center gap-1.5 cursor-pointer"
+                    >
+                      <RefreshCw className="w-3 h-3" />
+                      <span>Retry Scan</span>
+                    </button>
+                  </div>
+                </div>
+              ) : scannedNetworks.length > 0 ? (
                 <div className="max-h-48 overflow-y-auto border border-[#FF6A00]/25 rounded-2xl divide-y divide-[#FF6A00]/15 bg-[#1C1410]">
                   {scannedNetworks.map((net) => (
                     <button
@@ -837,10 +871,12 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
                 <div className="p-4 rounded-2xl bg-[#1C1410] border border-[#FF6A00]/20 space-y-2">
                   <div className="flex items-center gap-2 text-[#FFAA00] font-bold text-xs">
                     <Wifi className="w-4 h-4 animate-pulse" />
-                    <span>{isScanningWifi ? 'Scanning 2.4GHz Wi-Fi channels via ESP32...' : 'No Wi-Fi networks auto-detected by ESP32'}</span>
+                    <span>{isScanningWifi ? 'Scanning 2.4GHz Wi-Fi channels via ESP32...' : 'ESP32 returned zero networks'}</span>
                   </div>
                   <p className="text-[11px] text-[#B8A89E] leading-relaxed">
-                    If your ESP32 radio did not return broadcasted APs or if your router uses a hidden 2.4GHz SSID, please enter your Wi-Fi name manually below.
+                    {isScanningWifi
+                      ? 'Waiting for ESP32 hardware scan response over BLE...'
+                      : 'The ESP32 completed the 2.4GHz Wi-Fi scan sweep, but found 0 networks nearby. Ensure your 2.4GHz Wi-Fi router is broadcasting or enter your SSID manually below.'}
                   </p>
                 </div>
               )}
