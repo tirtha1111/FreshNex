@@ -374,7 +374,72 @@ export class FreshNexESPDevice {
   }
 
   /**
-   * Sends raw binary data to characteristic matching GATT properties precisely
+   * Writes a single binary slice to a BLE characteristic using any supported Web Bluetooth write method
+   */
+  private async writeBufferToChar(char: any, buffer: Uint8Array): Promise<void> {
+    const props = char.properties;
+    let writeErr: any = null;
+
+    // Strategy 1: writeValueWithResponse if properties indicate write is supported
+    if (props.write && typeof char.writeValueWithResponse === 'function') {
+      try {
+        await char.writeValueWithResponse(buffer);
+        return;
+      } catch (e: any) {
+        writeErr = e;
+        console.warn(`[ESP32-BLE-PROV] writeValueWithResponse failed: ${e?.message}`);
+      }
+    }
+
+    // Strategy 2: writeValueWithoutResponse if properties indicate writeWithoutResponse is supported
+    if (props.writeWithoutResponse && typeof char.writeValueWithoutResponse === 'function') {
+      try {
+        await char.writeValueWithoutResponse(buffer);
+        return;
+      } catch (e: any) {
+        writeErr = e;
+        console.warn(`[ESP32-BLE-PROV] writeValueWithoutResponse failed: ${e?.message}`);
+      }
+    }
+
+    // Strategy 3: Standard writeValue
+    if (typeof char.writeValue === 'function') {
+      try {
+        await char.writeValue(buffer);
+        return;
+      } catch (e: any) {
+        writeErr = e;
+        console.warn(`[ESP32-BLE-PROV] writeValue failed: ${e?.message}`);
+      }
+    }
+
+    // Strategy 4: Fallback writeValueWithoutResponse regardless of property flags
+    if (typeof char.writeValueWithoutResponse === 'function') {
+      try {
+        await char.writeValueWithoutResponse(buffer);
+        return;
+      } catch (e: any) {
+        writeErr = e;
+        console.warn(`[ESP32-BLE-PROV] Fallback writeValueWithoutResponse failed: ${e?.message}`);
+      }
+    }
+
+    // Strategy 5: Fallback writeValueWithResponse
+    if (typeof char.writeValueWithResponse === 'function') {
+      try {
+        await char.writeValueWithResponse(buffer);
+        return;
+      } catch (e: any) {
+        writeErr = e;
+        console.warn(`[ESP32-BLE-PROV] Fallback writeValueWithResponse failed: ${e?.message}`);
+      }
+    }
+
+    throw writeErr || new Error('No write method succeeded on BLE characteristic');
+  }
+
+  /**
+   * Sends raw binary data to characteristic with automatic write fallback, handle refresh, and MTU chunking
    */
   private async sendRawData(endpoint: string, data: Uint8Array, handshakeStep?: number): Promise<Uint8Array> {
     await this.ensureGattConnection();
@@ -389,43 +454,62 @@ export class FreshNexESPDevice {
       throw new Error(`Characteristic for endpoint '${endpoint}' not found`);
     }
 
-    const props = char.properties;
     const payload = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 
     if (process.env.NODE_ENV !== 'production') {
-      console.log(`[ESP32-BLE-PROV-DEBUG] Write -> endpoint: ${endpoint}, UUID: ${char.uuid}, write: ${props.write}, writeWithoutResponse: ${props.writeWithoutResponse}, payloadLength: ${payload.length}, handshakeStep: ${handshakeStep || 'N/A'}`);
+      console.log(`[ESP32-BLE-PROV-DEBUG] Write -> endpoint: ${endpoint}, UUID: ${char.uuid}, payloadLength: ${payload.length}, handshakeStep: ${handshakeStep || 'N/A'}`);
     }
 
     let writeSuccess = false;
     let lastWriteErr: any = null;
 
-    for (let attempt = 1; attempt <= 3; attempt++) {
+    // Attempt 1: Direct full payload write with method fallbacks and fresh handle re-discovery
+    for (let attempt = 1; attempt <= 2; attempt++) {
       try {
         await this.ensureGattConnection();
-        if (props.write && typeof char.writeValueWithResponse === 'function') {
-          await char.writeValueWithResponse(payload);
-          writeSuccess = true;
-          break;
-        } else if (props.writeWithoutResponse && typeof char.writeValueWithoutResponse === 'function') {
-          await char.writeValueWithoutResponse(payload);
-          writeSuccess = true;
-          break;
-        } else if (typeof char.writeValue === 'function') {
-          await char.writeValue(payload);
-          writeSuccess = true;
-          break;
-        } else {
-          throw new Error('Characteristic has no supported write method.');
-        }
+        await this.writeBufferToChar(char, payload);
+        writeSuccess = true;
+        break;
       } catch (wErr: any) {
         lastWriteErr = wErr;
-        console.warn(`[ESP32-BLE-PROV] Write attempt ${attempt} on ${endpoint} failed:`, wErr?.message);
-        await new Promise(r => setTimeout(r, 200));
+        console.warn(`[ESP32-BLE-PROV] Direct write attempt ${attempt} on ${endpoint} failed:`, wErr?.message);
+        
+        // Refresh characteristic handle from primary service in case GATT handle went stale
+        try {
+          if (this.primaryService) {
+            const freshChars = await this.primaryService.getCharacteristics();
+            const matching = freshChars.find((c: any) => c.uuid.toLowerCase() === char.uuid.toLowerCase());
+            if (matching) {
+              char = matching;
+              this.endpointChars.set(endpoint.toLowerCase(), matching);
+            }
+          }
+        } catch {}
+
+        await new Promise(r => setTimeout(r, 150));
+      }
+    }
+
+    // Attempt 2: If direct write failed, attempt 20-byte MTU-safe chunking
+    if (!writeSuccess) {
+      console.log(`[ESP32-BLE-PROV] Direct write failed, attempting 20-byte chunked write on ${endpoint}...`);
+      try {
+        await this.ensureGattConnection();
+        const chunkSize = 20;
+        for (let offset = 0; offset < payload.length; offset += chunkSize) {
+          const slice = payload.subarray(offset, Math.min(offset + chunkSize, payload.length));
+          await this.writeBufferToChar(char, slice);
+          await new Promise(r => setTimeout(r, 40));
+        }
+        writeSuccess = true;
+      } catch (chunkErr: any) {
+        lastWriteErr = chunkErr;
+        console.warn(`[ESP32-BLE-PROV] Chunked write on ${endpoint} failed:`, chunkErr?.message);
       }
     }
 
     if (!writeSuccess) {
-      const errMsg = lastWriteErr?.message || 'GATT write error';
+      const errMsg = lastWriteErr?.message || 'GATT write error unknown';
       this.diagnostics.lastError = errMsg;
       throw new Error(`Failed to write to ESP32 characteristic '${endpoint}': ${errMsg}`);
     }
