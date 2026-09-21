@@ -516,12 +516,18 @@ export class FreshNexESPDevice {
       throw new Error(`Characteristic for endpoint '${endpoint}' not found after discovery.`);
     }
 
-    const payload = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
+    // MANDATORY STANDALONE CLEAN PAYLOAD:
+    // Create an isolated Uint8Array copy with byteOffset = 0 and buffer length = data.length.
+    // This prevents Web Bluetooth GATT drivers from sending pooled ArrayBuffer fragments or garbage bytes.
+    const cleanPayload = new Uint8Array(data.length);
+    cleanPayload.set(data);
+
     const gattConn = !!(this.device?.gatt?.connected);
     const charConn = !!(this.gattServer?.connected && char);
 
-    // Mandated logging format:
-    console.log(`[ESP32-BLE-PROV] Write Check -> GATT connected: ${gattConn}, Characteristic connected: ${charConn}, Endpoint: ${endpoint}, Write method: writeValueWithResponse, Payload length: ${payload.length}`);
+    const hexPayload = Array.from(cleanPayload).map(b => b.toString(16).padStart(2, '0')).join('');
+    console.log(`[ESP32-BLE-PROV] Write Check -> GATT connected: ${gattConn}, Characteristic connected: ${charConn}, Endpoint: ${endpoint}, Write method: writeValueWithResponse, Payload length: ${cleanPayload.length}`);
+    console.log(`[ESP32-BLE-PROV] Outgoing Protocomm Payload (${cleanPayload.length} bytes): ${hexPayload}`);
 
     let writeSuccess = false;
     let lastWriteErr: any = null;
@@ -540,15 +546,15 @@ export class FreshNexESPDevice {
         }
 
         if (typeof char.writeValueWithResponse === 'function') {
-          await char.writeValueWithResponse(payload);
+          await char.writeValueWithResponse(cleanPayload);
           writeSuccess = true;
           break;
         } else if (typeof char.writeValue === 'function') {
-          await char.writeValue(payload);
+          await char.writeValue(cleanPayload);
           writeSuccess = true;
           break;
         } else if (typeof char.writeValueWithoutResponse === 'function') {
-          await char.writeValueWithoutResponse(payload);
+          await char.writeValueWithoutResponse(cleanPayload);
           writeSuccess = true;
           break;
         }
@@ -571,14 +577,17 @@ export class FreshNexESPDevice {
         }
 
         const chunkSize = 20;
-        for (let offset = 0; offset < payload.length; offset += chunkSize) {
-          const slice = payload.subarray(offset, Math.min(offset + chunkSize, payload.length));
+        for (let offset = 0; offset < cleanPayload.length; offset += chunkSize) {
+          const slice = cleanPayload.subarray(offset, Math.min(offset + chunkSize, cleanPayload.length));
+          const cleanSlice = new Uint8Array(slice.length);
+          cleanSlice.set(slice);
+
           if (typeof char.writeValueWithResponse === 'function') {
-            await char.writeValueWithResponse(slice);
+            await char.writeValueWithResponse(cleanSlice);
           } else if (typeof char.writeValueWithoutResponse === 'function') {
-            await char.writeValueWithoutResponse(slice);
+            await char.writeValueWithoutResponse(cleanSlice);
           } else {
-            await char.writeValue(slice);
+            await char.writeValue(cleanSlice);
           }
           await new Promise(r => setTimeout(r, 40));
         }

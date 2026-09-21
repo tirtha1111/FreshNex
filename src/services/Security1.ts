@@ -104,18 +104,22 @@ export class Security1 extends Security {
     // 1. Compute Shared Secret (ECDH Curve25519)
     const sharedSecret = nacl.scalarMult(this.clientKeyPair.secretKey, this.devicePubKey);
 
-    // 2. Hash Proof of Possession (SHA-256)
-    const popBytes = new TextEncoder().encode(this.pop);
-    const popHashBuffer = await crypto.subtle.digest('SHA-256', popBytes);
-    const popHash = new Uint8Array(popHashBuffer);
+    // 2. Hash Proof of Possession (SHA-256) if provided
+    if (this.pop && this.pop.length > 0) {
+      const popBytes = new TextEncoder().encode(this.pop);
+      const popHashBuffer = await crypto.subtle.digest('SHA-256', popBytes);
+      const popHash = new Uint8Array(popHashBuffer);
 
-    // 3. Derive Session Key (sharedSecret XOR popHash)
-    this.sessionKey = new Uint8Array(32);
-    for (let i = 0; i < 32; i++) {
-      this.sessionKey[i] = sharedSecret[i] ^ popHash[i];
+      // 3. Derive Session Key (sharedSecret XOR popHash)
+      this.sessionKey = new Uint8Array(32);
+      for (let i = 0; i < 32; i++) {
+        this.sessionKey[i] = sharedSecret[i] ^ popHash[i];
+      }
+      console.log(`[ESP32-SEC1] Derived AES-256 session key using Curve25519 ECDH + SHA-256(PoP: "${this.pop}").`);
+    } else {
+      this.sessionKey = new Uint8Array(sharedSecret);
+      console.log('[ESP32-SEC1] Derived AES-256 session key using Curve25519 ECDH (No PoP).');
     }
-
-    console.log('[ESP32-SEC1] Derived AES-256 session key using Curve25519 ECDH + SHA-256(PoP).');
 
     // 4. Initialize continuous streaming AES-256-CTR context with sessionKey & deviceRandom
     this.cipher = new Aes256CtrContext(this.sessionKey, this.deviceRandom);
