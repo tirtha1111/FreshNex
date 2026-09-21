@@ -1,27 +1,14 @@
 import { Security } from './Security';
 import * as proto from './generated/proto.js';
 import nacl from 'tweetnacl';
-
-/**
- * Increment 16-byte big-endian IV by specified number of 16-byte blocks
- */
-function incrementCounter(iv: Uint8Array, blocks: number): Uint8Array {
-  const result = new Uint8Array(iv);
-  let carry = blocks;
-  for (let i = 15; i >= 0 && carry > 0; i--) {
-    const sum = result[i] + carry;
-    result[i] = sum & 0xff;
-    carry = Math.floor(sum / 256);
-  }
-  return result;
-}
+import { Aes256CtrContext } from './aes256';
 
 function uint8ArrayToHex(arr: Uint8Array): string {
   return Array.from(arr).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 /**
- * Security1 - Curve25519 Key Exchange + AES-256-CTR encryption
+ * Security1 - Curve25519 Key Exchange + Continuous AES-256-CTR encryption
  * Implements the official Espressif protocomm Security 1 protocol with PoP
  */
 export class Security1 extends Security {
@@ -34,8 +21,8 @@ export class Security1 extends Security {
   private deviceRandom: Uint8Array | null = null;
   private sessionKey: Uint8Array | null = null;
 
-  // Running AES-CTR block counter matching ESP-IDF mbedtls stream
-  private blockOffset: number = 0;
+  // Continuous AES-256-CTR streaming cipher context (ESP-IDF mbedtls compatible)
+  private cipher: Aes256CtrContext | null = null;
 
   constructor(pop: string = '12345678') {
     super();
@@ -45,29 +32,23 @@ export class Security1 extends Security {
   }
 
   /**
-   * Encrypt data using AES-256-CTR with running block counter
+   * Encrypt data using continuous AES-256-CTR keystream
    */
   async encrypt(data: Uint8Array): Promise<Uint8Array> {
-    if (!this.established || !this.sessionKey || !this.deviceRandom) {
+    if (!this.established || !this.cipher) {
       throw new Error('Security session not established');
     }
-    const iv = incrementCounter(this.deviceRandom, this.blockOffset);
-    const encrypted = await this.aesCtrCrypt(this.sessionKey, iv, data);
-    this.blockOffset += Math.ceil(data.length / 16);
-    return encrypted;
+    return this.cipher.crypt(data);
   }
 
   /**
-   * Decrypt data using AES-256-CTR with running block counter
+   * Decrypt data using continuous AES-256-CTR keystream
    */
   async decrypt(data: Uint8Array): Promise<Uint8Array> {
-    if (!this.established || !this.sessionKey || !this.deviceRandom) {
+    if (!this.established || !this.cipher) {
       throw new Error('Security session not established');
     }
-    const iv = incrementCounter(this.deviceRandom, this.blockOffset);
-    const decrypted = await this.aesCtrCrypt(this.sessionKey, iv, data);
-    this.blockOffset += Math.ceil(data.length / 16);
-    return decrypted;
+    return this.cipher.crypt(data);
   }
 
   /**
@@ -136,11 +117,14 @@ export class Security1 extends Security {
 
     console.log('[ESP32-SEC1] Derived AES-256 session key using Curve25519 ECDH + SHA-256(PoP).');
 
-    // 4. Generate clientVerifyData = Encrypt(devicePubKey) using AES-CTR(sessionKey, deviceRandom)
-    // Client starts at block offset 0 (32 bytes = 2 blocks)
-    const clientVerifyData = await this.aesCtrCrypt(this.sessionKey, this.deviceRandom, this.devicePubKey);
+    // 4. Initialize continuous streaming AES-256-CTR context with sessionKey & deviceRandom
+    this.cipher = new Aes256CtrContext(this.sessionKey, this.deviceRandom);
 
-    // 5. Build Session_Command1
+    // 5. Generate clientVerifyData = Encrypt(devicePubKey) using AES-CTR(sessionKey, deviceRandom)
+    // Consumes 32 bytes (2 blocks) of the keystream
+    const clientVerifyData = this.cipher.crypt(this.devicePubKey);
+
+    // 6. Build Session_Command1
     const setupReq = proto.SessionData.create({});
     setupReq.secVer = proto.SecSchemeVersion.SecScheme1;
     setupReq.sec1 = proto.Sec1Payload.create({
@@ -174,57 +158,51 @@ export class Security1 extends Security {
     }
 
     const deviceVerifyData = sr1.deviceVerifyData;
-    if (!deviceVerifyData || !this.sessionKey || !this.deviceRandom) {
+    if (!deviceVerifyData || !this.sessionKey || !this.deviceRandom || !this.cipher) {
       throw new Error('Verification parameters are incomplete');
     }
 
     console.log(`[ESP32-SEC1] Received deviceVerifyData (${deviceVerifyData.length} bytes)`);
 
-    // In ESP-IDF protocomm_security1:
-    // When ESP32 decrypts client_verify_data (32 bytes), 2 blocks are consumed.
-    // When ESP32 encrypts client_pubkey to create device_verify_data (32 bytes), it uses counter offset +2 blocks (offset 32).
-    let verified = false;
-    
-    // Primary check: Counter offset +2 blocks (standard ESP-IDF mbedtls CTR stream)
-    const ivOffset2 = incrementCounter(this.deviceRandom, 2);
-    const decryptedProofOffset2 = await this.aesCtrCrypt(this.sessionKey, ivOffset2, deviceVerifyData);
-    
-    let matchOffset2 = true;
+    // In standard ESP-IDF protocomm_security1:
+    // Decrypt deviceVerifyData using the continuous cipher stream (which is at block offset +2).
+    const decryptedProof = this.cipher.crypt(deviceVerifyData);
+
+    let match = true;
     for (let i = 0; i < 32; i++) {
-      if (decryptedProofOffset2[i] !== this.clientKeyPair.publicKey[i]) {
-        matchOffset2 = false;
+      if (decryptedProof[i] !== this.clientKeyPair.publicKey[i]) {
+        match = false;
         break;
       }
     }
 
-    if (matchOffset2) {
-      verified = true;
-      this.blockOffset = 4; // 2 blocks for clientVerify + 2 blocks for deviceVerify
-      console.log('[ESP32-SEC1] Device verification confirmed using standard ESP-IDF stream offset (+2 blocks)!');
-    } else {
-      console.warn('[ESP32-SEC1] Offset +2 did not match, testing offset 0 fallback...');
-      // Fallback check: Counter offset 0 (for non-streaming or static counter variants)
-      const decryptedProofOffset0 = await this.aesCtrCrypt(this.sessionKey, this.deviceRandom, deviceVerifyData);
-      let matchOffset0 = true;
+    if (!match) {
+      console.warn('[ESP32-SEC1] Continuous stream decrypt did not match, trying fresh counter offset 0 fallback...');
+      // Fallback: in case firmware reset its counter for response 1
+      const fallbackCipher = new Aes256CtrContext(this.sessionKey, this.deviceRandom);
+      const decryptedProofFallback = fallbackCipher.crypt(deviceVerifyData);
+      
+      let fallbackMatch = true;
       for (let i = 0; i < 32; i++) {
-        if (decryptedProofOffset0[i] !== this.clientKeyPair.publicKey[i]) {
-          matchOffset0 = false;
+        if (decryptedProofFallback[i] !== this.clientKeyPair.publicKey[i]) {
+          fallbackMatch = false;
           break;
         }
       }
 
-      if (matchOffset0) {
-        verified = true;
-        this.blockOffset = 2;
-        console.log('[ESP32-SEC1] Device verification confirmed using static offset 0!');
+      if (fallbackMatch) {
+        console.log('[ESP32-SEC1] Device verification matched with static offset 0 cipher!');
+        this.cipher = fallbackCipher;
+        match = true;
       } else {
-        console.error('[ESP32-SEC1] Client Public Key:', uint8ArrayToHex(this.clientKeyPair.publicKey));
-        console.error('[ESP32-SEC1] Decrypted Proof (Offset 2):', uint8ArrayToHex(decryptedProofOffset2));
-        console.error('[ESP32-SEC1] Decrypted Proof (Offset 0):', uint8ArrayToHex(decryptedProofOffset0));
+        console.error('[ESP32-SEC1] Handshake verification mismatch:');
+        console.error('Expected Client PubKey:', uint8ArrayToHex(this.clientKeyPair.publicKey));
+        console.error('Decrypted Proof (Stream):', uint8ArrayToHex(decryptedProof));
+        console.error('Decrypted Proof (Offset 0):', uint8ArrayToHex(decryptedProofFallback));
       }
     }
 
-    if (!verified) {
+    if (!match) {
       throw new Error('Handshake failed: Device verification check failed. Check Proof of Possession (PoP).');
     }
 
@@ -241,30 +219,5 @@ export class Security1 extends Security {
 
   isEstablished(): boolean {
     return this.established;
-  }
-
-  /**
-   * Helper to encrypt or decrypt using AES-256-CTR with Web Crypto API
-   */
-  private async aesCtrCrypt(key: Uint8Array, iv: Uint8Array, data: Uint8Array): Promise<Uint8Array> {
-    const cryptoKey = await crypto.subtle.importKey(
-      'raw',
-      key,
-      { name: 'AES-CTR' },
-      false,
-      ['encrypt', 'decrypt']
-    );
-
-    const resultBuffer = await crypto.subtle.encrypt(
-      {
-        name: 'AES-CTR',
-        counter: iv,
-        length: 128 // Full 128-bit counter
-      },
-      cryptoKey,
-      data
-    );
-
-    return new Uint8Array(resultBuffer);
   }
 }

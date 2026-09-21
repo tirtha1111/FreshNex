@@ -52,7 +52,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
     try {
       const storedProfile = localStorage.getItem('freshnex_profile');
-      const isDemo = localStorage.getItem('freshnex_demo_user') === 'true';
       if (storedProfile) {
         const parsed = JSON.parse(storedProfile);
         if (parsed && parsed.uid) {
@@ -93,54 +92,82 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return DEFAULT_SETTINGS;
   });
 
-  const [isLoading, setIsLoading] = useState<boolean>(false);
+  // Start with loading = false if session was already restored from localStorage, otherwise wait for auth listener
+  const [isLoading, setIsLoading] = useState<boolean>(() => {
+    const hasStored = !!localStorage.getItem('freshnex_profile');
+    return !hasStored && !!auth;
+  });
   const [authError, setAuthError] = useState<string | null>(null);
 
   // Sync auth state
   useEffect(() => {
     const storedProfileStr = localStorage.getItem('freshnex_profile');
-    const isDemo = localStorage.getItem('freshnex_demo_user') === 'true';
-
-    // If active demo/offline session exists, restore it and skip resetting
-    if (storedProfileStr && isDemo) {
+    let parsedStored: any = null;
+    if (storedProfileStr) {
       try {
-        const parsed = JSON.parse(storedProfileStr);
-        if (parsed && parsed.uid) {
-          setCurrentUser({
-            uid: parsed.uid,
-            email: parsed.email,
-            displayName: parsed.name,
-          } as any);
-          setIsDemoMode(true);
-          setIsLoading(false);
-          return;
-        }
+        parsedStored = JSON.parse(storedProfileStr);
       } catch (e) {
         console.warn('Failed to parse profile:', e);
       }
     }
 
     if (!isFirebaseConfigured || !auth) {
+      if (parsedStored && parsedStored.uid) {
+        setCurrentUser({
+          uid: parsedStored.uid,
+          email: parsedStored.email || '',
+          displayName: parsedStored.name || '',
+        } as any);
+        setUserProfile(parsedStored);
+      }
       setIsLoading(false);
       return;
     }
 
     const timer = setTimeout(() => {
       setIsLoading(false);
-    }, 1500);
+    }, 1200);
 
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       clearTimeout(timer);
       if (user) {
         setCurrentUser(user);
-        setUserProfile(prev => ({
-          ...prev,
-          uid: user.uid,
-          email: user.email || prev.email,
-          name: user.displayName || user.email?.split('@')[0] || 'User',
-        }));
+        setUserProfile(prev => {
+          const isAdmin = 
+            user.email === 'realtirtharaj@gmail.com' || 
+            prev.role === 'admin' ||
+            (parsedStored && parsedStored.role === 'admin');
+
+          const updated: UserProfile = {
+            ...prev,
+            uid: user.uid,
+            email: user.email || prev.email || '',
+            name: user.displayName || prev.name || user.email?.split('@')[0] || 'User',
+            role: isAdmin ? 'admin' : (prev.role || 'user'),
+            memberSince: prev.memberSince || new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+            organization: prev.organization || 'FreshNex Operations'
+          };
+          localStorage.setItem('freshnex_profile', JSON.stringify(updated));
+          return updated;
+        });
       } else {
-        if (!localStorage.getItem('freshnex_demo_user')) {
+        // If Firebase Auth returned null, check if we have a locally stored valid session (admin, demo, or product session)
+        const currentStored = localStorage.getItem('freshnex_profile');
+        if (currentStored) {
+          try {
+            const p = JSON.parse(currentStored);
+            if (p && p.uid) {
+              setCurrentUser({
+                uid: p.uid,
+                email: p.email || '',
+                displayName: p.name || '',
+              } as any);
+              setUserProfile(p);
+            }
+          } catch {
+            // Ignore parse errors
+          }
+        } else {
           setCurrentUser(null);
           setUserProfile(DEFAULT_PROFILE);
         }

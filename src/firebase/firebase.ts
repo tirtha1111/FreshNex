@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getAuth } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence } from 'firebase/auth';
 import { getDatabase } from 'firebase/database';
 import { getFirestore, Firestore } from 'firebase/firestore';
 import appletConfig from '../../firebase-applet-config.json';
@@ -47,6 +47,13 @@ if (firebaseConfig.apiKey) {
 
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);
+    try {
+      setPersistence(auth, browserLocalPersistence).catch((pErr) => {
+        console.warn('Firebase persistence setup warning:', pErr);
+      });
+    } catch {
+      // Ignore if unsupported
+    }
     if (firebaseConfig.databaseURL) {
       database = getDatabase(app, firebaseConfig.databaseURL);
     }

@@ -337,31 +337,29 @@ export class FreshNexESPDevice {
 
     console.log('[ESP32-BLE-PROV] Starting Wi-Fi scan on ESP32...');
 
-    // 1. Start Scan
+    // 1. Start Scan (all channels, non-passive)
     const scanStartMsg = proto.WiFiScanPayload.create({
       msg: proto.WiFiScanMsgType.TypeCmdScanStart,
       cmdScanStart: proto.CmdScanStart.create({
-        blocking: true,
+        blocking: false,
         passive: false,
-        groupChannels: 5,
-        periodMs: 120
+        groupChannels: 0, // 0 = all Wi-Fi channels
+        periodMs: 150
       })
     });
     const scanStartBytes = proto.WiFiScanPayload.encode(scanStartMsg).finish();
     const resp0 = await this.sendData('prov-scan', scanStartBytes);
     const decodedResp0 = proto.WiFiScanPayload.decode(resp0);
-    if (decodedResp0.status !== proto.Status.Success) {
-      console.warn('[ESP32-BLE-PROV] Scan start returned non-success status:', decodedResp0.status);
-    }
+    console.log('[ESP32-BLE-PROV] Scan Start response status:', decodedResp0.status);
 
-    // 2. Query Scan Status
+    // 2. Query Scan Status (poll until ESP32 finishes scanning Wi-Fi channels)
     let scanFinished = false;
     let resultCount = 0;
     let pollCount = 0;
 
-    while (!scanFinished && pollCount < 10) {
+    while (!scanFinished && pollCount < 16) {
       pollCount++;
-      await new Promise(r => setTimeout(r, 300));
+      await new Promise(r => setTimeout(r, 500));
       
       const scanStatusMsg = proto.WiFiScanPayload.create({
         msg: proto.WiFiScanMsgType.TypeCmdScanStatus,
@@ -374,18 +372,19 @@ export class FreshNexESPDevice {
       if (decodedResp1.respScanStatus) {
         scanFinished = !!decodedResp1.respScanStatus.scanFinished;
         resultCount = decodedResp1.respScanStatus.resultCount || 0;
+        console.log(`[ESP32-BLE-PROV] Poll ${pollCount}: scanFinished=${scanFinished}, count=${resultCount}`);
       }
     }
 
-    console.log(`[ESP32-BLE-PROV] Wi-Fi scan completed. Found ${resultCount} network(s).`);
-    if (resultCount === 0) return [];
+    console.log(`[ESP32-BLE-PROV] Wi-Fi scan finished. Result count: ${resultCount}`);
 
     // 3. Fetch Scan Results
+    const fetchCount = resultCount > 0 ? Math.min(resultCount, 30) : 20;
     const scanResultMsg = proto.WiFiScanPayload.create({
       msg: proto.WiFiScanMsgType.TypeCmdScanResult,
       cmdScanResult: proto.CmdScanResult.create({
         startIndex: 0,
-        count: Math.min(resultCount, 20)
+        count: fetchCount
       })
     });
     const scanResultBytes = proto.WiFiScanPayload.encode(scanResultMsg).finish();
@@ -396,8 +395,15 @@ export class FreshNexESPDevice {
     const networks: DiscoveredWifiNetwork[] = [];
 
     for (const entry of entries) {
-      const ssidStr = entry.ssid ? new TextDecoder().decode(entry.ssid).replace(/\0/g, '').trim() : '';
-      if (ssidStr) {
+      let ssidStr = '';
+      if (entry.ssid) {
+        if (typeof entry.ssid === 'string') {
+          ssidStr = entry.ssid;
+        } else {
+          ssidStr = new TextDecoder().decode(entry.ssid).replace(/\0/g, '').trim();
+        }
+      }
+      if (ssidStr && !networks.some(n => n.ssid === ssidStr)) {
         networks.push({
           ssid: ssidStr,
           rssi: entry.rssi || -70,
@@ -407,6 +413,7 @@ export class FreshNexESPDevice {
       }
     }
 
+    console.log(`[ESP32-BLE-PROV] Discovered ${networks.length} unique real Wi-Fi network(s):`, networks.map(n => n.ssid));
     return networks;
   }
 

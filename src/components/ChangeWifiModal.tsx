@@ -302,16 +302,11 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
   const handleFetchWifiList = async () => {
     setIsScanningWifi(true);
     setErrorType(null);
+    setErrorMessage('');
 
     if (isVirtual || !espDevice) {
-      await new Promise(resolve => setTimeout(resolve, 800));
-      setScannedNetworks([
-        { ssid: 'Home-WiFi_2.4G', rssi: -45, auth: 3 },
-        { ssid: 'FreshNex_IoT_Warehouse', rssi: -58, auth: 3 },
-        { ssid: 'Office_Guest_Network', rssi: -66, auth: 0 },
-        { ssid: 'SmartLab_AP_24', rssi: -72, auth: 3 }
-      ]);
       setIsScanningWifi(false);
+      setScannedNetworks([]);
       setStep(5);
       return;
     }
@@ -319,23 +314,13 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
     try {
       setStatusText('Scanning for 2.4GHz Wi-Fi networks via ESP32...');
       const networks = await espDevice.scanWifiList();
-      if (networks.length > 0) {
-        setScannedNetworks(networks);
-      } else {
-        // Fallback default list if scan returned 0
-        setScannedNetworks([
-          { ssid: 'Home-WiFi_2.4G', rssi: -48, auth: 3 },
-          { ssid: 'FreshNex_Warehouse_Main', rssi: -62, auth: 3 }
-        ]);
-      }
+      console.log('[ESP32-PROV] Wi-Fi networks found by ESP32:', networks);
+      setScannedNetworks(networks);
       setIsScanningWifi(false);
       setStep(5);
     } catch (err: any) {
       console.error('[ESP32-PROV] Wi-Fi Scan error:', err);
-      setScannedNetworks([
-        { ssid: 'Home-WiFi_2.4G', rssi: -50, auth: 3 },
-        { ssid: 'FreshNex_Warehouse_Main', rssi: -65, auth: 3 }
-      ]);
+      setScannedNetworks([]);
       setIsScanningWifi(false);
       setStep(5);
     }
@@ -804,29 +789,37 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
               </div>
 
               {/* Scanned SSIDs list */}
-              <div className="max-h-40 overflow-y-auto border border-[#FF6A00]/25 rounded-2xl divide-y divide-[#FF6A00]/15 bg-[#1C1410]">
-                {scannedNetworks.map((net) => (
-                  <button
-                    key={net.ssid}
-                    type="button"
-                    onClick={() => { setSelectedSsid(net.ssid); setCustomSsid(''); }}
-                    className={`w-full px-4 py-3 text-left flex items-center justify-between transition-all cursor-pointer ${
-                      selectedSsid === net.ssid
-                        ? 'bg-[#FF6A00]/20 text-[#FFAA00] font-extrabold'
-                        : 'hover:bg-[#FF6A00]/10 text-[#D6C8C0]'
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5">
-                      <Wifi className={`w-4 h-4 ${selectedSsid === net.ssid ? 'text-[#FFAA00]' : 'text-[#8C7A70]'}`} />
-                      <span className="text-xs font-bold">{net.ssid}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Signal className="w-3.5 h-3.5 text-[#8C7A70]" />
-                      <span className="text-[10px] font-mono text-[#8C7A70]">{net.rssi} dBm</span>
-                    </div>
-                  </button>
-                ))}
-              </div>
+              {scannedNetworks.length > 0 ? (
+                <div className="max-h-48 overflow-y-auto border border-[#FF6A00]/25 rounded-2xl divide-y divide-[#FF6A00]/15 bg-[#1C1410]">
+                  {scannedNetworks.map((net) => (
+                    <button
+                      key={net.ssid}
+                      type="button"
+                      onClick={() => { setSelectedSsid(net.ssid); setCustomSsid(''); }}
+                      className={`w-full px-4 py-3 text-left flex items-center justify-between transition-all cursor-pointer ${
+                        selectedSsid === net.ssid
+                          ? 'bg-[#FF6A00]/20 text-[#FFAA00] font-extrabold'
+                          : 'hover:bg-[#FF6A00]/10 text-[#D6C8C0]'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2.5">
+                        <Wifi className={`w-4 h-4 ${selectedSsid === net.ssid ? 'text-[#FFAA00]' : 'text-[#8C7A70]'}`} />
+                        <span className="text-xs font-bold">{net.ssid}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Signal className="w-3.5 h-3.5 text-[#8C7A70]" />
+                        <span className="text-[10px] font-mono text-[#8C7A70]">{net.rssi} dBm</span>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <div className="p-4 rounded-2xl bg-[#1C1410] border border-[#FF6A00]/20 text-center space-y-2">
+                  <p className="text-xs text-[#B8A89E]">
+                    {isScanningWifi ? 'Scanning 2.4GHz Wi-Fi channels via ESP32...' : 'No Wi-Fi networks detected nearby. Tap Refresh to scan again, or enter your Wi-Fi SSID manually below.'}
+                  </p>
+                </div>
+              )}
 
               {/* Manual SSID Entry */}
               <div className="pt-1 space-y-1.5">
