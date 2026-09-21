@@ -169,8 +169,8 @@ export class Security1 extends Security {
 
     console.log(`[ESP32-SEC1] Received deviceVerifyData (${deviceVerifyData.length} bytes)`);
 
-    // In standard ESP-IDF protocomm_security1:
-    // Decrypt deviceVerifyData using the continuous cipher stream (which is at block offset +2).
+    // In official Espressif protocomm Security 1:
+    // Decrypt deviceVerifyData using the continuous cipher stream (at keystream offset 32).
     const decryptedProof = await this.cipher.crypt(deviceVerifyData);
 
     let match = true;
@@ -182,32 +182,7 @@ export class Security1 extends Security {
     }
 
     if (!match) {
-      console.warn('[ESP32-SEC1] Continuous stream decrypt did not match, trying fresh counter offset 0 fallback...');
-      // Fallback: in case firmware reset its counter for response 1
-      const fallbackCipher = new Aes256CtrContext(this.sessionKey, this.deviceRandom);
-      const decryptedProofFallback = await fallbackCipher.crypt(deviceVerifyData);
-      
-      let fallbackMatch = true;
-      for (let i = 0; i < 32; i++) {
-        if (decryptedProofFallback[i] !== this.clientKeyPair.publicKey[i]) {
-          fallbackMatch = false;
-          break;
-        }
-      }
-
-      if (fallbackMatch) {
-        console.log('[ESP32-SEC1] Device verification matched with static offset 0 cipher!');
-        this.cipher = fallbackCipher;
-        match = true;
-      } else {
-        console.error('[ESP32-SEC1] Handshake verification mismatch:');
-        console.error('Expected Client PubKey:', uint8ArrayToHex(this.clientKeyPair.publicKey));
-        console.error('Decrypted Proof (Stream):', uint8ArrayToHex(decryptedProof));
-        console.error('Decrypted Proof (Offset 0):', uint8ArrayToHex(decryptedProofFallback));
-      }
-    }
-
-    if (!match) {
+      console.error('[ESP32-SEC1] Security 1 handshake verification failed: deviceVerifyData does not match client public key. Verify PoP.');
       throw new Error('Handshake failed: Device verification check failed. Check Proof of Possession (PoP).');
     }
 
@@ -225,50 +200,6 @@ export class Security1 extends Security {
   isEstablished(): boolean {
     return this.established;
   }
-
-  /**
-   * Decrypts application data and automatically resynchronizes AES-CTR keystream counter if offset drift occurred.
-   */
-  async decryptWithResync(data: Uint8Array, validator: (buf: Uint8Array) => boolean): Promise<Uint8Array> {
-    if (!this.established || !this.cipher) {
-      throw new Error('Security session not established');
-    }
-
-    // 1. Try default continuous cipher stream
-    const decrypted = await this.cipher.crypt(data);
-
-    if (validator(decrypted)) {
-      return decrypted;
-    }
-
-    console.warn(`[ESP32-SEC1] Default continuous decrypt produced unverified payload (${data.length} bytes, dec hex: ${uint8ArrayToHex(decrypted.slice(0, 16))}). Initiating counter resync search...`);
-
-    if (!this.sessionKey || !this.deviceRandom) {
-      return decrypted;
-    }
-
-    // Candidate offsets for Espressif Protocomm Security 1
-    const priorityOffsets = [0, 32, 64, 74, 80, 85, 86, 91, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256];
-    const candidateOffsets: number[] = [...priorityOffsets];
-    for (let o = 0; o <= 384; o += 1) {
-      if (!candidateOffsets.includes(o)) candidateOffsets.push(o);
-    }
-
-    for (const offset of candidateOffsets) {
-      const testCipher = new Aes256CtrContext(this.sessionKey, this.deviceRandom);
-      if (offset > 0) {
-        await testCipher.crypt(new Uint8Array(offset));
-      }
-      const testDecrypted = await testCipher.crypt(data);
-      if (validator(testDecrypted)) {
-        console.log(`[ESP32-SEC1] Keystream counter resynced to offset ${offset}!`);
-        this.cipher = testCipher; // Update cipher state to this synchronized offset
-        return testDecrypted;
-      }
-    }
-
-    console.error('[ESP32-SEC1] Counter resync search failed to find valid keystream offset.');
-    return decrypted;
-  }
 }
+
 

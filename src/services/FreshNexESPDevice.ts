@@ -70,25 +70,25 @@ function decodeWiFiScanPayloadRobust(bytes: Uint8Array): {
   // Strategy 1: Standard Protobuf decode
   try {
     const p1 = proto.WiFiScanPayload.decode(bytes);
-    if (p1 && (p1.msg !== undefined || p1.respScanResult || p1.respScanStart || p1.respScanStatus)) {
+    if (p1 && (p1.msg !== undefined && p1.msg !== null) && (p1.respScanResult || p1.respScanStart || p1.respScanStatus)) {
       const count = p1.respScanResult?.entries?.length || 0;
-      console.log(`[ESP32-PROV-DIAG] 5. Protobuf decode result: SUCCESS (method: standard, msg: ${p1.msg}, AP records: ${count})`);
+      console.log(`[ESP32-PROV-DIAG] 5. Protobuf decode result: SUCCESS (AP count: ${count})`);
       return { payload: p1, decodeMethod: 'standard' };
     }
   } catch (e1: any) {
-    console.warn('[ESP32-PROV-DIAG] Standard protobuf decode warning:', e1?.message || e1);
+    console.warn('[ESP32-PROV-DIAG] Standard protobuf decode note:', e1?.message || e1);
   }
 
   // Strategy 2: Length-delimited Protobuf decode
   try {
     const p2 = proto.WiFiScanPayload.decodeDelimited(bytes);
-    if (p2 && (p2.msg !== undefined || p2.respScanResult || p2.respScanStart || p2.respScanStatus)) {
+    if (p2 && (p2.msg !== undefined && p2.msg !== null) && (p2.respScanResult || p2.respScanStart || p2.respScanStatus)) {
       const count = p2.respScanResult?.entries?.length || 0;
-      console.log(`[ESP32-PROV-DIAG] 5. Protobuf decode result: SUCCESS (method: delimited, msg: ${p2.msg}, AP records: ${count})`);
+      console.log(`[ESP32-PROV-DIAG] 5. Protobuf decode result: SUCCESS (AP count: ${count})`);
       return { payload: p2, decodeMethod: 'delimited' };
     }
   } catch (e2: any) {
-    console.warn('[ESP32-PROV-DIAG] Delimited protobuf decode warning:', e2?.message || e2);
+    console.warn('[ESP32-PROV-DIAG] Delimited protobuf decode note:', e2?.message || e2);
   }
 
   // Strategy 3: Varint length prefix slice fallback
@@ -106,18 +106,18 @@ function decodeWiFiScanPayloadRobust(bytes: Uint8Array): {
     if (pos > 0 && pos < bytes.length && len > 0) {
       const sliced = bytes.subarray(pos, pos + len);
       const p3 = proto.WiFiScanPayload.decode(sliced);
-      if (p3 && (p3.msg !== undefined || p3.respScanResult || p3.respScanStart || p3.respScanStatus)) {
+      if (p3 && (p3.msg !== undefined && p3.msg !== null) && (p3.respScanResult || p3.respScanStart || p3.respScanStatus)) {
         const count = p3.respScanResult?.entries?.length || 0;
-        console.log(`[ESP32-PROV-DIAG] 5. Protobuf decode result: SUCCESS (method: varint_slice offset ${pos}, msg: ${p3.msg}, AP records: ${count})`);
+        console.log(`[ESP32-PROV-DIAG] 5. Protobuf decode result: SUCCESS (AP count: ${count})`);
         return { payload: p3, decodeMethod: 'varint_slice' };
       }
     }
   } catch (e3: any) {
-    console.warn('[ESP32-PROV-DIAG] Varint slice protobuf decode warning:', e3?.message || e3);
+    console.warn('[ESP32-PROV-DIAG] Varint slice protobuf decode note:', e3?.message || e3);
   }
 
   console.error('[ESP32-PROV-DIAG] 5. Protobuf decode result: FAILED');
-  throw new Error(`Scan response decode error: Unable to parse protobuf bytes (${bytes.length} bytes, hex: ${hex})`);
+  throw new Error(`Scan response decode error: Unable to parse protobuf bytes (${bytes.length} bytes)`);
 }
 
 export class FreshNexESPDevice {
@@ -806,9 +806,9 @@ export class FreshNexESPDevice {
 
     // State 5 Check: Provisioning session is not established
     if (!this.security || !this.security.isEstablished()) {
-      const err = new Error('Provisioning session is not established. Please perform security handshake first.');
-      (err as any).stateCode = 'SESSION_NOT_ESTABLISHED';
-      throw err;
+      console.log('[ESP32-BLE-PROV] Security session not established. Performing fresh Security 1 handshake...');
+      this.security = new Security1(this.pop);
+      await this.performSecurity1HandshakeInternal();
     }
 
     // State 1 Check: Endpoint characteristic
@@ -942,43 +942,7 @@ export class FreshNexESPDevice {
     const rawResponse = await this.sendRawDataInternal(endpoint, payload);
 
     if (this.security && this.security.isEstablished() && endpoint !== 'prov-session') {
-      let decrypted: Uint8Array;
-      if (this.security instanceof Security1) {
-        decrypted = await this.security.decryptWithResync(rawResponse, (buf) => {
-          if (!buf || buf.length === 0) return false;
-          if (buf[0] === 0x08) {
-            try {
-              if (endpoint === 'prov-scan') {
-                const p = proto.WiFiScanPayload.decode(buf);
-                return !!(p && (p.msg !== undefined || p.respScanResult || p.respScanStart || p.respScanStatus));
-              } else if (endpoint === 'prov-config') {
-                const p = proto.WiFiConfigPayload.decode(buf);
-                return !!(p && (p.msg !== undefined || p.respSetConfig || p.respGetStatus || p.respApplyConfig));
-              }
-              return true;
-            } catch (e) {
-              return false;
-            }
-          }
-          if (buf.length > 1 && buf[1] === 0x08) {
-            try {
-              if (endpoint === 'prov-scan') {
-                const p = proto.WiFiScanPayload.decodeDelimited(buf);
-                return !!(p && (p.msg !== undefined || p.respScanResult || p.respScanStart || p.respScanStatus));
-              } else if (endpoint === 'prov-config') {
-                const p = proto.WiFiConfigPayload.decodeDelimited(buf);
-                return !!(p && (p.msg !== undefined || p.respSetConfig || p.respGetStatus || p.respApplyConfig));
-              }
-              return true;
-            } catch (e) {
-              return false;
-            }
-          }
-          return false;
-        });
-      } else {
-        decrypted = await this.security.decrypt(rawResponse);
-      }
+      const decrypted = await this.security.decrypt(rawResponse);
 
       const decHex = Array.from(decrypted.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(' ');
       console.log(`[ESP32-PROV-DIAG] 3. Security 1 decrypted payload length: ${decrypted.length} bytes, first 16 bytes hex: ${decHex}`);
