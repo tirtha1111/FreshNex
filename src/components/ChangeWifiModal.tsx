@@ -319,8 +319,14 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
     setErrorMessage('');
 
     if (isVirtual || !espDevice) {
+      await new Promise(r => setTimeout(r, 600));
       setIsScanningWifi(false);
-      setScannedNetworks([]);
+      setScannedNetworks([
+        { ssid: 'Home-WiFi_2.4G', rssi: -45, auth: 3 },
+        { ssid: 'FreshNex_IoT_Warehouse', rssi: -58, auth: 3 },
+        { ssid: 'Office_Guest_Network', rssi: -66, auth: 0 },
+        { ssid: 'SmartLab_AP_24', rssi: -72, auth: 3 }
+      ]);
       setStep(5);
       return;
     }
