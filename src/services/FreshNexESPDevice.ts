@@ -1,4 +1,6 @@
 import { Security1 } from './Security1';
+import { Security0 } from './Security0';
+import { Security } from './Security';
 import * as proto from './generated/proto.js';
 
 export interface DiscoveredWifiNetwork {
@@ -41,7 +43,7 @@ export class FreshNexESPDevice {
   private gattServer: any = null;
   private primaryService: any = null;
   private endpointChars: Map<string, any> = new Map();
-  private security: Security1 | null = null;
+  private security: Security | null = null;
   private isConnectedFlag: boolean = false;
 
   constructor(device: any, pop: string = '12345678', isVirtual: boolean = false) {
@@ -57,11 +59,29 @@ export class FreshNexESPDevice {
 
   isDeviceConnected(): boolean {
     if (this.isVirtual) return this.isConnectedFlag;
-    return this.isConnectedFlag && !!this.gattServer?.connected;
+    return this.isConnectedFlag && !!this.device?.gatt?.connected;
   }
 
   /**
-   * Connects over BLE, discovers Espressif WiFiProv services, and executes the Security1 handshake.
+   * Ensures the GATT server is connected before performing any GATT operation
+   */
+  private async ensureGattConnection(): Promise<void> {
+    if (this.isVirtual) return;
+    if (!this.device || !this.device.gatt) {
+      throw new Error('Bluetooth device handle is unavailable.');
+    }
+
+    if (!this.device.gatt.connected) {
+      console.log('[ESP32-BLE-PROV] GATT was disconnected. Re-connecting to device...');
+      this.gattServer = await this.device.gatt.connect();
+      await new Promise(r => setTimeout(r, 200));
+      await this.discoverProvisioningService();
+      await this.discoverEndpointCharacteristics();
+    }
+  }
+
+  /**
+   * Connects over BLE, discovers Espressif WiFiProv services, and executes the Security handshake.
    */
   async connect(options: { type?: string } = { type: 'Security1' }): Promise<void> {
     if (this.isVirtual) {
@@ -69,7 +89,7 @@ export class FreshNexESPDevice {
       await new Promise(r => setTimeout(r, 600));
       this.isConnectedFlag = true;
       this.virtualStep = 1;
-      console.log('[ESP32-BLE-PROV] Virtual Security1 Handshake completed successfully.');
+      console.log('[ESP32-BLE-PROV] Virtual Security Handshake completed successfully.');
       return;
     }
 
@@ -82,11 +102,14 @@ export class FreshNexESPDevice {
     // Connect GATT server with timeout
     const connectPromise = this.device.gatt.connect();
     const timeoutPromise = new Promise((_, reject) => 
-      setTimeout(() => reject(new Error('BLE GATT connection timed out after 10 seconds.')), 10000)
+      setTimeout(() => reject(new Error('BLE GATT connection timed out after 12 seconds.')), 12000)
     );
 
     this.gattServer = await Promise.race([connectPromise, timeoutPromise]);
     console.log('[ESP32-BLE-PROV] 2. GATT server connected successfully.');
+
+    // Stabilization delay for Android / Chrome BLE stack
+    await new Promise(r => setTimeout(r, 200));
 
     // Listen for unexpected disconnection
     this.device.addEventListener('gattserverdisconnected', () => {
@@ -102,10 +125,27 @@ export class FreshNexESPDevice {
     console.log('[ESP32-BLE-PROV] 4. Discovering endpoint characteristics...');
     await this.discoverEndpointCharacteristics();
 
-    // 5. Establish Espressif Security 1 Handshake
-    console.log('[ESP32-BLE-PROV] 5. Starting Espressif Security1 handshake with PoP...');
-    this.security = new Security1(this.pop);
-    await this.performSecurity1Handshake();
+    // 5. Establish Espressif Security Handshake (Security 1 with fallback to Security 0)
+    console.log('[ESP32-BLE-PROV] 5. Starting Espressif Security handshake...');
+    try {
+      this.security = new Security1(this.pop);
+      await this.performSecurity1Handshake();
+    } catch (sec1Err: any) {
+      console.warn('[ESP32-BLE-PROV] Security 1 handshake error:', sec1Err?.message);
+      if (
+        sec1Err?.message?.includes('Invalid security scheme') ||
+        sec1Err?.message?.includes('SecScheme0') ||
+        !this.pop
+      ) {
+        console.log('[ESP32-BLE-PROV] Attempting fallback to Security 0 (Unencrypted)...');
+        this.security = new Security0();
+        const req0 = await this.security.getSessionSetupRequest();
+        const resp0 = await this.sendRawData('prov-session', req0);
+        await this.security.processSessionSetupResponse(resp0);
+      } else {
+        throw sec1Err;
+      }
+    }
 
     this.isConnectedFlag = true;
     console.log('[ESP32-BLE-PROV] 6. Secure provisioning session successfully established!');
@@ -117,7 +157,7 @@ export class FreshNexESPDevice {
   private async discoverProvisioningService(): Promise<void> {
     if (!this.gattServer) throw new Error('GATT server is not connected');
 
-    // Method A: Try getPrimaryServices() without args (discovers all services declared in optionalServices)
+    // Method A: Try getPrimaryServices() without args
     let discoveredServices: any[] = [];
     try {
       discoveredServices = await this.gattServer.getPrimaryServices();
@@ -127,12 +167,8 @@ export class FreshNexESPDevice {
     }
 
     if (discoveredServices.length > 0) {
-      // Find the service that matches known provisioning UUIDs or has prov characteristics
       for (const service of discoveredServices) {
         const sUuid = service.uuid.toLowerCase();
-        console.log(`[ESP32-BLE-PROV] Inspecting service UUID: ${sUuid}`);
-        
-        // Check if known provisioning service UUID
         const isKnown = ESP_PROV_SERVICE_UUIDS.some(u => sUuid.includes(u.toLowerCase()) || u.toLowerCase().includes(sUuid));
         if (isKnown) {
           this.primaryService = service;
@@ -141,7 +177,6 @@ export class FreshNexESPDevice {
         }
       }
 
-      // If no direct UUID match, inspect characteristics in the first services
       for (const service of discoveredServices) {
         try {
           const chars = await service.getCharacteristics();
@@ -169,7 +204,7 @@ export class FreshNexESPDevice {
     }
 
     throw new Error(
-      'Espressif provisioning service was not found. Ensure the ESP32 is running WiFiProv BLE firmware.'
+      'Espressif provisioning service was not found. Ensure the ESP32 is powered on and running WiFiProv firmware.'
     );
   }
 
@@ -188,7 +223,6 @@ export class FreshNexESPDevice {
       const charUuid = char.uuid.toLowerCase();
       let endpointName: string | null = null;
 
-      // Espressif characteristic UUID pattern matching (avoids descriptor calls that trigger GATT errors on some OS drivers)
       if (charUuid.includes('ff51') || charUuid.endsWith('ff51') || charUuid.includes('0001')) {
         endpointName = 'prov-session';
       } else if (charUuid.includes('ff52') || charUuid.endsWith('ff52') || charUuid.includes('0002')) {
@@ -209,12 +243,11 @@ export class FreshNexESPDevice {
       }
     }
 
-    // Fallback: positional characteristic mapping if UUIDs are obfuscated or custom
+    // Fallback: positional characteristic mapping if UUIDs are custom
     if (!this.endpointChars.has('prov-session')) {
       if (chars.length === 1) {
         this.endpointChars.set('prov-session', chars[0]);
       } else if (chars.length >= 2) {
-        // If 4 characteristics: 0: proto-ver, 1: prov-session, 2: prov-config, 3: prov-scan
         if (chars.length >= 4) {
           this.endpointChars.set('proto-ver', chars[0]);
           this.endpointChars.set('prov-session', chars[1]);
@@ -231,18 +264,17 @@ export class FreshNexESPDevice {
     }
 
     if (!this.endpointChars.has('prov-session')) {
-      throw new Error('Provisioning session characteristic (prov-session / 0xff51) was not found.');
+      throw new Error('Endpoint characteristic "prov-session" was not found on this BLE device.');
     }
   }
 
   /**
-   * Executes the 2-step Espressif Security 1 handshake
+   * Executes the 2-step Curve25519 + AES-256-CTR Security 1 handshake
    */
   private async performSecurity1Handshake(): Promise<void> {
     if (!this.security) throw new Error('Security module not initialized');
 
-    // Small stabilization delay after service/char discovery before sending first command
-    await new Promise(r => setTimeout(r, 120));
+    await new Promise(r => setTimeout(r, 150));
 
     // --- STEP 1: Exchange 0 (Session_Command0 -> Session_Response0) ---
     console.log('[ESP32-BLE-PROV] Handshake Step 1: Sending Session_Command0 (Client Public Key)...');
@@ -250,57 +282,67 @@ export class FreshNexESPDevice {
     const setupResp0 = await this.sendRawData('prov-session', setupReq0);
 
     // Brief inter-packet delay for ESP32 FreeRTOS context switch
-    await new Promise(r => setTimeout(r, 80));
+    await new Promise(r => setTimeout(r, 120));
 
     // --- STEP 2: Exchange 1 (Session_Command1 -> Session_Response1) ---
     console.log('[ESP32-BLE-PROV] Handshake Step 2: Processing Session_Response0 and sending Session_Command1 (PoP Proof)...');
-    const setupReq1 = await this.security.processSessionSetupResponse0(setupResp0);
+    const sec1 = this.security as Security1;
+    const setupReq1 = await sec1.processSessionSetupResponse0(setupResp0);
     const setupResp1 = await this.sendRawData('prov-session', setupReq1);
 
     // --- STEP 3: Verify and Establish Session ---
     console.log('[ESP32-BLE-PROV] Handshake Step 3: Verifying device proof...');
-    await this.security.processSessionSetupResponse1(setupResp1);
+    await sec1.processSessionSetupResponse1(setupResp1);
   }
 
   /**
-   * Sends raw unencrypted binary data to a characteristic and reads response safely
+   * Sends raw binary data to a characteristic and reads response safely without crashing GATT
    */
   private async sendRawData(endpoint: string, data: Uint8Array): Promise<Uint8Array> {
-    const char = this.endpointChars.get(endpoint.toLowerCase());
+    await this.ensureGattConnection();
+
+    let char = this.endpointChars.get(endpoint.toLowerCase());
+    if (!char) {
+      await this.discoverEndpointCharacteristics();
+      char = this.endpointChars.get(endpoint.toLowerCase());
+    }
+
     if (!char) {
       throw new Error(`Characteristic for endpoint '${endpoint}' not found`);
     }
 
     const payload = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 
-    // 1. Perform Write
+    // 1. Perform Write (Standard GATT write with response)
     let writeSuccess = false;
-    try {
-      if (char.properties.write) {
-        await char.writeValueWithResponse(payload);
-        writeSuccess = true;
-      } else if (char.properties.writeWithoutResponse) {
-        await char.writeValueWithoutResponse(payload);
-        writeSuccess = true;
-      } else {
-        await char.writeValue(payload);
-        writeSuccess = true;
-      }
-    } catch (writeErr: any) {
-      console.warn(`[ESP32-BLE-PROV] Write error on ${endpoint} (${writeErr.message}), trying fallback...`);
-      await new Promise(r => setTimeout(r, 60));
+    let writeAttempts = 0;
+
+    while (!writeSuccess && writeAttempts < 2) {
+      writeAttempts++;
       try {
-        await char.writeValue(payload);
-        writeSuccess = true;
-      } catch (fallbackErr: any) {
-        console.warn(`[ESP32-BLE-PROV] Fallback writeValue failed, attempting writeValueWithoutResponse...`);
-        await char.writeValueWithoutResponse(payload);
-        writeSuccess = true;
+        if (typeof char.writeValueWithResponse === 'function') {
+          await char.writeValueWithResponse(payload);
+          writeSuccess = true;
+        } else if (typeof char.writeValue === 'function') {
+          await char.writeValue(payload);
+          writeSuccess = true;
+        } else {
+          throw new Error('Characteristic has no supported write method.');
+        }
+      } catch (writeErr: any) {
+        console.warn(`[ESP32-BLE-PROV] Write attempt ${writeAttempts} failed on ${endpoint}:`, writeErr?.message);
+        if (writeAttempts < 2) {
+          await new Promise(r => setTimeout(r, 200));
+          await this.ensureGattConnection();
+          char = this.endpointChars.get(endpoint.toLowerCase());
+        } else {
+          throw new Error(`Failed to write to ESP32 characteristic '${endpoint}': ${writeErr?.message || 'GATT write error'}`);
+        }
       }
     }
 
-    // 2. Pause to allow the ESP32 protocomm task to parse protobuf and generate response
-    await new Promise(r => setTimeout(r, 120));
+    // 2. Pause to allow ESP32 FreeRTOS protocomm task to process request & prepare response
+    await new Promise(r => setTimeout(r, 150));
 
     // 3. Read characteristic value with retry handling
     let resp: DataView | null = null;
@@ -312,12 +354,11 @@ export class FreshNexESPDevice {
         if (resp && resp.byteLength > 0) {
           break;
         }
-        // If 0 bytes returned, wait and re-read
-        await new Promise(r => setTimeout(r, 80));
+        await new Promise(r => setTimeout(r, 100));
       } catch (readErr: any) {
         lastErr = readErr;
-        console.warn(`[ESP32-BLE-PROV] readValue attempt ${attempt}/4 on ${endpoint} failed:`, readErr.message);
-        await new Promise(r => setTimeout(r, 100));
+        console.warn(`[ESP32-BLE-PROV] readValue attempt ${attempt}/4 on ${endpoint} failed:`, readErr?.message);
+        await new Promise(r => setTimeout(r, 120));
       }
     }
 
@@ -441,8 +482,7 @@ export class FreshNexESPDevice {
         networks.push({
           ssid: ssidStr,
           rssi: entry.rssi || -70,
-          auth: entry.auth || 0,
-          channel: entry.channel || 1
+          auth: entry.auth || 0
         });
       }
     }
@@ -452,125 +492,150 @@ export class FreshNexESPDevice {
   }
 
   /**
-   * Transmits Wi-Fi credentials to ESP32 using Espressif WiFiConfig protocol
+   * Sends Wi-Fi credentials to ESP32 via prov-config
    */
-  async provision(ssid: string, passphrase: string): Promise<void> {
+  async setWifiCredentials(ssid: string, pass: string): Promise<boolean> {
     if (this.isVirtual) {
-      console.log(`[ESP32-BLE-PROV] Virtual Provisioning with SSID: ${ssid}`);
-      await new Promise(r => setTimeout(r, 1200));
-      this.virtualStep = 2;
-      return;
+      await new Promise(r => setTimeout(r, 800));
+      return true;
     }
 
-    console.log(`[ESP32-BLE-PROV] 1. Sending Wi-Fi configuration (SSID: ${ssid})...`);
-    
-    // 1. Set Config
-    const setConfigMsg = proto.WiFiConfigPayload.create({
+    console.log(`[ESP32-BLE-PROV] Setting Wi-Fi credentials for SSID: "${ssid}"...`);
+    const ssidBytes = new TextEncoder().encode(ssid);
+    const passBytes = new TextEncoder().encode(pass);
+
+    const configMsg = proto.WiFiConfigPayload.create({
       msg: proto.WiFiConfigMsgType.TypeCmdSetConfig,
       cmdSetConfig: proto.CmdSetConfig.create({
-        ssid: new TextEncoder().encode(ssid),
-        passphrase: new TextEncoder().encode(passphrase)
+        ssid: ssidBytes,
+        passphrase: passBytes
       })
     });
-    const setConfigBytes = proto.WiFiConfigPayload.encode(setConfigMsg).finish();
-    const respSet = await this.sendData('prov-config', setConfigBytes);
-    const decodedSet = proto.WiFiConfigPayload.decode(respSet);
 
-    if (decodedSet.respSetConfig?.status !== proto.Status.Success) {
-      throw new Error(`ESP32 rejected Wi-Fi configuration (Status: ${decodedSet.respSetConfig?.status})`);
-    }
-    console.log('[ESP32-BLE-PROV] Wi-Fi configuration accepted by ESP32.');
+    const configBytes = proto.WiFiConfigPayload.encode(configMsg).finish();
+    const resp = await this.sendData('prov-config', configBytes);
+    const decoded = proto.WiFiConfigPayload.decode(resp);
 
-    // 2. Apply Config
-    console.log('[ESP32-BLE-PROV] 2. Applying Wi-Fi configuration...');
-    const applyConfigMsg = proto.WiFiConfigPayload.create({
-      msg: proto.WiFiConfigMsgType.TypeCmdApplyConfig,
-      cmdApplyConfig: proto.CmdApplyConfig.create({})
-    });
-    const applyConfigBytes = proto.WiFiConfigPayload.encode(applyConfigMsg).finish();
-    const respApply = await this.sendData('prov-config', applyConfigBytes);
-    const decodedApply = proto.WiFiConfigPayload.decode(respApply);
-
-    if (decodedApply.respApplyConfig?.status !== proto.Status.Success) {
-      throw new Error(`ESP32 failed to apply Wi-Fi configuration (Status: ${decodedApply.respApplyConfig?.status})`);
-    }
-    console.log('[ESP32-BLE-PROV] Wi-Fi configuration successfully applied on ESP32!');
+    console.log('[ESP32-BLE-PROV] SetConfig response status:', decoded.respSetConfig?.status);
+    return decoded.respSetConfig?.status === proto.Status.Success;
   }
 
   /**
-   * Fetches the current Wi-Fi station connection status from ESP32
+   * Applies the configured Wi-Fi settings (triggers ESP32 to connect to Wi-Fi)
    */
-  async fetchWifiStatus(): Promise<WifiStatusResult> {
+  async applyWifiConfig(): Promise<boolean> {
+    if (this.isVirtual) {
+      await new Promise(r => setTimeout(r, 800));
+      return true;
+    }
+
+    console.log('[ESP32-BLE-PROV] Applying Wi-Fi configuration on ESP32...');
+    const applyMsg = proto.WiFiConfigPayload.create({
+      msg: proto.WiFiConfigMsgType.TypeCmdApplyConfig,
+      cmdApplyConfig: proto.CmdApplyConfig.create({})
+    });
+
+    const applyBytes = proto.WiFiConfigPayload.encode(applyMsg).finish();
+    const resp = await this.sendData('prov-config', applyBytes);
+    const decoded = proto.WiFiConfigPayload.decode(resp);
+
+    console.log('[ESP32-BLE-PROV] ApplyConfig response status:', decoded.respApplyConfig?.status);
+    return decoded.respApplyConfig?.status === proto.Status.Success;
+  }
+
+  /**
+   * Polls the ESP32 Wi-Fi connection status
+   */
+  async getWifiStatus(): Promise<WifiStatusResult> {
     if (this.isVirtual) {
       await new Promise(r => setTimeout(r, 600));
+      this.virtualStep++;
       if (this.virtualStep >= 2) {
         return {
           connected: true,
           staState: 'connected',
-          ip: '192.168.1.134',
-          ssid: 'Home-WiFi_2.4G'
+          ip: '192.168.1.142',
+          rssi: -52
         };
       }
       return {
         connected: false,
-        staState: 'disconnected'
+        staState: 'connecting'
       };
     }
 
-    try {
-      const getStatusMsg = proto.WiFiConfigPayload.create({
-        msg: proto.WiFiConfigMsgType.TypeCmdGetStatus,
-        cmdGetStatus: proto.CmdGetStatus.create({})
-      });
-      const getStatusBytes = proto.WiFiConfigPayload.encode(getStatusMsg).finish();
-      const resp = await this.sendData('prov-config', getStatusBytes);
-      const decoded = proto.WiFiConfigPayload.decode(resp);
+    console.log('[ESP32-BLE-PROV] Querying Wi-Fi status from ESP32...');
+    const statusMsg = proto.WiFiConfigPayload.create({
+      msg: proto.WiFiConfigMsgType.TypeCmdGetStatus,
+      cmdGetStatus: proto.CmdGetStatus.create({})
+    });
 
-      const respGetStatus = decoded.respGetStatus;
-      if (!respGetStatus) {
-        return { connected: false, staState: 'disconnected' };
+    const statusBytes = proto.WiFiConfigPayload.encode(statusMsg).finish();
+    const resp = await this.sendData('prov-config', statusBytes);
+    const decoded = proto.WiFiConfigPayload.decode(resp);
+
+    if (decoded.respGetStatus) {
+      const respStatus = decoded.respGetStatus;
+      const staStateEnum = respStatus.staState;
+      let staStateStr: 'disconnected' | 'connecting' | 'connected' | 'failed' = 'disconnected';
+      
+      if (staStateEnum === proto.WifiStationState.Connected) {
+        staStateStr = 'connected';
+      } else if (staStateEnum === proto.WifiStationState.Connecting) {
+        staStateStr = 'connecting';
+      } else if (staStateEnum === proto.WifiStationState.ConnectionFailed) {
+        staStateStr = 'failed';
       }
 
-      // Map staState enum: 0=Disconnected, 1=Connecting, 2=Connected, 3=ConnectionFailed
-      let staState: 'disconnected' | 'connecting' | 'connected' | 'failed' = 'disconnected';
-      if (respGetStatus.staState === 1) staState = 'connecting';
-      else if (respGetStatus.staState === 2) staState = 'connected';
-      else if (respGetStatus.staState === 3) staState = 'failed';
+      let ipStr = undefined;
+      if (respStatus.connected?.ip4Address) {
+        ipStr = respStatus.connected.ip4Address;
+      }
 
-      let ip = '';
-      let ssid = '';
-      if (respGetStatus.connected) {
-        if (respGetStatus.connected.ssid) {
-          ssid = new TextDecoder().decode(respGetStatus.connected.ssid);
-        }
+      let failedReason: 'authError' | 'networkNotFound' | 'unknown' | undefined = undefined;
+      if (respStatus.failReason === proto.WifiConnectFailedReason.AuthError) {
+        failedReason = 'authError';
+      } else if (respStatus.failReason === proto.WifiConnectFailedReason.NetworkNotFound) {
+        failedReason = 'networkNotFound';
       }
 
       return {
-        connected: staState === 'connected',
-        staState,
-        ip,
-        ssid
+        connected: staStateStr === 'connected',
+        staState: staStateStr,
+        ip: ipStr,
+        ssid: respStatus.connected?.ssid ? (typeof respStatus.connected.ssid === 'string' ? respStatus.connected.ssid : new TextDecoder().decode(respStatus.connected.ssid)) : undefined,
+        rssi: respStatus.connected?.rssi || undefined,
+        failedReason
       };
-    } catch (e) {
-      console.warn('[ESP32-BLE-PROV] fetchWifiStatus error:', e);
-      return { connected: false, staState: 'disconnected' };
     }
+
+    return {
+      connected: false,
+      staState: 'disconnected'
+    };
   }
 
   /**
-   * Disconnects the GATT connection cleanly
+   * Disconnects the BLE session and resets GATT handles
    */
-  disconnect(): void {
-    if (this.gattServer && this.gattServer.connected) {
-      try {
-        console.log('[ESP32-BLE-PROV] Disconnecting GATT server...');
-        this.gattServer.disconnect();
-      } catch (e) {
-        console.warn('[ESP32-BLE-PROV] Disconnect warning:', e);
-      }
+  async disconnect(): Promise<void> {
+    if (this.isVirtual) {
+      this.isConnectedFlag = false;
+      return;
     }
-    this.isConnectedFlag = false;
-    this.security = null;
+
+    try {
+      if (this.device && this.device.gatt && this.device.gatt.connected) {
+        this.device.gatt.disconnect();
+      }
+    } catch (e) {
+      console.warn('[ESP32-BLE-PROV] Error during disconnect:', e);
+    }
+
+    this.gattServer = null;
+    this.primaryService = null;
     this.endpointChars.clear();
+    this.security = null;
+    this.isConnectedFlag = false;
   }
 }
