@@ -225,4 +225,50 @@ export class Security1 extends Security {
   isEstablished(): boolean {
     return this.established;
   }
+
+  /**
+   * Decrypts application data and automatically resynchronizes AES-CTR keystream counter if offset drift occurred.
+   */
+  async decryptWithResync(data: Uint8Array, validator: (buf: Uint8Array) => boolean): Promise<Uint8Array> {
+    if (!this.established || !this.cipher) {
+      throw new Error('Security session not established');
+    }
+
+    // 1. Try default continuous cipher stream
+    const decrypted = await this.cipher.crypt(data);
+
+    if (validator(decrypted)) {
+      return decrypted;
+    }
+
+    console.warn(`[ESP32-SEC1] Default continuous decrypt produced unverified payload (${data.length} bytes, dec hex: ${uint8ArrayToHex(decrypted.slice(0, 16))}). Initiating counter resync search...`);
+
+    if (!this.sessionKey || !this.deviceRandom) {
+      return decrypted;
+    }
+
+    // Candidate offsets for Espressif Protocomm Security 1
+    const priorityOffsets = [0, 32, 64, 74, 80, 85, 86, 91, 96, 112, 128, 144, 160, 176, 192, 208, 224, 240, 256];
+    const candidateOffsets: number[] = [...priorityOffsets];
+    for (let o = 0; o <= 384; o += 1) {
+      if (!candidateOffsets.includes(o)) candidateOffsets.push(o);
+    }
+
+    for (const offset of candidateOffsets) {
+      const testCipher = new Aes256CtrContext(this.sessionKey, this.deviceRandom);
+      if (offset > 0) {
+        await testCipher.crypt(new Uint8Array(offset));
+      }
+      const testDecrypted = await testCipher.crypt(data);
+      if (validator(testDecrypted)) {
+        console.log(`[ESP32-SEC1] Keystream counter resynced to offset ${offset}!`);
+        this.cipher = testCipher; // Update cipher state to this synchronized offset
+        return testDecrypted;
+      }
+    }
+
+    console.error('[ESP32-SEC1] Counter resync search failed to find valid keystream offset.');
+    return decrypted;
+  }
 }
+
