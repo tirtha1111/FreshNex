@@ -100,6 +100,8 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
 
   const [connectedIp, setConnectedIp] = useState<string>('192.168.1.134');
   const [lastVerifiedTime, setLastVerifiedTime] = useState<string>('');
+  const [handshakeDiagnostics, setHandshakeDiagnostics] = useState<any>(null);
+  const [showDevDetails, setShowDevDetails] = useState<boolean>(false);
 
   const bluetoothSupported = typeof navigator !== 'undefined' && 'bluetooth' in (navigator as any);
 
@@ -256,11 +258,12 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
   const handleConnectHandshake = async () => {
     setIsProcessing(true);
     setErrorType(null);
+    setHandshakeDiagnostics(null);
 
     if (isVirtual || !rawBleDevice) {
       setStatusText('Connecting to virtual FreshNex ESP32...');
       const vDevice = new FreshNexESPDevice(null, popCode || '12345678', true);
-      await vDevice.connect({ type: 'Security1' });
+      await vDevice.connect({ type: 'Security1' }, (msg) => setStatusText(msg));
       setEspDevice(vDevice);
 
       setStatusText('Performing Espressif Curve25519 Security 1 handshake...');
@@ -271,18 +274,24 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
       return;
     }
 
+    const provDevice = new FreshNexESPDevice(rawBleDevice, popCode || '12345678', false);
     try {
       setStatusText(`Establishing GATT connection with ${discoveredName}...`);
-      const provDevice = new FreshNexESPDevice(rawBleDevice, popCode || '12345678', false);
       
-      setStatusText('Connecting to GATT server & discovering Espressif services...');
-      await provDevice.connect({ type: 'Security1' });
+      await provDevice.connect({ type: 'Security1' }, (msg) => {
+        setStatusText(msg);
+      });
       setEspDevice(provDevice);
+      setHandshakeDiagnostics(provDevice.getDiagnostics());
 
       setIsProcessing(false);
       setStep(4);
     } catch (err: any) {
       console.error('[ESP32-PROV] Handshake/GATT error:', err);
+      try {
+        setHandshakeDiagnostics(provDevice.getDiagnostics());
+      } catch {}
+
       if (
         err.message?.includes('permissions policy') || 
         err.message?.includes('disallowed') || 
@@ -292,7 +301,7 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
         setErrorMessage('Web Bluetooth access is disallowed inside embedded preview iframes by browser security policies. Please switch to the Virtual ESP32 Simulator or open the app in a new tab.');
       } else {
         setErrorType('handshake_failed');
-        setErrorMessage(err.message || 'The ESP32 did not respond during the Security 1 handshake. Verify the Proof of Possession (PoP) code.');
+        setErrorMessage(err.message || 'Security handshake failed. Verify the Proof of Possession (PoP) code.');
       }
       setIsProcessing(false);
     }
@@ -1011,6 +1020,31 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
             </div>
 
             <p className="leading-relaxed font-medium">{errorMessage}</p>
+
+            {errorType === 'handshake_failed' && handshakeDiagnostics && (
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowDevDetails(!showDevDetails)}
+                  className="text-[11px] font-bold text-red-300 underline hover:text-white cursor-pointer"
+                >
+                  {showDevDetails ? 'Hide Developer Details' : 'Show Developer Details'}
+                </button>
+
+                {showDevDetails && (
+                  <div className="mt-2 p-3 rounded-xl bg-black/40 border border-red-500/30 font-mono text-[10px] space-y-1 text-red-200">
+                    <div>Characteristic: <span className="text-white">{handshakeDiagnostics.characteristicName} ({handshakeDiagnostics.characteristicUuid || 'N/A'})</span></div>
+                    <div>Write supported: <span className="text-white">{String(handshakeDiagnostics.writeSupported)}</span></div>
+                    <div>Write Without Response: <span className="text-white">{String(handshakeDiagnostics.writeWithoutResponseSupported)}</span></div>
+                    <div>Read supported: <span className="text-white">{String(handshakeDiagnostics.readSupported)}</span></div>
+                    <div>Connected: <span className="text-white">{String(handshakeDiagnostics.connected)}</span></div>
+                    {handshakeDiagnostics.lastError && (
+                      <div>Last Error: <span className="text-red-400">{handshakeDiagnostics.lastError}</span></div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="flex gap-2 pt-1 flex-wrap">
               {errorType === 'firebase_timeout' && (
