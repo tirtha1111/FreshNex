@@ -180,7 +180,7 @@ export class FreshNexESPDevice {
     if (!this.primaryService) throw new Error('Primary service not found');
 
     const chars = await this.primaryService.getCharacteristics();
-    console.log(`[ESP32-BLE-PROV] Discovered ${chars.length} characteristics.`);
+    console.log(`[ESP32-BLE-PROV] Discovered ${chars.length} characteristics on primary service.`);
 
     this.endpointChars.clear();
 
@@ -188,39 +188,19 @@ export class FreshNexESPDevice {
       const charUuid = char.uuid.toLowerCase();
       let endpointName: string | null = null;
 
-      // 1. Try to read Characteristic User Description descriptor (0x2901)
-      try {
-        const descriptors = await char.getDescriptors();
-        for (const desc of descriptors) {
-          if (desc.uuid.toLowerCase().includes('2901')) {
-            const descVal = await desc.readValue();
-            const decoded = new TextDecoder().decode(new Uint8Array(descVal.buffer, descVal.byteOffset, descVal.byteLength)).trim().toLowerCase();
-            if (decoded) {
-              endpointName = decoded;
-              console.log(`[ESP32-BLE-PROV] Characteristic ${charUuid} has descriptor name: "${decoded}"`);
-              break;
-            }
-          }
-        }
-      } catch (descErr) {
-        // Some devices don't allow descriptor reading
-      }
-
-      // 2. Fallback to standard Espressif characteristic UUID pattern matching
-      if (!endpointName) {
-        if (charUuid.includes('ff51') || charUuid.endsWith('ff51')) {
-          endpointName = 'prov-session';
-        } else if (charUuid.includes('ff52') || charUuid.endsWith('ff52')) {
-          endpointName = 'prov-config';
-        } else if (charUuid.includes('ff53') || charUuid.endsWith('ff53')) {
-          endpointName = 'prov-scan';
-        } else if (charUuid.includes('ff50') || charUuid.endsWith('ff50')) {
-          endpointName = 'proto-ver';
-        } else if (charUuid.includes('ff54') || charUuid.endsWith('ff54')) {
-          endpointName = 'prov-ctrl';
-        } else if (charUuid.includes('ff55') || charUuid.endsWith('ff55')) {
-          endpointName = 'custom-data';
-        }
+      // Espressif characteristic UUID pattern matching (avoids descriptor calls that trigger GATT errors on some OS drivers)
+      if (charUuid.includes('ff51') || charUuid.endsWith('ff51') || charUuid.includes('0001')) {
+        endpointName = 'prov-session';
+      } else if (charUuid.includes('ff52') || charUuid.endsWith('ff52') || charUuid.includes('0002')) {
+        endpointName = 'prov-config';
+      } else if (charUuid.includes('ff53') || charUuid.endsWith('ff53') || charUuid.includes('0003')) {
+        endpointName = 'prov-scan';
+      } else if (charUuid.includes('ff50') || charUuid.endsWith('ff50') || charUuid.includes('0000')) {
+        endpointName = 'proto-ver';
+      } else if (charUuid.includes('ff54') || charUuid.endsWith('ff54')) {
+        endpointName = 'prov-ctrl';
+      } else if (charUuid.includes('ff55') || charUuid.endsWith('ff55')) {
+        endpointName = 'custom-data';
       }
 
       if (endpointName) {
@@ -229,19 +209,24 @@ export class FreshNexESPDevice {
       }
     }
 
+    // Fallback: positional characteristic mapping if UUIDs are obfuscated or custom
     if (!this.endpointChars.has('prov-session')) {
-      // If prov-session wasn't explicitly named, map first characteristic to prov-session and second to prov-config
-      if (chars.length >= 1) {
+      if (chars.length === 1) {
         this.endpointChars.set('prov-session', chars[0]);
-        console.log(`[ESP32-BLE-PROV] Assigned chars[0] -> prov-session (${chars[0].uuid})`);
-      }
-      if (chars.length >= 2) {
-        this.endpointChars.set('prov-config', chars[1]);
-        console.log(`[ESP32-BLE-PROV] Assigned chars[1] -> prov-config (${chars[1].uuid})`);
-      }
-      if (chars.length >= 3) {
-        this.endpointChars.set('prov-scan', chars[2]);
-        console.log(`[ESP32-BLE-PROV] Assigned chars[2] -> prov-scan (${chars[2].uuid})`);
+      } else if (chars.length >= 2) {
+        // If 4 characteristics: 0: proto-ver, 1: prov-session, 2: prov-config, 3: prov-scan
+        if (chars.length >= 4) {
+          this.endpointChars.set('proto-ver', chars[0]);
+          this.endpointChars.set('prov-session', chars[1]);
+          this.endpointChars.set('prov-config', chars[2]);
+          this.endpointChars.set('prov-scan', chars[3]);
+        } else {
+          this.endpointChars.set('prov-session', chars[0]);
+          this.endpointChars.set('prov-config', chars[1]);
+          if (chars.length >= 3) {
+            this.endpointChars.set('prov-scan', chars[2]);
+          }
+        }
       }
     }
 
@@ -256,10 +241,16 @@ export class FreshNexESPDevice {
   private async performSecurity1Handshake(): Promise<void> {
     if (!this.security) throw new Error('Security module not initialized');
 
+    // Small stabilization delay after service/char discovery before sending first command
+    await new Promise(r => setTimeout(r, 120));
+
     // --- STEP 1: Exchange 0 (Session_Command0 -> Session_Response0) ---
     console.log('[ESP32-BLE-PROV] Handshake Step 1: Sending Session_Command0 (Client Public Key)...');
     const setupReq0 = await this.security.getSessionSetupRequest();
     const setupResp0 = await this.sendRawData('prov-session', setupReq0);
+
+    // Brief inter-packet delay for ESP32 FreeRTOS context switch
+    await new Promise(r => setTimeout(r, 80));
 
     // --- STEP 2: Exchange 1 (Session_Command1 -> Session_Response1) ---
     console.log('[ESP32-BLE-PROV] Handshake Step 2: Processing Session_Response0 and sending Session_Command1 (PoP Proof)...');
@@ -272,7 +263,7 @@ export class FreshNexESPDevice {
   }
 
   /**
-   * Sends raw unencrypted binary data to a characteristic and reads response
+   * Sends raw unencrypted binary data to a characteristic and reads response safely
    */
   private async sendRawData(endpoint: string, data: Uint8Array): Promise<Uint8Array> {
     const char = this.endpointChars.get(endpoint.toLowerCase());
@@ -282,15 +273,58 @@ export class FreshNexESPDevice {
 
     const payload = new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
 
-    if (char.properties.write) {
-      await char.writeValueWithResponse(payload);
-    } else if (char.properties.writeWithoutResponse) {
-      await char.writeValueWithoutResponse(payload);
-    } else {
-      await char.writeValue(payload);
+    // 1. Perform Write
+    let writeSuccess = false;
+    try {
+      if (char.properties.write) {
+        await char.writeValueWithResponse(payload);
+        writeSuccess = true;
+      } else if (char.properties.writeWithoutResponse) {
+        await char.writeValueWithoutResponse(payload);
+        writeSuccess = true;
+      } else {
+        await char.writeValue(payload);
+        writeSuccess = true;
+      }
+    } catch (writeErr: any) {
+      console.warn(`[ESP32-BLE-PROV] Write error on ${endpoint} (${writeErr.message}), trying fallback...`);
+      await new Promise(r => setTimeout(r, 60));
+      try {
+        await char.writeValue(payload);
+        writeSuccess = true;
+      } catch (fallbackErr: any) {
+        console.warn(`[ESP32-BLE-PROV] Fallback writeValue failed, attempting writeValueWithoutResponse...`);
+        await char.writeValueWithoutResponse(payload);
+        writeSuccess = true;
+      }
     }
 
-    const resp = await char.readValue();
+    // 2. Pause to allow the ESP32 protocomm task to parse protobuf and generate response
+    await new Promise(r => setTimeout(r, 120));
+
+    // 3. Read characteristic value with retry handling
+    let resp: DataView | null = null;
+    let lastErr: any = null;
+
+    for (let attempt = 1; attempt <= 4; attempt++) {
+      try {
+        resp = await char.readValue();
+        if (resp && resp.byteLength > 0) {
+          break;
+        }
+        // If 0 bytes returned, wait and re-read
+        await new Promise(r => setTimeout(r, 80));
+      } catch (readErr: any) {
+        lastErr = readErr;
+        console.warn(`[ESP32-BLE-PROV] readValue attempt ${attempt}/4 on ${endpoint} failed:`, readErr.message);
+        await new Promise(r => setTimeout(r, 100));
+      }
+    }
+
+    if (!resp || resp.byteLength === 0) {
+      throw lastErr || new Error(`GATT read timeout: No response received from ${endpoint} on ESP32`);
+    }
+
     return new Uint8Array(resp.buffer, resp.byteOffset, resp.byteLength);
   }
 
