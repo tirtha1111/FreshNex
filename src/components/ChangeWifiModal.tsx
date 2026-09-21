@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Wifi, 
@@ -105,14 +105,19 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
 
   const bluetoothSupported = typeof navigator !== 'undefined' && 'bluetooth' in (navigator as any);
 
-  // Clean up BLE on unmount
+  // Clean up BLE strictly on modal unmount
+  const espDeviceRef = useRef<FreshNexESPDevice | null>(null);
+  useEffect(() => {
+    espDeviceRef.current = espDevice;
+  }, [espDevice]);
+
   useEffect(() => {
     return () => {
-      if (espDevice) {
-        espDevice.disconnect();
+      if (espDeviceRef.current) {
+        espDeviceRef.current.disconnect();
       }
     };
-  }, [espDevice]);
+  }, []);
 
   // Reset errors when changing steps
   useEffect(() => {
@@ -274,16 +279,24 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
       return;
     }
 
-    const provDevice = new FreshNexESPDevice(rawBleDevice, popCode || '12345678', false);
+    let provDevice = espDevice;
+    if (!provDevice || provDevice.isVirtualDevice()) {
+      provDevice = new FreshNexESPDevice(rawBleDevice, popCode || '12345678', false);
+      setEspDevice(provDevice);
+    } else {
+      provDevice.setPopCode(popCode || '12345678');
+    }
+
     try {
       setStatusText(`Establishing GATT connection with ${discoveredName}...`);
       
-      await provDevice.connect({ type: 'Security1' }, (msg) => {
-        setStatusText(msg);
-      });
-      setEspDevice(provDevice);
+      await provDevice.connect(
+        { type: 'Security1' },
+        (msg) => setStatusText(msg),
+        (state, msg) => console.log(`[ESP32-PROV-STATE] ${state}: ${msg}`)
+      );
+      
       setHandshakeDiagnostics(provDevice.getDiagnostics());
-
       setIsProcessing(false);
       setStep(4);
     } catch (err: any) {
@@ -301,7 +314,7 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
         setErrorMessage('Web Bluetooth access is disallowed inside embedded preview iframes by browser security policies. Please switch to the Virtual ESP32 Simulator or open the app in a new tab.');
       } else {
         setErrorType('handshake_failed');
-        setErrorMessage(err.message || 'Security handshake failed. Verify the Proof of Possession (PoP) code.');
+        setErrorMessage(err.message || 'ESP32 BLE connection was lost. Please press Retry Handshake.');
       }
       setIsProcessing(false);
     }
