@@ -831,12 +831,32 @@ export class FreshNexESPDevice {
     return this.runGattOp(async () => {
       const scanChar = 'prov-scan';
 
+      console.log('Sending Wi-Fi scan start request (CmdScanStart) to ESP32...');
+
+      // Step A: Send CmdScanStart to trigger Wi-Fi scan on ESP32
+      try {
+        const scanStartMsg = proto.WiFiScanPayload.create({
+          msg: proto.WiFiScanMsgType.TypeCmdScanStart,
+          cmdScanStart: proto.CmdScanStart.create({
+            blocking: true,
+            passive: false,
+            groupChannels: 0,
+            periodMs: 120
+          })
+        });
+        const scanStartBytes = proto.WiFiScanPayload.encode(scanStartMsg).finish();
+        const rawStartResp = await this.sendDataInternal(scanChar, scanStartBytes);
+        console.log(`[ESP32-BLE-PROV] CmdScanStart response received (${rawStartResp.length} bytes).`);
+      } catch (scanStartErr: any) {
+        console.warn('[ESP32-BLE-PROV] CmdScanStart warning:', scanStartErr);
+      }
+
+      // Brief pause while ESP32 hardware performs Wi-Fi scan
+      await new Promise(r => setTimeout(r, 1500));
+
       console.log('Sending Wi-Fi scan result request (CmdScanResult) to ESP32...');
 
-      // Brief pause to ensure BLE channel is ready
-      await new Promise(r => setTimeout(r, 200));
-
-      // Request Wi-Fi scan result entries directly from ESP32
+      // Step B: Send TypeCmdScanResult to fetch AP records
       let rawResultBytes: Uint8Array;
       try {
         const scanResultMsg = proto.WiFiScanPayload.create({
