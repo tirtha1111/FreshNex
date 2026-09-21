@@ -808,7 +808,7 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
                 </button>
               </div>
 
-              {/* Scanned SSIDs list */}
+              {/* Scanned SSIDs list or Empty Banner */}
               {scannedNetworks.length > 0 ? (
                 <div className="max-h-48 overflow-y-auto border border-[#FF6A00]/25 rounded-2xl divide-y divide-[#FF6A00]/15 bg-[#1C1410]">
                   {scannedNetworks.map((net) => (
@@ -834,23 +834,37 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
                   ))}
                 </div>
               ) : (
-                <div className="p-4 rounded-2xl bg-[#1C1410] border border-[#FF6A00]/20 text-center space-y-2">
-                  <p className="text-xs text-[#B8A89E]">
-                    {isScanningWifi ? 'Scanning 2.4GHz Wi-Fi channels via ESP32...' : 'No Wi-Fi networks detected nearby. Tap Refresh to scan again, or enter your Wi-Fi SSID manually below.'}
+                <div className="p-4 rounded-2xl bg-[#1C1410] border border-[#FF6A00]/20 space-y-2">
+                  <div className="flex items-center gap-2 text-[#FFAA00] font-bold text-xs">
+                    <Wifi className="w-4 h-4 animate-pulse" />
+                    <span>{isScanningWifi ? 'Scanning 2.4GHz Wi-Fi channels via ESP32...' : 'No Wi-Fi networks auto-detected by ESP32'}</span>
+                  </div>
+                  <p className="text-[11px] text-[#B8A89E] leading-relaxed">
+                    If your ESP32 radio did not return broadcasted APs or if your router uses a hidden 2.4GHz SSID, please enter your Wi-Fi name manually below.
                   </p>
                 </div>
               )}
 
               {/* Manual SSID Entry */}
               <div className="pt-1 space-y-1.5">
-                <label className="text-[10px] font-bold text-[#8C7A70] uppercase block">Or Enter Network SSID Manually</label>
-                <input
-                  type="text"
-                  value={customSsid}
-                  onChange={(e) => { setCustomSsid(e.target.value); setSelectedSsid(''); }}
-                  placeholder="Enter Network SSID"
-                  className="w-full bg-[#1C1410] border border-[#FF6A00]/25 px-3.5 py-2 rounded-xl text-xs font-bold text-[#FDF8F5] focus:outline-none focus:border-[#FFAA00]"
-                />
+                <div className="flex items-center justify-between">
+                  <label className="text-[10px] font-bold text-[#FFAA00] uppercase block tracking-wider">
+                    {scannedNetworks.length > 0 ? 'Or Enter Wi-Fi Name (SSID) Manually' : 'Wi-Fi Network Name (SSID)'}
+                  </label>
+                  {!selectedSsid && !customSsid && (
+                    <span className="text-[10px] text-[#8C7A70] italic">Required</span>
+                  )}
+                </div>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={customSsid}
+                    onChange={(e) => { setCustomSsid(e.target.value); setSelectedSsid(''); }}
+                    placeholder="e.g. MyHomeWiFi_2.4G"
+                    className="w-full bg-[#1C1410] border border-[#FF6A00]/30 pl-3.5 pr-10 py-2.5 rounded-xl text-xs font-bold text-[#FDF8F5] focus:outline-none focus:border-[#FFAA00]"
+                  />
+                  <Wifi className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#8C7A70]" />
+                </div>
               </div>
 
               {/* Passphrase Input */}
@@ -877,7 +891,7 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
                     </button>
                   </div>
                   <p className="text-[9px] text-[#8C7A70] italic">
-                    Password is strictly encrypted and transmitted over BLE. It will never be stored in Firebase or logs.
+                    Password is encrypted with AES-256-CTR and transmitted securely over BLE to the ESP32.
                   </p>
                 </div>
               )}

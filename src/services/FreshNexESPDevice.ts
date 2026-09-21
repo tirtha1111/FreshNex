@@ -725,105 +725,115 @@ export class FreshNexESPDevice {
     this.updateState('WIFI_SCANNING', 'Scanning Wi-Fi access points over BLE...');
 
     return this.runGattOp(async () => {
+      // Locate scan endpoint characteristic (prov-scan or fallbacks)
+      let scanCharName = 'prov-scan';
       if (!this.endpointChars.has('prov-scan')) {
-        console.warn("[ESP32-BLE-PROV] Characteristic 'prov-scan' not found. Scanned networks empty.");
-        return [];
+        // Look for any unallocated endpoint characteristic
+        for (const [name, char] of this.endpointChars.entries()) {
+          if (name !== 'prov-session' && name !== 'prov-config') {
+            scanCharName = name;
+            break;
+          }
+        }
       }
 
-      console.log("[ESP32-BLE-PROV] Triggering WiFi scan command on 'prov-scan'...");
+      console.log(`[ESP32-BLE-PROV] Triggering WiFi scan using endpoint '${scanCharName}'...`);
       
       let resultCount = 0;
-      let scanFinished = false;
 
-      // Send initial ScanStart
+      // Step A: Send CmdScanStart (blocking = true for hardware scan)
       try {
         const scanStartMsg = proto.WiFiScanPayload.create({
           msg: proto.WiFiScanMsgType.TypeCmdScanStart,
           cmdScanStart: proto.CmdScanStart.create({
-            blocking: false,
+            blocking: true,
             passive: false,
             groupChannels: 0,
             periodMs: 120
           })
         });
         const scanStartBytes = proto.WiFiScanPayload.encode(scanStartMsg).finish();
-        const resp0 = await this.sendDataInternal('prov-scan', scanStartBytes);
-        const decodedResp0 = proto.WiFiScanPayload.decode(resp0);
-
-        if (decodedResp0.respScanStatus) {
-          scanFinished = !!decodedResp0.respScanStatus.scanFinished;
-          resultCount = decodedResp0.respScanStatus.resultCount || 0;
-        }
-      } catch (e) {
-        console.warn('[ESP32-BLE-PROV] TypeCmdScanStart warning:', e);
+        await this.sendDataInternal(scanCharName, scanStartBytes);
+        console.log('[ESP32-BLE-PROV] CmdScanStart sent successfully to ESP32.');
+        
+        // Brief pause while ESP32 radio scans 2.4GHz channels
+        await new Promise(r => setTimeout(r, 1200));
+      } catch (e: any) {
+        console.warn('[ESP32-BLE-PROV] CmdScanStart warning:', e?.message || e);
       }
 
-      // Poll status up to 10 times
-      let pollCount = 0;
-      while (!scanFinished && pollCount < 10) {
-        pollCount++;
-        await new Promise(r => setTimeout(r, 600));
+      // Step B: Query CmdScanStatus to read resultCount
+      try {
+        const scanStatusMsg = proto.WiFiScanPayload.create({
+          msg: proto.WiFiScanMsgType.TypeCmdScanStatus,
+          cmdScanStatus: proto.CmdScanStatus.create({})
+        });
+        const scanStatusBytes = proto.WiFiScanPayload.encode(scanStatusMsg).finish();
+        const resp1 = await this.sendDataInternal(scanCharName, scanStatusBytes);
+        const decodedResp1 = proto.WiFiScanPayload.decode(resp1);
 
-        try {
-          const scanStatusMsg = proto.WiFiScanPayload.create({
-            msg: proto.WiFiScanMsgType.TypeCmdScanStatus,
-            cmdScanStatus: proto.CmdScanStatus.create({})
-          });
-          const scanStatusBytes = proto.WiFiScanPayload.encode(scanStatusMsg).finish();
-          const resp1 = await this.sendDataInternal('prov-scan', scanStatusBytes);
-          const decodedResp1 = proto.WiFiScanPayload.decode(resp1);
-
-          if (decodedResp1.respScanStatus) {
-            scanFinished = !!decodedResp1.respScanStatus.scanFinished;
-            resultCount = decodedResp1.respScanStatus.resultCount || 0;
-            console.log(`[ESP32-BLE-PROV] WiFi scan poll ${pollCount}: finished=${scanFinished}, count=${resultCount}`);
-          }
-        } catch (pollErr) {
-          console.warn(`[ESP32-BLE-PROV] WiFi scan poll ${pollCount} warning:`, pollErr);
+        if (decodedResp1.respScanStatus) {
+          resultCount = decodedResp1.respScanStatus.resultCount || 0;
+          console.log(`[ESP32-BLE-PROV] CmdScanStatus returned: scanFinished=${decodedResp1.respScanStatus.scanFinished}, count=${resultCount}`);
         }
+      } catch (e: any) {
+        console.warn('[ESP32-BLE-PROV] CmdScanStatus check warning:', e?.message || e);
       }
 
-      // Fallback: If 0 results reported, send blocking scan start
+      // Step C: If resultCount is 0, attempt async scan command + polling loop
       if (resultCount === 0) {
-        console.log("[ESP32-BLE-PROV] 0 results reported from async scan. Triggering blocking scan fallback...");
+        console.log('[ESP32-BLE-PROV] Result count is 0. Attempting async scan loop...');
         try {
-          const blockingStartMsg = proto.WiFiScanPayload.create({
+          const asyncStartMsg = proto.WiFiScanPayload.create({
             msg: proto.WiFiScanMsgType.TypeCmdScanStart,
             cmdScanStart: proto.CmdScanStart.create({
-              blocking: true,
+              blocking: false,
               passive: false,
               groupChannels: 0,
-              periodMs: 150
+              periodMs: 120
             })
           });
-          const blockingBytes = proto.WiFiScanPayload.encode(blockingStartMsg).finish();
-          const respBlocking = await this.sendDataInternal('prov-scan', blockingBytes);
-          const decodedBlocking = proto.WiFiScanPayload.decode(respBlocking);
-          if (decodedBlocking.respScanStatus) {
-            resultCount = decodedBlocking.respScanStatus.resultCount || 0;
+          await this.sendDataInternal(scanCharName, proto.WiFiScanPayload.encode(asyncStartMsg).finish());
+
+          for (let poll = 1; poll <= 5; poll++) {
+            await new Promise(r => setTimeout(r, 600));
+            const statusReq = proto.WiFiScanPayload.create({
+              msg: proto.WiFiScanMsgType.TypeCmdScanStatus,
+              cmdScanStatus: proto.CmdScanStatus.create({})
+            });
+            const resp = await this.sendDataInternal(scanCharName, proto.WiFiScanPayload.encode(statusReq).finish());
+            const decoded = proto.WiFiScanPayload.decode(resp);
+            if (decoded.respScanStatus) {
+              resultCount = decoded.respScanStatus.resultCount || 0;
+              console.log(`[ESP32-BLE-PROV] Async poll ${poll}: finished=${decoded.respScanStatus.scanFinished}, count=${resultCount}`);
+              if (decoded.respScanStatus.scanFinished && resultCount > 0) break;
+            }
           }
-        } catch (blockingErr) {
-          console.warn('[ESP32-BLE-PROV] Blocking scan fallback warning:', blockingErr);
+        } catch (e: any) {
+          console.warn('[ESP32-BLE-PROV] Async scan poll warning:', e?.message || e);
         }
       }
 
-      // Fetch scan results
-      const fetchCount = resultCount > 0 ? Math.min(resultCount, 30) : 20;
-      console.log(`[ESP32-BLE-PROV] Fetching scan result entries (count=${fetchCount})...`);
+      // Step D: Request CmdScanResult regardless of resultCount (requesting up to 20 or resultCount)
+      const fetchCount = Math.max(resultCount, 20);
+      console.log(`[ESP32-BLE-PROV] Requesting ${fetchCount} scan result entries from ESP32...`);
 
-      const scanResultMsg = proto.WiFiScanPayload.create({
-        msg: proto.WiFiScanMsgType.TypeCmdScanResult,
-        cmdScanResult: proto.CmdScanResult.create({
-          startIndex: 0,
-          count: fetchCount
-        })
-      });
-      const scanResultBytes = proto.WiFiScanPayload.encode(scanResultMsg).finish();
-      const resp2 = await this.sendDataInternal('prov-scan', scanResultBytes);
-      const decodedResp2 = proto.WiFiScanPayload.decode(resp2);
-
-      const entries = decodedResp2.respScanResult?.entries || [];
-      console.log(`[ESP32-BLE-PROV] Decoded ${entries.length} Wi-Fi entries from ESP32 scan result.`);
+      let entries: any[] = [];
+      try {
+        const scanResultMsg = proto.WiFiScanPayload.create({
+          msg: proto.WiFiScanMsgType.TypeCmdScanResult,
+          cmdScanResult: proto.CmdScanResult.create({
+            startIndex: 0,
+            count: fetchCount
+          })
+        });
+        const resp2 = await this.sendDataInternal(scanCharName, proto.WiFiScanPayload.encode(scanResultMsg).finish());
+        const decodedResp2 = proto.WiFiScanPayload.decode(resp2);
+        entries = decodedResp2.respScanResult?.entries || [];
+        console.log(`[ESP32-BLE-PROV] Decoded ${entries.length} Wi-Fi entries from ESP32 scan response.`);
+      } catch (resultErr: any) {
+        console.warn('[ESP32-BLE-PROV] CmdScanResult fetch warning:', resultErr?.message || resultErr);
+      }
 
       const networks: DiscoveredWifiNetwork[] = [];
 
@@ -847,6 +857,7 @@ export class FreshNexESPDevice {
         }
       }
 
+      console.log(`[ESP32-BLE-PROV] Discovered ${networks.length} valid Wi-Fi networks:`, networks.map(n => n.ssid));
       return networks;
     });
   }
