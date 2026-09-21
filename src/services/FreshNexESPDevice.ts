@@ -56,6 +56,69 @@ export const ESP_PROV_PRIMARY_SERVICE_UUIDS = [
 // Alias for backwards compatibility
 export const ESP_PROV_SERVICE_UUIDS = ESP_PROV_PRIMARY_SERVICE_UUIDS;
 
+/**
+ * Robust protobuf decoder for WiFiScanPayload that handles standard protobuf,
+ * length-delimited protobuf, and varint-prefixed frames from Espressif protocomm.
+ */
+function decodeWiFiScanPayloadRobust(bytes: Uint8Array): {
+  payload: proto.WiFiScanPayload;
+  decodeMethod: string;
+} {
+  const hex = Array.from(bytes.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(' ');
+  console.log(`[ESP32-PROV-DIAG] Raw response byte length: ${bytes.length}`);
+  console.log(`[ESP32-PROV-DIAG] Decrypted payload byte length: ${bytes.length}`);
+  console.log(`[ESP32-PROV-DIAG] First 16 bytes in hexadecimal: ${hex}`);
+
+  // Strategy 1: Standard Protobuf decode
+  try {
+    const p1 = proto.WiFiScanPayload.decode(bytes);
+    if (p1 && (p1.msg !== undefined || p1.respScanResult || p1.respScanStart || p1.respScanStatus)) {
+      console.log('[ESP32-PROV-DIAG] Protobuf decode status: Success (Standard)');
+      return { payload: p1, decodeMethod: 'standard' };
+    }
+  } catch (e1: any) {
+    console.warn('[ESP32-PROV-DIAG] Standard protobuf decode warning:', e1?.message || e1);
+  }
+
+  // Strategy 2: Length-delimited Protobuf decode
+  try {
+    const p2 = proto.WiFiScanPayload.decodeDelimited(bytes);
+    if (p2 && (p2.msg !== undefined || p2.respScanResult || p2.respScanStart || p2.respScanStatus)) {
+      console.log('[ESP32-PROV-DIAG] Protobuf decode status: Success (Delimited)');
+      return { payload: p2, decodeMethod: 'delimited' };
+    }
+  } catch (e2: any) {
+    console.warn('[ESP32-PROV-DIAG] Delimited protobuf decode warning:', e2?.message || e2);
+  }
+
+  // Strategy 3: Varint length prefix slice fallback
+  try {
+    let pos = 0;
+    let len = 0;
+    let shift = 0;
+    while (pos < bytes.length && pos < 5) {
+      const b = bytes[pos];
+      len |= (b & 0x7f) << shift;
+      pos++;
+      if ((b & 0x80) === 0) break;
+      shift += 7;
+    }
+    if (pos > 0 && pos < bytes.length && len > 0) {
+      const sliced = bytes.subarray(pos, pos + len);
+      const p3 = proto.WiFiScanPayload.decode(sliced);
+      if (p3 && (p3.msg !== undefined || p3.respScanResult || p3.respScanStart || p3.respScanStatus)) {
+        console.log(`[ESP32-PROV-DIAG] Protobuf decode status: Success (Varint prefix offset ${pos}, len ${len})`);
+        return { payload: p3, decodeMethod: 'varint_slice' };
+      }
+    }
+  } catch (e3: any) {
+    console.warn('[ESP32-PROV-DIAG] Varint slice protobuf decode warning:', e3?.message || e3);
+  }
+
+  console.error('[ESP32-PROV-DIAG] Protobuf decode status: Failure');
+  throw new Error(`Scan response decode error: Unable to parse protobuf bytes (${bytes.length} bytes, hex: ${hex})`);
+}
+
 export class FreshNexESPDevice {
   private device: any;
   private pop: string;
@@ -774,6 +837,17 @@ export class FreshNexESPDevice {
         console.log('Waiting for ESP32 scan response...');
         rawStartResp = await this.sendDataInternal(scanChar, scanStartBytes);
         console.log('ESP32 scan response received.');
+
+        if (rawStartResp && rawStartResp.length > 0) {
+          try {
+            const { payload: startPayload } = decodeWiFiScanPayloadRobust(rawStartResp);
+            if (startPayload.status !== undefined && startPayload.status !== proto.Status.Success) {
+              console.warn(`[ESP32-BLE-PROV] ScanStart returned status: ${startPayload.status}`);
+            }
+          } catch (e) {
+            console.warn('[ESP32-BLE-PROV] ScanStart response decode note:', e);
+          }
+        }
       } catch (scanStartErr: any) {
         console.error('[ESP32-BLE-PROV] Scan request failed during CmdScanStart:', scanStartErr);
         const err = new Error(`Scan request failed: ${scanStartErr?.message || 'GATT write/read timeout on prov-scan'}`);
@@ -781,36 +855,11 @@ export class FreshNexESPDevice {
         throw err;
       }
 
-      // Step B: Query CmdScanStatus to check resultCount & scanFinished
-      let resultCount = 0;
-      let scanFinished = false;
-
+      // Brief pause while ESP32 finishes hardware Wi-Fi radio scan
       await new Promise(r => setTimeout(r, 1200));
 
-      for (let poll = 1; poll <= 6; poll++) {
-        try {
-          const scanStatusMsg = proto.WiFiScanPayload.create({
-            msg: proto.WiFiScanMsgType.TypeCmdScanStatus,
-            cmdScanStatus: proto.CmdScanStatus.create({})
-          });
-          const respStatusBytes = await this.sendDataInternal(scanChar, proto.WiFiScanPayload.encode(scanStatusMsg).finish());
-          const decodedStatus = proto.WiFiScanPayload.decode(respStatusBytes);
-
-          if (decodedStatus.respScanStatus) {
-            scanFinished = !!decodedStatus.respScanStatus.scanFinished;
-            resultCount = decodedStatus.respScanStatus.resultCount || 0;
-            console.log(`[ESP32-BLE-PROV] Scan status poll ${poll}: finished=${scanFinished}, count=${resultCount}`);
-            if (scanFinished && resultCount > 0) break;
-          }
-        } catch (statusErr: any) {
-          console.warn(`[ESP32-BLE-PROV] Scan status poll ${poll} warning:`, statusErr?.message || statusErr);
-        }
-        await new Promise(r => setTimeout(r, 500));
-      }
-
-      // Step C: Send TypeCmdScanResult
-      const fetchCount = Math.max(resultCount, 20);
-      console.log(`[ESP32-BLE-PROV] Requesting ${fetchCount} scan result entries from ESP32...`);
+      // Step B: Send TypeCmdScanResult to fetch AP records
+      console.log('[ESP32-BLE-PROV] Requesting Wi-Fi scan result entries from ESP32...');
 
       let rawResultBytes: Uint8Array;
       try {
@@ -818,7 +867,7 @@ export class FreshNexESPDevice {
           msg: proto.WiFiScanMsgType.TypeCmdScanResult,
           cmdScanResult: proto.CmdScanResult.create({
             startIndex: 0,
-            count: fetchCount
+            count: 20
           })
         });
         rawResultBytes = await this.sendDataInternal(scanChar, proto.WiFiScanPayload.encode(scanResultMsg).finish());
@@ -829,10 +878,12 @@ export class FreshNexESPDevice {
         throw err;
       }
 
-      // Step D: Decode scan results (State 3: ESP32 returned networks but app failed to decode them)
+      // Step C: Decode scan results using robust multi-strategy decoder
       let decodedResultPayload: proto.WiFiScanPayload;
       try {
-        decodedResultPayload = proto.WiFiScanPayload.decode(rawResultBytes);
+        const { payload, decodeMethod } = decodeWiFiScanPayloadRobust(rawResultBytes);
+        decodedResultPayload = payload;
+        console.log(`[ESP32-BLE-PROV] Successfully decoded scan payload using method '${decodeMethod}'.`);
       } catch (decodeErr: any) {
         console.error('[ESP32-BLE-PROV] Failed to decode scan response payload:', decodeErr);
         const err = new Error(`ESP32 returned scan response, but the app failed to decode it: ${decodeErr?.message || decodeErr}`);
@@ -847,6 +898,7 @@ export class FreshNexESPDevice {
       }
 
       const entries = decodedResultPayload.respScanResult?.entries || [];
+      console.log(`[ESP32-PROV-DIAG] Number of AP records decoded: ${entries.length}`);
       console.log(`Number of networks returned: ${entries.length}`);
 
       const networks: DiscoveredWifiNetwork[] = [];
