@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
-import { FreshNexESPDevice } from '../services/FreshNexESPDevice';
+import { FreshNexESPDevice, ESP_PROV_SERVICE_UUIDS } from '../services/FreshNexESPDevice';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Wifi, 
@@ -143,10 +143,15 @@ export const WifiSettings: React.FC<WifiSettingsProps> = ({ deviceId, onClose })
 
     try {
       setStatusMessage('Scanning for Espressif PROV_ BLE device...');
-      const provServiceUuid = '1775244d-6b43-439b-877c-060f2d9bed07';
       const device = await (navigator as any).bluetooth.requestDevice({
-        filters: [{ namePrefix: 'PROV_' }, { services: [provServiceUuid] }],
-        optionalServices: [provServiceUuid]
+        filters: [
+          { namePrefix: 'PROV_' },
+          { namePrefix: 'PROV' },
+          { namePrefix: 'FreshNex' },
+          { name: `PROV_${deviceId.replace(/[^a-zA-Z0-9]/g, '')}` },
+          { name: 'PROV_YGSFD000124' }
+        ],
+        optionalServices: ESP_PROV_SERVICE_UUIDS
       });
 
       setStatusMessage(`Connecting to ${device.name || 'PROV_Device'}...`);

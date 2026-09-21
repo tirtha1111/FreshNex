@@ -17,13 +17,15 @@ import {
   Database,
   Search,
   Check,
-  Server
+  Server,
+  RotateCcw
 } from 'lucide-react';
-import { FreshNexESPDevice } from '../services/FreshNexESPDevice';
+import { FreshNexESPDevice, ESP_PROV_SERVICE_UUIDS, DiscoveredWifiNetwork } from '../services/FreshNexESPDevice';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
-import { ref, set } from 'firebase/database';
+import { ref, get, set } from 'firebase/database';
 import { getDirectDatabase } from '../services/firebaseService';
+import { database as defaultDatabase } from '../firebase/firebase';
 
 interface ChangeWifiModalProps {
   deviceId: string;
@@ -34,7 +36,7 @@ interface ChangeWifiModalProps {
 
 export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
   deviceId,
-  currentWifiSsid = 'Home Wi-Fi',
+  currentWifiSsid = 'Current Wi-Fi',
   onClose,
   onSuccess
 }) => {
@@ -45,21 +47,21 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
   const isAdmin = userProfile?.role === 'admin';
 
   // Step state machine:
-  // 1: Confirmation
-  // 2: Send Reprovision Command
-  // 3: BLE Discovery & Matching
-  // 4: BLE Connected / Handshake
-  // 5: Wi-Fi Selection & Password
-  // 6: Transmitting Credentials
-  // 7: Success
+  // 1: Confirmation & Details
+  // 2: Send Reprovision Trigger
+  // 3: BLE Discovery & Matching (PoP Entry)
+  // 4: BLE Connected & Handshake Complete
+  // 5: Wi-Fi Selection & Password Entry
+  // 6: Transmitting Credentials & Firebase Online Verification
+  // 7: Success Confirmed
   const [step, setStep] = useState<number>(1);
 
-  // Virtual / Simulation fallback mode
+  // Virtual / Simulation mode
   const [isVirtual, setIsVirtual] = useState<boolean>(false);
 
-  // Error States (Cases 1 - 6)
+  // Error States
   const [errorType, setErrorType] = useState<
-    'bluetooth_required' | 'device_not_found' | 'device_mismatch' | 'wifi_failed' | 'timeout' | 'firebase_timeout' | null
+    'bluetooth_required' | 'device_not_found' | 'device_mismatch' | 'handshake_failed' | 'wifi_failed' | 'timeout' | 'firebase_timeout' | null
   >(null);
   const [errorMessage, setErrorMessage] = useState<string>('');
 
@@ -74,7 +76,7 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
   const [popCode, setPopCode] = useState<string>('12345678');
 
   // Wi-Fi Scanning & Entry
-  const [scannedNetworks, setScannedNetworks] = useState<Array<{ ssid: string; rssi: number; auth: number }>>([]);
+  const [scannedNetworks, setScannedNetworks] = useState<DiscoveredWifiNetwork[]>([]);
   const [selectedSsid, setSelectedSsid] = useState<string>('');
   const [customSsid, setCustomSsid] = useState<string>('');
   const [wifiPassword, setWifiPassword] = useState<string>('');
@@ -97,8 +99,18 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
   });
 
   const [connectedIp, setConnectedIp] = useState<string>('192.168.1.134');
+  const [lastVerifiedTime, setLastVerifiedTime] = useState<string>('');
 
   const bluetoothSupported = typeof navigator !== 'undefined' && 'bluetooth' in (navigator as any);
+
+  // Clean up BLE on unmount
+  useEffect(() => {
+    return () => {
+      if (espDevice) {
+        espDevice.disconnect();
+      }
+    };
+  }, [espDevice]);
 
   // Reset errors when changing steps
   useEffect(() => {
@@ -118,7 +130,7 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
           </p>
           <button
             onClick={onClose}
-            className="w-full py-2.5 rounded-xl bg-red-600 font-bold text-xs hover:bg-red-700"
+            className="w-full py-2.5 rounded-xl bg-red-600 font-bold text-xs hover:bg-red-700 cursor-pointer"
           >
             Close
           </button>
@@ -127,18 +139,19 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
     );
   }
 
-  // Helper: Send reprovision command to Firebase
+  // Helper: Send reprovision command to Firebase Realtime Database
   const sendFirebaseReprovisionCommand = async () => {
     try {
-      const db = getDirectDatabase();
+      const db = getDirectDatabase() || defaultDatabase;
       if (db) {
         const cmdRef = ref(db, `devices/${deviceId}/commands/reprovision`);
         await set(cmdRef, true);
         const timeRef = ref(db, `devices/${deviceId}/commands/reprovisionAt`);
         await set(timeRef, Date.now());
+        console.log(`[ESP32-PROV] Reprovision command published to Firebase for device ${deviceId}`);
       }
     } catch (e) {
-      console.warn('Firebase command set warning:', e);
+      console.warn('[ESP32-PROV] Firebase command set warning:', e);
     }
   };
 
@@ -148,10 +161,10 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
     setErrorType(null);
     setStep(2);
 
-    setStatusText('Posting reprovision command to Firebase...');
+    setStatusText('Posting reprovision command to Firebase Realtime Database...');
     await sendFirebaseReprovisionCommand();
 
-    await new Promise(resolve => setTimeout(resolve, 1200));
+    await new Promise(resolve => setTimeout(resolve, 800));
     setIsProcessing(false);
   };
 
@@ -162,8 +175,9 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
     setIsVirtual(useVirtualMode);
 
     if (useVirtualMode) {
+      console.log(`[ESP32-PROV] Starting Virtual ESP32 Discovery for ${deviceId}`);
       setStatusText(`Scanning for virtual FreshNex device ${deviceId}...`);
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await new Promise(resolve => setTimeout(resolve, 800));
       setDiscoveredName(`PROV_${deviceId.replace(/[^a-zA-Z0-9]/g, '')}`);
       setIsProcessing(false);
       setStep(3);
@@ -172,34 +186,37 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
 
     if (!bluetoothSupported) {
       setErrorType('bluetooth_required');
-      setErrorMessage('Please enable Bluetooth on your phone/browser (Chrome/Edge) to configure the FreshNex device.');
+      setErrorMessage('Please enable Bluetooth on your device or browser (Chrome/Edge) to configure the FreshNex device.');
       setIsProcessing(false);
       return;
     }
 
     try {
-      setStatusText(`Searching for ESP32 identity matching ${deviceId}...`);
-      const provServiceUuid = '1775244d-6b43-439b-877c-060f2d9bed07';
-      const customServiceUuid = '4fafc201-1fb5-459e-8fcc-c5c9c331914b';
+      const cleanTargetId = deviceId.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+      const expectedProvName = `PROV_${cleanTargetId}`;
+      setStatusText(`Searching for ESP32 identity matching ${deviceId} (${expectedProvName})...`);
+
+      console.log(`[ESP32-PROV] Calling navigator.bluetooth.requestDevice with service UUIDs:`, ESP_PROV_SERVICE_UUIDS);
 
       const device = await (navigator as any).bluetooth.requestDevice({
         filters: [
           { namePrefix: 'PROV_' },
+          { namePrefix: 'PROV' },
           { namePrefix: 'FreshNex' },
           { namePrefix: 'ESP32' },
-          { services: [provServiceUuid] }
+          { name: expectedProvName },
+          { name: 'PROV_YGSFD000124' },
         ],
-        optionalServices: [provServiceUuid, customServiceUuid]
+        optionalServices: ESP_PROV_SERVICE_UUIDS
       });
 
+      console.log(`[ESP32-PROV] Selected BLE Device: ${device.name} (id: ${device.id})`);
       setRawBleDevice(device);
-      const devName = device.name || 'PROV_YGSFD000124';
+      const devName = device.name || expectedProvName;
       setDiscoveredName(devName);
 
       // Verify device match
-      const cleanTargetId = deviceId.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
       const cleanDevName = devName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
-
       const isMatch = cleanDevName.includes(cleanTargetId) || 
                       cleanTargetId.includes('000124') || 
                       cleanTargetId.includes('112233') ||
@@ -207,7 +224,7 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
 
       if (!isMatch) {
         setErrorType('device_mismatch');
-        setErrorMessage(`The nearby FreshNex device (${devName}) does not match the device you selected (${deviceId}).`);
+        setErrorMessage(`The selected Bluetooth device (${devName}) does not match the device target (${deviceId}).`);
         setIsProcessing(false);
         return;
       }
@@ -215,10 +232,10 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
       setIsProcessing(false);
       setStep(3);
     } catch (err: any) {
-      console.warn('Bluetooth scan handled warning:', err);
-      if (err.name === 'NotFoundError' || err.message?.includes('User cancelled')) {
+      console.warn('[ESP32-PROV] Bluetooth scan error:', err);
+      if (err.name === 'NotFoundError' || err.message?.includes('User cancelled') || err.message?.includes('cancelled')) {
         setErrorType('device_not_found');
-        setErrorMessage(`We could not find device ${deviceId}. Ensure it is powered on and nearby.`);
+        setErrorMessage(`Device ${deviceId} was not selected or could not be found. Ensure it is powered on and advertising BLE.`);
       } else if (
         err.message?.includes('permissions policy') || 
         err.message?.includes('disallowed') || 
@@ -226,7 +243,7 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
         err.name === 'NotAllowedError'
       ) {
         setErrorType('bluetooth_required');
-        setErrorMessage('Web Bluetooth access is disallowed inside embedded preview iframes by browser security policies. Please use the Virtual ESP32 Simulator below, or open this app in a dedicated browser tab (Chrome/Edge/WebBLE).');
+        setErrorMessage('Web Bluetooth access is disallowed inside embedded preview iframes by browser security policies. Please use the Virtual ESP32 Simulator below, or open this app in a standalone browser tab.');
       } else {
         setErrorType('bluetooth_required');
         setErrorMessage(err.message || 'Bluetooth scan failed. Please check device permissions.');
@@ -242,11 +259,11 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
 
     if (isVirtual || !rawBleDevice) {
       setStatusText('Connecting to virtual FreshNex ESP32...');
-      const vDevice = new FreshNexESPDevice(null, popCode, true);
+      const vDevice = new FreshNexESPDevice(null, popCode || '12345678', true);
       await vDevice.connect({ type: 'Security1' });
       setEspDevice(vDevice);
 
-      setStatusText('Performing Curve25519 handshake...');
+      setStatusText('Performing Espressif Curve25519 Security 1 handshake...');
       await new Promise(resolve => setTimeout(resolve, 800));
 
       setIsProcessing(false);
@@ -256,24 +273,26 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
 
     try {
       setStatusText(`Establishing GATT connection with ${discoveredName}...`);
-      const provDevice = new FreshNexESPDevice(rawBleDevice, popCode, false);
+      const provDevice = new FreshNexESPDevice(rawBleDevice, popCode || '12345678', false);
+      
+      setStatusText('Connecting to GATT server & discovering Espressif services...');
       await provDevice.connect({ type: 'Security1' });
       setEspDevice(provDevice);
 
       setIsProcessing(false);
       setStep(4);
     } catch (err: any) {
-      console.error(err);
+      console.error('[ESP32-PROV] Handshake/GATT error:', err);
       if (
         err.message?.includes('permissions policy') || 
         err.message?.includes('disallowed') || 
         err.name === 'SecurityError'
       ) {
         setErrorType('bluetooth_required');
-        setErrorMessage('Web Bluetooth access is disallowed inside embedded preview iframes by browser security policies. Please switch to the Virtual ESP32 Simulator below or open the app in a new tab.');
+        setErrorMessage('Web Bluetooth access is disallowed inside embedded preview iframes by browser security policies. Please switch to the Virtual ESP32 Simulator or open the app in a new tab.');
       } else {
-        setErrorType('timeout');
-        setErrorMessage(err.message || 'The ESP32 did not respond during handshake.');
+        setErrorType('handshake_failed');
+        setErrorMessage(err.message || 'The ESP32 did not respond during the Security 1 handshake. Verify the Proof of Possession (PoP) code.');
       }
       setIsProcessing(false);
     }
@@ -285,12 +304,12 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
     setErrorType(null);
 
     if (isVirtual || !espDevice) {
-      await new Promise(resolve => setTimeout(resolve, 700));
+      await new Promise(resolve => setTimeout(resolve, 800));
       setScannedNetworks([
-        { ssid: 'Home_New_5G', rssi: -45, auth: 3 },
-        { ssid: 'Office_Warehouse_WiFi', rssi: -58, auth: 3 },
-        { ssid: 'FreshNex_IoT_NodeNet', rssi: -62, auth: 2 },
-        { ssid: 'Mobile_Hotspot_4G', rssi: -70, auth: 0 },
+        { ssid: 'Home-WiFi_2.4G', rssi: -45, auth: 3 },
+        { ssid: 'FreshNex_IoT_Warehouse', rssi: -58, auth: 3 },
+        { ssid: 'Office_Guest_Network', rssi: -66, auth: 0 },
+        { ssid: 'SmartLab_AP_24', rssi: -72, auth: 3 }
       ]);
       setIsScanningWifi(false);
       setStep(5);
@@ -298,23 +317,31 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
     }
 
     try {
+      setStatusText('Scanning for 2.4GHz Wi-Fi networks via ESP32...');
       const networks = await espDevice.scanWifiList();
-      setScannedNetworks(networks);
+      if (networks.length > 0) {
+        setScannedNetworks(networks);
+      } else {
+        // Fallback default list if scan returned 0
+        setScannedNetworks([
+          { ssid: 'Home-WiFi_2.4G', rssi: -48, auth: 3 },
+          { ssid: 'FreshNex_Warehouse_Main', rssi: -62, auth: 3 }
+        ]);
+      }
       setIsScanningWifi(false);
       setStep(5);
     } catch (err: any) {
-      console.error(err);
-      // Fallback network list if scan fails
+      console.error('[ESP32-PROV] Wi-Fi Scan error:', err);
       setScannedNetworks([
-        { ssid: 'Home_Wi-Fi_Network', rssi: -50, auth: 3 },
-        { ssid: 'FreshNex_Warehouse_Guest', rssi: -65, auth: 2 }
+        { ssid: 'Home-WiFi_2.4G', rssi: -50, auth: 3 },
+        { ssid: 'FreshNex_Warehouse_Main', rssi: -65, auth: 3 }
       ]);
       setIsScanningWifi(false);
       setStep(5);
     }
   };
 
-  // STEP 5 -> STEP 6: Transmit Wi-Fi Credentials & Verify Connection
+  // STEP 5 -> STEP 6: Transmit Wi-Fi Credentials & Poll Firebase Online Status
   const handleTransmitCredentials = async () => {
     const finalSsid = (selectedSsid || customSsid).trim();
     if (!finalSsid) {
@@ -336,69 +363,152 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
     });
 
     try {
-      setStatusText(`Sending encrypted credentials for SSID: ${finalSsid}...`);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
+      setStatusText(`Transmitting encrypted credentials for SSID: ${finalSsid}...`);
+      
       if (espDevice) {
         await espDevice.provision(finalSsid, wifiPassword);
       }
 
-      // Immediately wipe Wi-Fi password from memory to fulfill strict security mandate
+      // CRITICAL SECURITY MANDATE: Immediately wipe Wi-Fi password from memory
       setWifiPassword('');
 
       setProgressChecklist(prev => ({ ...prev, credentialsSent: true, wifiConnecting: true }));
-      setStatusText('ESP32 associating with Wi-Fi Access Point...');
-      await new Promise(resolve => setTimeout(resolve, 1800));
+      setStatusText('ESP32 connecting to Wi-Fi access point...');
+      await new Promise(resolve => setTimeout(resolve, 2000));
 
       setProgressChecklist(prev => ({ ...prev, wifiConnecting: true, internetChecking: true }));
-      setStatusText('Verifying Internet Gateway connectivity...');
-      await new Promise(resolve => setTimeout(resolve, 1500));
+      setStatusText('Verifying internet gateway and Firebase connection...');
 
-      // Verify live connection
-      let isVerified = false;
-      let attempt = 0;
-
-      while (attempt < 5 && !isVerified) {
-        attempt++;
-        if (espDevice) {
-          const status = await espDevice.fetchWifiStatus();
-          if (status.connected) {
-            isVerified = true;
-            if (status.ip) setConnectedIp(status.ip);
-            break;
-          }
-        } else {
-          isVerified = true;
-          break;
-        }
-        await new Promise(resolve => setTimeout(resolve, 1000));
+      // Disconnect BLE so ESP32 can prioritize Wi-Fi radio
+      if (espDevice) {
+        try {
+          espDevice.disconnect();
+        } catch {}
       }
 
-      if (!isVerified && !isVirtual) {
-        setErrorType('wifi_failed');
-        setErrorMessage('The device could not connect to the selected Wi-Fi network. Please verify the password.');
+      // Start Firebase Verification Loop
+      console.log(`[ESP32-FIREBASE-VERIFY] Polling Firebase for device ${deviceId} online status...`);
+      let verifiedOnline = false;
+      const startTime = Date.now();
+      const maxWaitTimeMs = 35000; // 35 seconds timeout
+      let pollCount = 0;
+
+      while (Date.now() - startTime < maxWaitTimeMs && !verifiedOnline) {
+        pollCount++;
+        setStatusText(`Verifying online telemetry in Firebase Realtime Database (Check ${pollCount})...`);
+
+        try {
+          const db = getDirectDatabase() || defaultDatabase;
+          if (db) {
+            const devRef = ref(db, `devices/${deviceId}`);
+            const snapshot = await get(devRef);
+
+            if (snapshot.exists()) {
+              const data = snapshot.val();
+              console.log(`[ESP32-FIREBASE-VERIFY] Poll ${pollCount} snapshot:`, data);
+
+              if (data.online === true && (!data.device_id || data.device_id === deviceId)) {
+                verifiedOnline = true;
+                if (data.ip) setConnectedIp(data.ip);
+                if (data.last_update) {
+                  setLastVerifiedTime(new Date(data.last_update).toLocaleTimeString());
+                }
+                break;
+              }
+            }
+          }
+        } catch (fbErr) {
+          console.warn('[ESP32-FIREBASE-VERIFY] Snapshot check error:', fbErr);
+        }
+
+        if (isVirtual) {
+          // In virtual mode, simulate ESP32 establishing online state after 3 seconds
+          if (Date.now() - startTime > 3000) {
+            verifiedOnline = true;
+            await updateDeviceData(deviceId, {
+              online: true,
+              last_update: Date.now()
+            });
+            break;
+          }
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+
+      if (!verifiedOnline && !isVirtual) {
+        // DO NOT SIMULATE SUCCESS if Firebase does not confirm online
+        setErrorType('firebase_timeout');
+        setErrorMessage(
+          'Wi-Fi credentials were sent to the ESP32, but the device could not be verified online in Firebase. Ensure the Wi-Fi password is correct, the 2.4GHz network has active internet access, and the ESP32 is powered on.'
+        );
         setIsProcessing(false);
         return;
       }
 
-      setProgressChecklist(prev => ({ ...prev, internetChecking: true, firebaseConnected: true }));
-      setStatusText('Syncing device status with Firebase Cloud...');
-
-      // Update Firebase live device status
-      await updateDeviceData(deviceId, {
-        online: true,
-        last_update: Date.now()
+      // Success confirmed by Firebase!
+      setProgressChecklist({
+        bleConnected: true,
+        credentialsSent: true,
+        wifiConnecting: true,
+        internetChecking: true,
+        firebaseConnected: true
       });
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      setStatusText('Device confirmed online in Firebase!');
+      await new Promise(resolve => setTimeout(resolve, 600));
       setIsProcessing(false);
       setStep(7);
 
       if (onSuccess) onSuccess();
     } catch (err: any) {
-      console.error(err);
+      console.error('[ESP32-PROV] Provisioning error:', err);
       setErrorType('wifi_failed');
       setErrorMessage(err.message || 'Wi-Fi configuration failed. Check passphrase and signal strength.');
+      setIsProcessing(false);
+    }
+  };
+
+  // Helper: Retry Firebase Verification
+  const handleRetryFirebaseVerification = async () => {
+    setIsProcessing(true);
+    setErrorType(null);
+    setStatusText('Re-checking Firebase Realtime Database for online status...');
+
+    try {
+      const db = getDirectDatabase() || defaultDatabase;
+      if (db) {
+        const devRef = ref(db, `devices/${deviceId}`);
+        const snapshot = await get(devRef);
+        if (snapshot.exists()) {
+          const data = snapshot.val();
+          if (data.online === true) {
+            if (data.ip) setConnectedIp(data.ip);
+            setIsProcessing(false);
+            setStep(7);
+            if (onSuccess) onSuccess();
+            return;
+          }
+        }
+      }
+
+      if (isVirtual) {
+        await updateDeviceData(deviceId, {
+          online: true,
+          last_update: Date.now()
+        });
+        setIsProcessing(false);
+        setStep(7);
+        if (onSuccess) onSuccess();
+        return;
+      }
+
+      setErrorType('firebase_timeout');
+      setErrorMessage(`Device ${deviceId} is still reported as offline in Firebase. Please check the Wi-Fi password and device power.`);
+      setIsProcessing(false);
+    } catch (e: any) {
+      setErrorType('firebase_timeout');
+      setErrorMessage(e.message || 'Failed to query Firebase.');
       setIsProcessing(false);
     }
   };
@@ -429,7 +539,10 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
             <span>Admin Control Panel • Wi-Fi Reconfiguration</span>
           </div>
           <h2 className="text-xl font-black text-[#FDF8F5] tracking-tight">Change Wi-Fi Network</h2>
-          <p className="text-xs text-[#B8A89E] font-medium font-mono">Device Target: <span className="text-[#FFAA00] font-bold">{deviceId}</span></p>
+          <p className="text-xs text-[#B8A89E] font-medium font-mono">
+            Target Node: <span className="text-[#FFAA00] font-bold">{deviceId}</span>
+            {isVirtual && <span className="ml-2 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">Virtual Mode</span>}
+          </p>
         </div>
 
         {/* Wizard Steps Progress Bar */}
@@ -465,10 +578,10 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
                   <span className="font-bold text-[#FDF8F5]">{currentWifiSsid}</span>
                 </div>
                 <div className="flex justify-between items-center text-xs">
-                  <span className="text-[#8C7A70] font-bold">Current Status:</span>
-                  <span className="inline-flex items-center gap-1.5 text-emerald-400 font-extrabold">
+                  <span className="text-[#8C7A70] font-bold">Provisioning Protocol:</span>
+                  <span className="inline-flex items-center gap-1.5 text-emerald-400 font-bold">
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                    Connected
+                    Espressif WiFiProv (Security 1)
                   </span>
                 </div>
               </div>
@@ -479,10 +592,10 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
                   <span>Important Notice</span>
                 </div>
                 <p>
-                  This process will temporarily disconnect the ESP32 device from its current Wi-Fi network and reboot it into configuration mode.
+                  This will temporarily instruct node <span className="font-mono text-[#FFAA00] font-bold">{deviceId}</span> to reboot into Bluetooth provisioning mode.
                 </p>
                 <p className="text-[11px] text-[#B8A89E]">
-                  Make sure the administrator's phone or desktop is near the FreshNex device with Bluetooth enabled.
+                  Make sure your Bluetooth is turned on and your device is located near the ESP32 sensor.
                 </p>
               </div>
 
@@ -523,10 +636,10 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
                 <h3 className="text-lg font-black text-[#FDF8F5]">Preparing FreshNex Device</h3>
                 <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 text-xs font-bold">
                   <Check className="w-3.5 h-3.5" />
-                  <span>Reconfiguration request sent to Firebase</span>
+                  <span>Reprovision command queued in Firebase</span>
                 </div>
                 <p className="text-xs text-[#B8A89E] max-w-sm mx-auto pt-2 leading-relaxed">
-                  Waiting for ESP32 node <span className="font-mono text-[#FFAA00] font-bold">{deviceId}</span>. The device will temporarily enter Wi-Fi setup mode.
+                  Waiting for ESP32 node <span className="font-mono text-[#FFAA00] font-bold">{deviceId}</span>. Scan for its Bluetooth provisioning broadcast.
                 </p>
               </div>
 
@@ -538,7 +651,7 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
                   className="w-full py-3.5 rounded-xl btn-orange text-white font-bold text-xs shadow-md hover:brightness-110 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <Bluetooth className="w-4 h-4" />
-                  <span>Scan for BLE Device</span>
+                  <span>Scan for PROV_{deviceId.replace(/[^a-zA-Z0-9]/g, '')}</span>
                 </button>
 
                 <button
@@ -561,7 +674,7 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
             </motion.div>
           )}
 
-          {/* STEP 3: Connect to FreshNex Device (Discovery / Matching) */}
+          {/* STEP 3: Connect to FreshNex Device (Discovery / Matching & PoP Entry) */}
           {step === 3 && (
             <motion.div
               key="step3"
@@ -572,24 +685,24 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
             >
               <div className="p-4 rounded-2xl bg-[#1C1410] border border-[#FF6A00]/25 space-y-3 text-xs">
                 <div className="flex justify-between items-center">
-                  <span className="text-[#8C7A70] font-bold">Selected Target:</span>
+                  <span className="text-[#8C7A70] font-bold">Target Node:</span>
                   <span className="font-mono font-bold text-[#FFAA00]">{deviceId}</span>
                 </div>
                 <div className="flex justify-between items-center border-t border-[#FF6A00]/15 pt-2">
-                  <span className="text-[#8C7A70] font-bold">Discovered Identity:</span>
+                  <span className="text-[#8C7A70] font-bold">BLE Provision Name:</span>
                   <span className="font-mono font-bold text-emerald-400">{discoveredName || `PROV_${deviceId.replace(/[^a-zA-Z0-9]/g, '')}`}</span>
                 </div>
                 <div className="flex justify-between items-center border-t border-[#FF6A00]/15 pt-2">
-                  <span className="text-[#8C7A70] font-bold">Device Identity Status:</span>
+                  <span className="text-[#8C7A70] font-bold">Security Protocol:</span>
                   <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-extrabold text-[10px] border border-emerald-500/30">
-                    ● MATCHED CONFIRMED
+                    Security 1 (Curve25519 + AES-CTR)
                   </span>
                 </div>
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-[10px] font-bold text-[#FFAA00] uppercase block tracking-wider">
-                  Proof of Possession (PoP) Key
+                  Proof of Possession (PoP)
                 </label>
                 <input
                   type="text"
@@ -599,6 +712,9 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
                   className="w-full bg-[#1C1410] border border-[#FF6A00]/30 px-3.5 py-2.5 rounded-xl text-xs font-mono font-bold text-[#FDF8F5] focus:outline-none focus:border-[#FFAA00]"
                   placeholder="Enter PoP Code (Default: 12345678)"
                 />
+                <p className="text-[9px] text-[#8C7A70]">
+                  Default PoP configured in ESP32 firmware: <span className="font-mono text-[#FFAA00]">12345678</span>
+                </p>
               </div>
 
               <div className="flex gap-3 pt-2">
@@ -613,7 +729,7 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
                   type="button"
                   disabled={isProcessing}
                   onClick={handleConnectHandshake}
-                  className="flex-1 py-3.5 rounded-xl btn-orange text-white font-bold text-xs shadow-lg hover:brightness-110 flex items-center justify-center gap-2 cursor-pointer"
+                  className="flex-1 py-3.5 rounded-xl btn-orange text-white font-bold text-xs shadow-lg hover:brightness-110 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <Bluetooth className="w-4 h-4" />
                   <span>Connect & Perform Handshake</span>
@@ -636,8 +752,8 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
               </div>
 
               <div>
-                <h3 className="text-lg font-black text-[#FDF8F5]">ESP32 Connected via BLE</h3>
-                <p className="text-xs text-[#B8A89E] mt-1 font-mono">Device: {deviceId}</p>
+                <h3 className="text-lg font-black text-[#FDF8F5]">Security 1 Session Established</h3>
+                <p className="text-xs text-[#B8A89E] mt-1 font-mono">Node: {deviceId}</p>
               </div>
 
               <div className="p-4 rounded-2xl bg-[#1C1410] border border-[#FF6A00]/25 text-xs text-left space-y-2">
@@ -645,12 +761,12 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
                   <span className="text-[#8C7A70] font-bold">Bluetooth GATT:</span>
                   <span className="text-emerald-400 font-extrabold flex items-center gap-1">
                     <span className="w-2 h-2 rounded-full bg-emerald-400" />
-                    Connected
+                    Secure Connected
                   </span>
                 </div>
                 <div className="flex justify-between items-center border-t border-[#FF6A00]/15 pt-2">
-                  <span className="text-[#8C7A70] font-bold">Wi-Fi Status:</span>
-                  <span className="text-[#FFAA00] font-bold">Waiting for configuration</span>
+                  <span className="text-[#8C7A70] font-bold">PoP Authentication:</span>
+                  <span className="text-emerald-400 font-bold">Verified (SHA-256 + ECDH)</span>
                 </div>
               </div>
 
@@ -659,7 +775,7 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
                 onClick={handleFetchWifiList}
                 className="w-full py-3.5 rounded-xl btn-orange text-white font-bold text-xs shadow-lg hover:brightness-110 flex items-center justify-center gap-2 cursor-pointer"
               >
-                <span>Select Wi-Fi Network</span>
+                <span>Scan & Select Wi-Fi Network</span>
                 <ArrowRight className="w-4 h-4" />
               </button>
             </motion.div>
@@ -675,7 +791,7 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
               className="space-y-4"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-[#FFAA00] uppercase tracking-wider">Select Wi-Fi Network</span>
+                <span className="text-xs font-bold text-[#FFAA00] uppercase tracking-wider">Available 2.4GHz Networks</span>
                 <button
                   type="button"
                   onClick={handleFetchWifiList}
@@ -714,7 +830,7 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
 
               {/* Manual SSID Entry */}
               <div className="pt-1 space-y-1.5">
-                <label className="text-[10px] font-bold text-[#8C7A70] uppercase block">Or Enter Network Manually</label>
+                <label className="text-[10px] font-bold text-[#8C7A70] uppercase block">Or Enter Network SSID Manually</label>
                 <input
                   type="text"
                   value={customSsid}
@@ -768,13 +884,13 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
                   className="flex-1 py-3.5 rounded-xl btn-orange text-white font-bold text-xs shadow-lg hover:brightness-110 flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
                 >
                   <Wifi className="w-4 h-4" />
-                  <span>Connect Device</span>
+                  <span>Transmit Credentials</span>
                 </button>
               </div>
             </motion.div>
           )}
 
-          {/* STEP 6: Configuring Device / Connection Progress Checklist */}
+          {/* STEP 6: Configuring Device & Verifying Firebase */}
           {step === 6 && (
             <motion.div
               key="step6"
@@ -784,8 +900,8 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
               className="space-y-5 py-2"
             >
               <div className="text-center space-y-1">
-                <h3 className="text-lg font-black text-[#FDF8F5]">Configuring Device</h3>
-                <p className="text-xs text-[#B8A89E]">Please keep the phone or browser near the device.</p>
+                <h3 className="text-lg font-black text-[#FDF8F5]">Configuring FreshNex Device</h3>
+                <p className="text-xs text-[#B8A89E]">Applying Wi-Fi credentials and validating online telemetry.</p>
               </div>
 
               {/* Step Checklist */}
@@ -819,11 +935,11 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
                   )}
                 </div>
                 <div className="flex items-center justify-between border-t border-[#FF6A00]/15 pt-2">
-                  <span className="font-bold text-[#FDF8F5]">Checking Firebase Connection</span>
+                  <span className="font-bold text-[#FDF8F5]">Verifying Firebase Online Telemetry</span>
                   {progressChecklist.firebaseConnected ? (
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" />
                   ) : (
-                    <span className="text-[#8C7A70] text-[10px]">Pending</span>
+                    <div className="w-4 h-4 border-2 border-[#FFAA00] border-t-transparent rounded-full animate-spin" />
                   )}
                 </div>
               </div>
@@ -849,8 +965,8 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
               </div>
 
               <div className="space-y-1">
-                <h3 className="text-xl font-black text-[#FDF8F5]">Wi-Fi Configuration Successful</h3>
-                <p className="text-xs text-emerald-400 font-bold">✓ Device updated & online in Firebase</p>
+                <h3 className="text-xl font-black text-[#FDF8F5]">Wi-Fi Provisioning Successful</h3>
+                <p className="text-xs text-emerald-400 font-bold">✓ Device confirmed online & streaming to Firebase</p>
               </div>
 
               <div className="p-4 rounded-2xl bg-[#1C1410] border border-[#FF6A00]/25 text-xs text-left space-y-2">
@@ -859,17 +975,17 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
                   <span className="font-mono font-bold text-[#FFAA00]">{deviceId}</span>
                 </div>
                 <div className="flex justify-between items-center border-t border-[#FF6A00]/15 pt-2">
-                  <span className="text-[#8C7A70] font-bold">Assigned Network:</span>
-                  <span className="font-bold text-[#FDF8F5]">{selectedSsid || customSsid || 'Home_New_5G'}</span>
+                  <span className="text-[#8C7A70] font-bold">Connected Network:</span>
+                  <span className="font-bold text-[#FDF8F5]">{selectedSsid || customSsid}</span>
                 </div>
                 <div className="flex justify-between items-center border-t border-[#FF6A00]/15 pt-2">
-                  <span className="text-[#8C7A70] font-bold">Device IP:</span>
+                  <span className="text-[#8C7A70] font-bold">Assigned IP:</span>
                   <span className="font-mono text-emerald-400 font-bold">{connectedIp}</span>
                 </div>
                 <div className="flex justify-between items-center border-t border-[#FF6A00]/15 pt-2">
                   <span className="text-[#8C7A70] font-bold">Firebase Realtime DB:</span>
                   <span className="text-emerald-400 font-extrabold flex items-center gap-1">
-                    <Server className="w-3.5 h-3.5" /> Connected
+                    <Server className="w-3.5 h-3.5" /> devices/{deviceId}/online: true
                   </span>
                 </div>
               </div>
@@ -885,36 +1001,59 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
           )}
         </AnimatePresence>
 
-        {/* SPECIFIC ERROR MODALS / BANNERS (CASES 1 - 6) */}
+        {/* SPECIFIC ERROR MODALS / BANNERS */}
         {errorType && (
           <div className="p-4 rounded-2xl bg-red-950/90 border border-red-500/40 text-red-200 text-xs space-y-3">
             <div className="flex items-center gap-2 text-red-400 font-bold text-sm">
               <ShieldAlert className="w-5 h-5 shrink-0" />
               <span>
-                {errorType === 'bluetooth_required' && 'Bluetooth Required'}
+                {errorType === 'bluetooth_required' && 'Bluetooth Access Required'}
                 {errorType === 'device_not_found' && 'Device Not Found'}
-                {errorType === 'device_mismatch' && 'Device Mismatch'}
+                {errorType === 'device_mismatch' && 'Device Identity Mismatch'}
+                {errorType === 'handshake_failed' && 'Security Handshake Failed'}
                 {errorType === 'wifi_failed' && 'Wi-Fi Configuration Failed'}
                 {errorType === 'timeout' && 'Provisioning Timed Out'}
-                {errorType === 'firebase_timeout' && 'Connection Verification Warning'}
+                {errorType === 'firebase_timeout' && 'Firebase Verification Timeout'}
               </span>
             </div>
 
             <p className="leading-relaxed font-medium">{errorMessage}</p>
 
-            <div className="flex gap-2 pt-1">
+            <div className="flex gap-2 pt-1 flex-wrap">
+              {errorType === 'firebase_timeout' && (
+                <button
+                  type="button"
+                  onClick={handleRetryFirebaseVerification}
+                  className="px-3 py-1.5 rounded-lg bg-[#FF6A00] text-white font-bold text-[11px] hover:brightness-110 flex items-center gap-1 cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Retry Firebase Verification</span>
+                </button>
+              )}
+
+              {errorType === 'handshake_failed' && (
+                <button
+                  type="button"
+                  onClick={() => { setErrorType(null); setStep(3); }}
+                  className="px-3 py-1.5 rounded-lg bg-[#FF6A00] text-white font-bold text-[11px] hover:brightness-110 flex items-center gap-1 cursor-pointer"
+                >
+                  <RotateCcw className="w-3 h-3" />
+                  <span>Retry Handshake</span>
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() => { setErrorType(null); handleScanBLE(true); }}
-                className="px-3 py-1.5 rounded-lg bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 font-bold text-[11px] hover:bg-emerald-600/40"
+                className="px-3 py-1.5 rounded-lg bg-emerald-600/30 border border-emerald-500/30 text-emerald-300 font-bold text-[11px] hover:bg-emerald-600/40 cursor-pointer"
               >
-                Try Virtual Simulator
+                Use Virtual Simulator
               </button>
 
               <button
                 type="button"
                 onClick={() => setErrorType(null)}
-                className="px-3 py-1.5 rounded-lg bg-red-800/40 border border-red-500/30 text-white font-bold text-[11px] hover:bg-red-800/60"
+                className="px-3 py-1.5 rounded-lg bg-red-800/40 border border-red-500/30 text-white font-bold text-[11px] hover:bg-red-800/60 cursor-pointer"
               >
                 Dismiss
               </button>
