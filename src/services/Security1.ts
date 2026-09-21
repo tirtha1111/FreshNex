@@ -38,7 +38,7 @@ export class Security1 extends Security {
     if (!this.established || !this.cipher) {
       throw new Error('Security session not established');
     }
-    return this.cipher.crypt(data);
+    return await this.cipher.crypt(data);
   }
 
   /**
@@ -48,7 +48,7 @@ export class Security1 extends Security {
     if (!this.established || !this.cipher) {
       throw new Error('Security session not established');
     }
-    return this.cipher.crypt(data);
+    return await this.cipher.crypt(data);
   }
 
   /**
@@ -105,8 +105,9 @@ export class Security1 extends Security {
     const sharedSecret = nacl.scalarMult(this.clientKeyPair.secretKey, this.devicePubKey);
 
     // 2. Hash Proof of Possession (SHA-256) if provided
-    if (this.pop && this.pop.length > 0) {
-      const popBytes = new TextEncoder().encode(this.pop);
+    const cleanPop = (this.pop || '').trim();
+    if (cleanPop.length > 0) {
+      const popBytes = new TextEncoder().encode(cleanPop);
       const popHashBuffer = await crypto.subtle.digest('SHA-256', popBytes);
       const popHash = new Uint8Array(popHashBuffer);
 
@@ -115,7 +116,7 @@ export class Security1 extends Security {
       for (let i = 0; i < 32; i++) {
         this.sessionKey[i] = sharedSecret[i] ^ popHash[i];
       }
-      console.log(`[ESP32-SEC1] Derived AES-256 session key using Curve25519 ECDH + SHA-256(PoP: "${this.pop}").`);
+      console.log(`[ESP32-SEC1] Derived AES-256 session key using Curve25519 ECDH + SHA-256(PoP: "${cleanPop}").`);
     } else {
       this.sessionKey = new Uint8Array(sharedSecret);
       console.log('[ESP32-SEC1] Derived AES-256 session key using Curve25519 ECDH (No PoP).');
@@ -126,7 +127,7 @@ export class Security1 extends Security {
 
     // 5. Generate clientVerifyData = Encrypt(devicePubKey) using AES-CTR(sessionKey, deviceRandom)
     // Consumes 32 bytes (2 blocks) of the keystream
-    const clientVerifyData = this.cipher.crypt(this.devicePubKey);
+    const clientVerifyData = await this.cipher.crypt(this.devicePubKey);
 
     // 6. Build Session_Command1
     const setupReq = proto.SessionData.create({});
@@ -170,7 +171,7 @@ export class Security1 extends Security {
 
     // In standard ESP-IDF protocomm_security1:
     // Decrypt deviceVerifyData using the continuous cipher stream (which is at block offset +2).
-    const decryptedProof = this.cipher.crypt(deviceVerifyData);
+    const decryptedProof = await this.cipher.crypt(deviceVerifyData);
 
     let match = true;
     for (let i = 0; i < 32; i++) {
@@ -184,7 +185,7 @@ export class Security1 extends Security {
       console.warn('[ESP32-SEC1] Continuous stream decrypt did not match, trying fresh counter offset 0 fallback...');
       // Fallback: in case firmware reset its counter for response 1
       const fallbackCipher = new Aes256CtrContext(this.sessionKey, this.deviceRandom);
-      const decryptedProofFallback = fallbackCipher.crypt(deviceVerifyData);
+      const decryptedProofFallback = await fallbackCipher.crypt(deviceVerifyData);
       
       let fallbackMatch = true;
       for (let i = 0; i < 32; i++) {
