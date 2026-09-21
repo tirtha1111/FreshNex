@@ -264,9 +264,10 @@ export class FreshNexESPDevice {
       console.warn('[ESP32-BLE-PROV] GATT server is disconnected or endpoint handles are stale. Initiating reconnection & discovery sequence...');
       this.updateState('DISCONNECTED', 'BLE connection lost. Reconnecting...');
 
-      // Clear stale service & characteristic handles
+      // Clear stale service & characteristic handles and invalidate security session
       this.primaryService = null;
       this.endpointChars.clear();
+      this.security = null;
 
       let reconnected = false;
       for (let attempt = 1; attempt <= 3; attempt++) {
@@ -940,14 +941,22 @@ export class FreshNexESPDevice {
   }
 
   private async sendDataInternal(endpoint: string, data: Uint8Array): Promise<Uint8Array> {
+    const isProtectedEndpoint = endpoint !== 'prov-session';
+
+    if (isProtectedEndpoint && (!this.security || !this.security.isEstablished())) {
+      console.log(`[ESP32-BLE-PROV] Security 1 session is missing or lost prior to endpoint '${endpoint}'. Performing fresh handshake...`);
+      this.security = new Security1(this.pop);
+      await this.performSecurity1HandshakeInternal();
+    }
+
     let payload = data;
-    if (this.security && this.security.isEstablished() && endpoint !== 'prov-session') {
+    if (this.security && this.security.isEstablished() && isProtectedEndpoint) {
       payload = await this.security.encrypt(data);
     }
 
     const rawResponse = await this.sendRawDataInternal(endpoint, payload);
 
-    if (this.security && this.security.isEstablished() && endpoint !== 'prov-session') {
+    if (this.security && this.security.isEstablished() && isProtectedEndpoint) {
       const decrypted = await this.security.decrypt(rawResponse);
       console.log(`AFTER SECURITY 1 DECRYPTION:\nlength = ${decrypted.length}\nfirst 16 bytes = ${hex16(decrypted)}`);
 
