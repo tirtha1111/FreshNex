@@ -105,19 +105,11 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
 
   const bluetoothSupported = typeof navigator !== 'undefined' && 'bluetooth' in (navigator as any);
 
-  // Clean up BLE strictly on modal unmount
+  // Store active BLE device ref for explicit cleanup on modal close
   const espDeviceRef = useRef<FreshNexESPDevice | null>(null);
   useEffect(() => {
     espDeviceRef.current = espDevice;
   }, [espDevice]);
-
-  useEffect(() => {
-    return () => {
-      if (espDeviceRef.current) {
-        espDeviceRef.current.disconnect();
-      }
-    };
-  }, []);
 
   // Reset errors when changing steps
   useEffect(() => {
