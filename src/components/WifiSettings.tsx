@@ -102,8 +102,17 @@ export const WifiSettings: React.FC<WifiSettingsProps> = ({ deviceId, onClose })
       setIsProcessing(false);
       setStep(2);
     } catch (err: any) {
-      console.error(err);
-      setErrorMessage(err.message || 'Failed to trigger provisioning mode over BLE. Make sure your browser has Bluetooth enabled.');
+      console.warn('Bluetooth trigger handled warning:', err);
+      if (
+        err.message?.includes('permissions policy') || 
+        err.message?.includes('disallowed') || 
+        err.name === 'SecurityError' || 
+        err.name === 'NotAllowedError'
+      ) {
+        setErrorMessage('Web Bluetooth access is disallowed inside embedded preview iframes by browser security policies. Switch to the Virtual ESP32 Simulator or open this app in a dedicated browser tab.');
+      } else {
+        setErrorMessage(err.message || 'Failed to trigger provisioning mode over BLE. Make sure your browser has Bluetooth enabled.');
+      }
       setIsProcessing(false);
     }
   };
@@ -153,8 +162,17 @@ export const WifiSettings: React.FC<WifiSettingsProps> = ({ deviceId, onClose })
       setIsProcessing(false);
       setStep(3);
     } catch (err: any) {
-      console.error(err);
-      setErrorMessage(err.message || 'Handshake failed. Ensure the Proof of Possession (PoP) is correct and the device is ready.');
+      console.warn('Bluetooth connect handled warning:', err);
+      if (
+        err.message?.includes('permissions policy') || 
+        err.message?.includes('disallowed') || 
+        err.name === 'SecurityError' || 
+        err.name === 'NotAllowedError'
+      ) {
+        setErrorMessage('Web Bluetooth access is disallowed inside embedded preview iframes by browser security policies. Please use the Virtual ESP32 Simulator or open in a new tab.');
+      } else {
+        setErrorMessage(err.message || 'Handshake failed. Ensure the Proof of Possession (PoP) is correct and the device is ready.');
+      }
       setIsProcessing(false);
     }
   };

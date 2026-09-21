@@ -42,5 +42,14 @@ service cloud.firestore {
                     incoming().diff(existing()).affectedKeys().hasOnly(['read', 'resolved', 'message']);
       allow delete: if isSignedIn();
     }
+
+    // Devices & commands
+    match /devices/{deviceId} {
+      allow read, write: if isSignedIn();
+      
+      match /commands/{commandId} {
+        allow read, write: if isSignedIn();
+      }
+    }
   }
 }

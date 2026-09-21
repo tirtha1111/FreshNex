@@ -281,8 +281,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setDevicesMap(data);
           } else {
             // Seed prototype device YGS-FD-000124 in Firebase RTDB if missing
-            dbSet(ref(database, 'devices/YGS-FD-000124'), PROTOTYPE_DEVICE);
-            setDevicesMap({ 'YGS-FD-000124': PROTOTYPE_DEVICE });
+            dbSet(ref(database, 'devices/YGS-FD-000124'), PROTOTYPE_MILK);
+            setDevicesMap({ 'YGS-FD-000124': PROTOTYPE_MILK, 'YGS-FD-112233': PROTOTYPE_MEAT });
           }
         });
 

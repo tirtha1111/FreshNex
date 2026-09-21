@@ -1,6 +1,7 @@
 import React from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
+import { AppProvider } from './context/AppContext';
 import { FreshnessProvider } from './context/FreshnessContext';
 import { AppLayout } from './components/layout/AppLayout';
 
@@ -19,6 +20,7 @@ import { HistoryPage } from './pages/HistoryPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
+import { AdminDevices } from './components/AdminDevices';
 
 // Protected Route Guard
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -71,6 +73,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/admin/devices" element={<AdminDevices />} />
       </Route>
 
       {/* Fallback to Home */}
@@ -82,11 +85,13 @@ const AppRoutes: React.FC = () => {
 export default function App() {
   return (
     <AuthProvider>
-      <FreshnessProvider>
-        <BrowserRouter>
-          <AppRoutes />
-        </BrowserRouter>
-      </FreshnessProvider>
+      <AppProvider>
+        <FreshnessProvider>
+          <BrowserRouter>
+            <AppRoutes />
+          </BrowserRouter>
+        </FreshnessProvider>
+      </AppProvider>
     </AuthProvider>
   );
 }

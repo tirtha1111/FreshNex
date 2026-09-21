@@ -29,10 +29,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
   const liveDataPath = activeItem ? `/live-data/${activeItem.id}` : '/live-data';
   const isAdmin = userProfile?.role === 'admin';
 
-  const adminNavItems = [
+  interface NavItem {
+    name: string;
+    path: string;
+    icon: React.ComponentType<{ className?: string }>;
+    matchPrefix?: string;
+    badge?: number;
+  }
+
+  const adminNavItems: NavItem[] = [
     { name: 'Dashboard', path: '/dashboard', icon: Home },
     { name: 'Scan Product', path: '/scan', icon: QrCode },
-    { name: 'Devices', path: liveDataPath, icon: Cpu, matchPrefix: '/live-data' },
+    { name: 'Devices', path: '/admin/devices', icon: Cpu, matchPrefix: '/admin/devices' },
     { name: 'Products', path: '/history', icon: Package },
     { name: 'Analytics', path: '/analytics', icon: BarChart3 },
     { name: 'Notifications', path: '/alerts', icon: Bell, badge: 3 },
@@ -40,7 +48,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
     { name: 'Settings', path: '/settings', icon: Settings },
   ];
 
-  const userNavItems = [
+  const userNavItems: NavItem[] = [
     { name: 'Dashboard', path: '/dashboard', icon: Home },
     { name: 'Scanner', path: '/scan', icon: QrCode },
     { name: 'Live Readings', path: liveDataPath, icon: Cpu, matchPrefix: '/live-data' },

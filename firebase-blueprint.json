@@ -67,6 +67,21 @@
         }
       },
       "required": ["id", "type", "severity", "message", "timestamp", "read"]
+    },
+    "DeviceCommand": {
+      "title": "DeviceCommand",
+      "description": "Reprovisioning or hardware commands sent to ESP32 device.",
+      "type": "object",
+      "properties": {
+        "reprovision": {
+          "type": "boolean",
+          "description": "Flag to trigger reprovisioning mode on ESP32"
+        },
+        "updatedAt": {
+          "type": "number",
+          "description": "Timestamp when command was posted"
+        }
+      }
     }
   },
   "firestore": {
@@ -75,6 +90,12 @@
         "$ref": "#/entities/Alert"
       },
       "description": "Collection of real-time sensor threshold alerts and notifications"
+    },
+    "/devices/{deviceId}/commands/{commandId}": {
+      "schema": {
+        "$ref": "#/entities/DeviceCommand"
+      },
+      "description": "Hardware provisioning commands for ESP32 devices"
     }
   }
 }
