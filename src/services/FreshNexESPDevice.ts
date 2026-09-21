@@ -60,23 +60,30 @@ export const ESP_PROV_SERVICE_UUIDS = ESP_PROV_PRIMARY_SERVICE_UUIDS;
  * Robust protobuf decoder for WiFiScanPayload that handles standard protobuf,
  * length-delimited protobuf, and varint-prefixed frames from Espressif protocomm.
  */
+function hex16(buf: Uint8Array): string {
+  return Array.from(buf.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(' ');
+}
+
+/**
+ * Robust protobuf decoder for WiFiScanPayload that handles standard protobuf
+ * and length-delimited protobuf from Espressif protocomm.
+ */
 function decodeWiFiScanPayloadRobust(bytes: Uint8Array): {
   payload: proto.WiFiScanPayload;
   decodeMethod: string;
 } {
-  const hex = Array.from(bytes.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(' ');
-  console.log(`[ESP32-PROV-DIAG] 4. Exact byte buffer passed to protobuf decoder length: ${bytes.length} bytes, first 16 bytes hex: ${hex}`);
+  console.log(`PROTOBUF INPUT:\nlength = ${bytes.length}\nfirst 16 bytes = ${hex16(bytes)}`);
 
   // Strategy 1: Standard Protobuf decode
   try {
     const p1 = proto.WiFiScanPayload.decode(bytes);
     if (p1 && (p1.msg !== undefined && p1.msg !== null) && (p1.respScanResult || p1.respScanStart || p1.respScanStatus)) {
       const count = p1.respScanResult?.entries?.length || 0;
-      console.log(`[ESP32-PROV-DIAG] 5. Protobuf decode result: SUCCESS (AP count: ${count})`);
+      console.log(`PROTOBUF RESULT:\nAP count = ${count}`);
       return { payload: p1, decodeMethod: 'standard' };
     }
   } catch (e1: any) {
-    console.warn('[ESP32-PROV-DIAG] Standard protobuf decode note:', e1?.message || e1);
+    console.warn('[ESP32-PROV] Standard protobuf decode note:', e1?.message || e1);
   }
 
   // Strategy 2: Length-delimited Protobuf decode
@@ -84,11 +91,11 @@ function decodeWiFiScanPayloadRobust(bytes: Uint8Array): {
     const p2 = proto.WiFiScanPayload.decodeDelimited(bytes);
     if (p2 && (p2.msg !== undefined && p2.msg !== null) && (p2.respScanResult || p2.respScanStart || p2.respScanStatus)) {
       const count = p2.respScanResult?.entries?.length || 0;
-      console.log(`[ESP32-PROV-DIAG] 5. Protobuf decode result: SUCCESS (AP count: ${count})`);
+      console.log(`PROTOBUF RESULT:\nAP count = ${count}`);
       return { payload: p2, decodeMethod: 'delimited' };
     }
   } catch (e2: any) {
-    console.warn('[ESP32-PROV-DIAG] Delimited protobuf decode note:', e2?.message || e2);
+    console.warn('[ESP32-PROV] Delimited protobuf decode note:', e2?.message || e2);
   }
 
   // Strategy 3: Varint length prefix slice fallback
@@ -108,15 +115,15 @@ function decodeWiFiScanPayloadRobust(bytes: Uint8Array): {
       const p3 = proto.WiFiScanPayload.decode(sliced);
       if (p3 && (p3.msg !== undefined && p3.msg !== null) && (p3.respScanResult || p3.respScanStart || p3.respScanStatus)) {
         const count = p3.respScanResult?.entries?.length || 0;
-        console.log(`[ESP32-PROV-DIAG] 5. Protobuf decode result: SUCCESS (AP count: ${count})`);
+        console.log(`PROTOBUF RESULT:\nAP count = ${count}`);
         return { payload: p3, decodeMethod: 'varint_slice' };
       }
     }
   } catch (e3: any) {
-    console.warn('[ESP32-PROV-DIAG] Varint slice protobuf decode note:', e3?.message || e3);
+    console.warn('[ESP32-PROV] Varint slice protobuf decode note:', e3?.message || e3);
   }
 
-  console.error('[ESP32-PROV-DIAG] 5. Protobuf decode result: FAILED');
+  console.error('PROTOBUF RESULT:\nAP count = 0 (Decode Failed)');
   throw new Error(`Scan response decode error: Unable to parse protobuf bytes (${bytes.length} bytes)`);
 }
 
@@ -722,9 +729,8 @@ export class FreshNexESPDevice {
     }
 
     const rawResponse = new Uint8Array(resp.buffer, resp.byteOffset, resp.byteLength);
-    const rawHex = Array.from(rawResponse.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(' ');
-    console.log(`[ESP32-PROV-DIAG] 1. Raw BLE response length: ${rawResponse.length} bytes, first 16 bytes hex: ${rawHex}`);
-    console.log(`[ESP32-PROV-DIAG] 2. Protocomm response buffer (framing removed) length: ${rawResponse.length} bytes, first 16 bytes hex: ${rawHex}`);
+    console.log(`RAW BLE RESPONSE:\nlength = ${rawResponse.length}\nfirst 16 bytes = ${hex16(rawResponse)}`);
+    console.log(`AFTER PROTOCOMM UNWRAP:\nlength = ${rawResponse.length}\nfirst 16 bytes = ${hex16(rawResponse)}`);
 
     return rawResponse;
   }
@@ -943,9 +949,7 @@ export class FreshNexESPDevice {
 
     if (this.security && this.security.isEstablished() && endpoint !== 'prov-session') {
       const decrypted = await this.security.decrypt(rawResponse);
-
-      const decHex = Array.from(decrypted.slice(0, 16)).map(b => b.toString(16).padStart(2, '0')).join(' ');
-      console.log(`[ESP32-PROV-DIAG] 3. Security 1 decrypted payload length: ${decrypted.length} bytes, first 16 bytes hex: ${decHex}`);
+      console.log(`AFTER SECURITY 1 DECRYPTION:\nlength = ${decrypted.length}\nfirst 16 bytes = ${hex16(decrypted)}`);
 
       return decrypted;
     }
