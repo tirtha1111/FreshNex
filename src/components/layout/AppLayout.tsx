@@ -69,7 +69,7 @@ export const AppLayout: React.FC = () => {
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden z-10 relative">
         <Topbar onOpenMobileMenu={() => setMobileMenuOpen(true)} />
 
-        <main className="flex-1 overflow-y-auto p-2 sm:p-3 lg:p-4 pb-24 md:pb-4">
+        <main className="flex-1 overflow-y-auto p-0 pb-24 md:pb-0">
           <div className="max-w-7xl mx-auto">
             <AnimatePresence mode="wait">
               <motion.div
