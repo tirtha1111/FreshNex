@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, QrCode, Shield, Sparkles } from 'lucide-react';
+import { Mail, Lock, Eye, EyeOff, ArrowRight, AlertCircle, QrCode, Shield, Sparkles, Camera, X } from 'lucide-react';
+import jsqr from 'jsqr';
 import { Logo } from '../components/common/Logo';
 import { useAuth } from '../context/AuthContext';
 
@@ -14,6 +15,14 @@ export const LoginPage: React.FC = () => {
   // User product portal state
   const [productId, setProductId] = useState('');
   
+  // QR Code Scanner state
+  const [showScanner, setShowScanner] = useState(false);
+  const [scannerError, setScannerError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const streamRef = useRef<MediaStream | null>(null);
+  const animationFrameRef = useRef<number | null>(null);
+  
   // Admin login state
   const [adminEmail, setAdminEmail] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
@@ -22,6 +31,85 @@ export const LoginPage: React.FC = () => {
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
+
+  const startScanner = async () => {
+    setScannerError(null);
+    setShowScanner(true);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: 'environment' }
+      });
+      streamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+        videoRef.current.setAttribute('playsinline', 'true');
+        await videoRef.current.play();
+        animationFrameRef.current = requestAnimationFrame(tickScanner);
+      }
+    } catch (err: any) {
+      console.error('Camera access error:', err);
+      setScannerError('Camera access denied or unavailable. Please enter Product Tag ID manually.');
+    }
+  };
+
+  const stopScanner = () => {
+    if (animationFrameRef.current) {
+      cancelAnimationFrame(animationFrameRef.current);
+      animationFrameRef.current = null;
+    }
+    if (streamRef.current) {
+      streamRef.current.getTracks().forEach(track => track.stop());
+      streamRef.current = null;
+    }
+    setShowScanner(false);
+  };
+
+  const tickScanner = () => {
+    if (!videoRef.current || !canvasRef.current) return;
+
+    const video = videoRef.current;
+    const canvas = canvasRef.current;
+
+    if (video.readyState === video.HAVE_ENOUGH_DATA) {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        const code = jsqr(imageData.data, imageData.width, imageData.height);
+
+        if (code) {
+          const scannedText = code.data.trim();
+          setProductId(scannedText);
+          stopScanner();
+          handleScannedLogin(scannedText);
+          return;
+        }
+      }
+    }
+    animationFrameRef.current = requestAnimationFrame(tickScanner);
+  };
+
+  const handleScannedLogin = async (tagId: string) => {
+    setLocalError(null);
+    clearAuthError();
+    setIsSubmitting(true);
+    try {
+      await loginWithProductId(tagId);
+      navigate('/dashboard');
+    } catch (err: any) {
+      setLocalError(err.message || `Scanned tag ID "${tagId}" is invalid or expired.`);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  useEffect(() => {
+    return () => {
+      stopScanner();
+    };
+  }, []);
 
   const handleUserProductSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -155,9 +243,19 @@ export const LoginPage: React.FC = () => {
               >
                 {/* Product Tag ID Input */}
                 <div className="space-y-1.5">
-                  <label className="text-xs font-bold text-slate-700 block">
-                    Unique Product Tag ID
-                  </label>
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700 block">
+                      Unique Product Tag ID
+                    </label>
+                    <button
+                      type="button"
+                      onClick={startScanner}
+                      className="text-xs font-extrabold text-orange-600 hover:text-orange-700 flex items-center gap-1.5 cursor-pointer bg-orange-50 hover:bg-orange-100 px-3 py-1.5 rounded-full border border-orange-200/80 transition-all shadow-sm"
+                    >
+                      <Camera className="w-3.5 h-3.5" />
+                      <span>Scan QR Code</span>
+                    </button>
+                  </div>
                   <div className="relative">
                     <input
                       type="text"
@@ -169,6 +267,88 @@ export const LoginPage: React.FC = () => {
                     />
                   </div>
                 </div>
+
+                {/* QR Scanner Modal Overlay */}
+                <AnimatePresence>
+                  {showScanner && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="fixed inset-0 z-50 bg-slate-900/80 backdrop-blur-md flex items-center justify-center p-4"
+                    >
+                      <motion.div 
+                        initial={{ scale: 0.92, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.92, opacity: 0 }}
+                        className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4 relative overflow-hidden"
+                      >
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-10 h-10 rounded-2xl bg-orange-100 flex items-center justify-center text-orange-600 font-bold">
+                              <QrCode className="w-5 h-5" />
+                            </div>
+                            <div>
+                              <h3 className="text-sm font-extrabold text-slate-900">Scan Product QR Code</h3>
+                              <p className="text-[11px] text-slate-500">Center the QR code in the viewfinder</p>
+                            </div>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={stopScanner}
+                            className="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center text-slate-500 hover:bg-slate-200 transition-colors cursor-pointer"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="relative w-full aspect-square rounded-2xl overflow-hidden bg-slate-900 flex items-center justify-center shadow-inner">
+                          <video 
+                            ref={videoRef} 
+                            playsInline 
+                            muted 
+                            className="w-full h-full object-cover" 
+                          />
+                          <canvas ref={canvasRef} className="hidden" />
+
+                          {/* Viewfinder overlay */}
+                          <div className="absolute inset-8 border-2 border-orange-400/80 rounded-2xl pointer-events-none flex flex-col justify-between p-3">
+                            <div className="flex justify-between">
+                              <div className="w-6 h-6 border-t-2 border-l-2 border-orange-500 rounded-tl" />
+                              <div className="w-6 h-6 border-t-2 border-r-2 border-orange-500 rounded-tr" />
+                            </div>
+                            <div className="w-full text-center">
+                              <span className="bg-slate-900/80 backdrop-blur-md text-orange-300 text-[10px] font-extrabold px-3 py-1 rounded-full uppercase tracking-widest border border-orange-500/30">
+                                Scanning...
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <div className="w-6 h-6 border-b-2 border-l-2 border-orange-500 rounded-bl" />
+                              <div className="w-6 h-6 border-b-2 border-r-2 border-orange-500 rounded-br" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {scannerError && (
+                          <div className="p-3 bg-rose-50 text-rose-600 text-xs font-semibold rounded-xl flex items-center gap-2">
+                            <AlertCircle className="w-4 h-4 shrink-0" />
+                            <span>{scannerError}</span>
+                          </div>
+                        )}
+
+                        <div className="pt-1">
+                          <button
+                            type="button"
+                            onClick={stopScanner}
+                            className="w-full py-3.5 rounded-full font-extrabold text-xs text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors cursor-pointer"
+                          >
+                            Cancel & Enter Manually
+                          </button>
+                        </div>
+                      </motion.div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
 
                 {/* Remember Me Checkbox */}
                 <div className="flex items-center justify-between text-xs pt-1">
