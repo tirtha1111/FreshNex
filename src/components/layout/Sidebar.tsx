@@ -251,34 +251,34 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
       </div>
 
       {/* Bottom User Profile Section */}
-      <div className="p-3 sm:p-4 border-t border-[#13493B]/20 bg-[#041410]/50 shrink-0">
+      <div className="p-3 sm:p-4 border-t border-[#13493B]/30 bg-[#041410]/70 shrink-0">
         <motion.div 
-          whileHover={{ scale: 1.01 }}
+          whileHover={{ scale: 1.02, y: -1 }}
           transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-          className="flex items-center justify-between p-2 rounded-xl bg-[#07221A] border border-[#13493B]/30 shadow-md"
+          className="flex items-center justify-between p-2.5 rounded-2xl bg-[#092019]/90 border border-[#20E79A]/25 shadow-[0_8px_20px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.1)]"
         >
           <div className="flex items-center gap-2.5 min-w-0">
-            {/* Avatar Pill matching Admin style in the image */}
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#13493B] to-[#20E79A] flex items-center justify-center font-bold text-white text-xs shrink-0 shadow-md border border-[#20E79A]/20">
+            {/* Avatar Pill with Glow */}
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#13493B] via-[#20E79A] to-[#10B981] flex items-center justify-center font-black text-[#07221A] text-xs shrink-0 shadow-[0_0_12px_rgba(32,231,154,0.4)] border border-white/40">
               {userProfile?.name?.charAt(0) || 'A'}
             </div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-white truncate">
                 {userProfile?.name || (isAdmin ? 'Admin' : 'Product Access')}
               </p>
-              <span className="text-[9px] font-semibold text-[#8FA39E] block uppercase tracking-wider truncate">
+              <span className="text-[9px] font-semibold text-[#20E79A] block uppercase tracking-wider truncate">
                 {isAdmin ? 'Administrator' : `Tag #${userProfile?.assignedProductId || 'MILK'}`}
               </span>
             </div>
           </div>
 
-          {/* Logout Action */}
+          {/* Logout Action with Micro-interaction */}
           <motion.button
-            whileHover={{ scale: 1.15, rotate: 5 }}
+            whileHover={{ scale: 1.15, rotate: 6 }}
             whileTap={{ scale: 0.9 }}
             onClick={handleLogout}
             title="Log Out"
-            className="p-1.5 text-[#5C7F75] hover:text-[#FF5A67] hover:bg-[#FF5A67]/15 rounded-lg transition-colors cursor-pointer"
+            className="p-2 text-[#5C7F75] hover:text-[#FF5A67] hover:bg-[#FF5A67]/15 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-[#FF5A67]/30 shadow-sm"
           >
             <LogOut className="w-3.5 h-3.5" />
           </motion.button>

@@ -5,7 +5,6 @@ import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
 import { Home, QrCode, Activity, History, User, X } from 'lucide-react';
 import { useFreshness } from '../../context/FreshnessContext';
-import { AnimatedBackground } from '../common/AnimatedBackground';
 
 export const AppLayout: React.FC = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -24,11 +23,13 @@ export const AppLayout: React.FC = () => {
 
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-[#F4F7F6] text-[#07221A] relative">
-      {/* Background Animated Ambient Lights - Disabled on light dashboard to maintain pristine high-contrast cards */}
-      <div className="absolute inset-0 bg-[#F4F7F6] pointer-events-none" />
+      {/* Ambient Glass Glow Orbs */}
+      <div className="absolute top-[-120px] left-[15%] w-[550px] h-[550px] bg-gradient-to-br from-[#20E79A]/12 via-[#00D2FF]/08 to-transparent rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute bottom-[-150px] right-[10%] w-[600px] h-[600px] bg-gradient-to-tr from-[#20E79A]/10 via-[#3B82F6]/06 to-transparent rounded-full blur-3xl pointer-events-none" />
+      <div className="absolute top-[40%] right-[30%] w-[400px] h-[400px] bg-gradient-to-r from-[#FFAA00]/06 to-transparent rounded-full blur-3xl pointer-events-none" />
 
-      {/* Desktop Fixed Left Sidebar */}
-      <div className="hidden md:flex h-full shrink-0 z-20 relative shadow-lg">
+      {/* Desktop Fixed Left Sidebar with Glass & Depth */}
+      <div className="hidden md:flex h-full shrink-0 z-20 relative depth-2">
         <Sidebar />
       </div>
 
@@ -41,7 +42,7 @@ export const AppLayout: React.FC = () => {
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               transition={{ duration: 0.25 }}
-              className="fixed inset-0 bg-[#140C08]/85 backdrop-blur-md"
+              className="fixed inset-0 bg-[#07221A]/60 backdrop-blur-md"
               onClick={() => setMobileMenuOpen(false)}
             />
             <motion.div
@@ -49,12 +50,12 @@ export const AppLayout: React.FC = () => {
               animate={{ x: 0 }}
               exit={{ x: '-100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="relative flex-1 flex flex-col max-w-xs w-full bg-[#110B07] border-r border-[#3D261A] z-10 shadow-2xl"
+              className="relative flex-1 flex flex-col max-w-xs w-full glass-modal border-r border-[#13493B]/15 z-10 depth-4"
             >
               <div className="absolute top-4 right-4 z-20">
                 <button
                   onClick={() => setMobileMenuOpen(false)}
-                  className="p-2 text-[#B8A89E] hover:text-[#FDF8F5] bg-[#261A12] rounded-xl border border-[#3D261A] cursor-pointer hover:border-[#FF6A00]/40 transition-colors"
+                  className="neo-btn p-2 rounded-xl text-[#5C7F75] hover:text-[#07221A] cursor-pointer"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -86,8 +87,8 @@ export const AppLayout: React.FC = () => {
           </div>
         </main>
 
-        {/* Mobile Bottom Navigation */}
-        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-xl border-t border-[#13493B]/10 px-2 flex items-center justify-around z-40">
+        {/* Mobile Bottom Navigation with Glass & Neomorphism */}
+        <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white/85 backdrop-blur-2xl border-t border-[#13493B]/10 px-3 flex items-center justify-around z-40 shadow-[0_-8px_25px_rgba(7,34,26,0.06)]">
           {mobileNav.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path || (item.path.startsWith('/live-data') && location.pathname.startsWith('/live-data'));
@@ -96,17 +97,17 @@ export const AppLayout: React.FC = () => {
               <Link
                 key={item.label}
                 to={item.path}
-                className="relative flex flex-col items-center justify-center py-1 px-3 rounded-xl transition-all"
+                className="relative flex flex-col items-center justify-center py-1.5 px-3 rounded-2xl transition-all"
               >
                 {isActive && (
                   <motion.div
                     layoutId="mobileNavActive"
-                    className="absolute inset-0 bg-[#20E79A]/10 rounded-xl border border-[#20E79A]/30"
+                    className="absolute inset-0 bg-[#20E79A]/15 rounded-2xl border border-[#20E79A]/40 shadow-[0_0_12px_rgba(32,231,154,0.3)]"
                     transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                   />
                 )}
-                <Icon className={`w-5 h-5 relative z-10 transition-colors ${isActive ? 'text-[#20E79A]' : 'text-slate-400'}`} />
-                <span className={`text-[10px] font-bold mt-1 relative z-10 ${isActive ? 'text-[#07221A]' : 'text-slate-400'}`}>
+                <Icon className={`w-5 h-5 relative z-10 transition-colors ${isActive ? 'text-[#07221A] glow-icon-emerald' : 'text-[#5C7F75]'}`} />
+                <span className={`text-[10px] font-extrabold mt-0.5 relative z-10 tracking-tight ${isActive ? 'text-[#07221A]' : 'text-[#5C7F75]'}`}>
                   {item.label}
                 </span>
               </Link>
@@ -117,4 +118,5 @@ export const AppLayout: React.FC = () => {
     </div>
   );
 };
+
 
