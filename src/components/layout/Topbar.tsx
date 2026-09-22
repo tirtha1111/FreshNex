@@ -28,6 +28,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
     unreadCount, 
     markNotificationsAsRead, 
     markAlertAsRead, 
+    clearAllAlerts,
     thresholds,
     updateThresholds,
     isAudioMuted,
@@ -119,9 +120,11 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
               className="relative p-2 text-[#07221A] hover:text-[#20E79A] bg-[#EBF1EF] hover:bg-[#20E79A]/10 rounded-xl transition-all cursor-pointer shadow-sm"
             >
               <Bell className="w-4 h-4" />
-              <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white border border-white">
-                3
-              </span>
+              {unreadCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white border border-white">
+                  {unreadCount}
+                </span>
+              )}
             </motion.button>
 
             {/* Notifications Popover with AnimatePresence */}
@@ -137,8 +140,8 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                   <div className="flex items-center justify-between pb-3 border-b border-[#13493B]/10">
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-black">Real-Time Alerts</span>
-                      <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded-full bg-red-100 text-red-600">
-                        3 Alerting
+                      <span className={`text-[9px] font-extrabold px-1.5 py-0.5 rounded-full ${unreadCount > 0 ? 'bg-red-100 text-red-600' : 'bg-emerald-100 text-[#13493B]'}`}>
+                        {unreadCount > 0 ? `${unreadCount} Alerting` : '0 Alerts'}
                       </span>
                     </div>
 
@@ -151,13 +154,24 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                         {isAudioMuted ? <VolumeX className="w-4 h-4" /> : <Volume2 className="w-4 h-4" />}
                       </button>
 
-                      <button
-                        onClick={markNotificationsAsRead}
-                        className="text-[10px] text-[#20E79A] hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
-                      >
-                        <CheckCheck className="w-3.5 h-3.5" />
-                        <span>Mark read</span>
-                      </button>
+                      {unreadCount > 0 && (
+                        <button
+                          onClick={markNotificationsAsRead}
+                          className="text-[10px] text-[#20E79A] hover:underline flex items-center gap-0.5 cursor-pointer font-bold"
+                        >
+                          <CheckCheck className="w-3.5 h-3.5" />
+                          <span>Mark read</span>
+                        </button>
+                      )}
+
+                      {alerts.length > 0 && (
+                        <button
+                          onClick={clearAllAlerts}
+                          className="text-[10px] text-red-500 hover:underline flex items-center gap-0.5 cursor-pointer font-bold ml-1"
+                        >
+                          <span>Clear all</span>
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -166,7 +180,8 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                     {alerts.length === 0 ? (
                       <div className="text-center py-6">
                         <ShieldCheck className="w-8 h-8 text-[#20E79A] mx-auto mb-2" />
-                        <p className="text-xs text-[#5C7F75] font-semibold">All systems running fine</p>
+                        <p className="text-xs text-[#07221A] font-bold">0 Notifications</p>
+                        <p className="text-[10px] text-[#5C7F75] font-semibold mt-0.5">All sensors safe. No active notifications.</p>
                       </div>
                     ) : (
                       alerts.map((n) => (

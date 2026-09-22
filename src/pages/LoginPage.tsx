@@ -79,7 +79,7 @@ export const LoginPage: React.FC = () => {
         {/* Brand Logo & Headline */}
         <div className="text-center space-y-2">
           <div className="flex justify-center pb-1">
-            <Logo size="md" linkTo="/" />
+            <Logo size="lg" variant="light" showTagline={true} linkTo="/" />
           </div>
           <h1 className="text-3xl font-black text-slate-900 tracking-tight">
             Get Started Now

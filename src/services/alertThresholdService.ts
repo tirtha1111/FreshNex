@@ -291,13 +291,18 @@ export function subscribeToFirebaseAlerts(
       const handleRtdb = (snapshot: any) => {
         if (snapshot.exists()) {
           const val = snapshot.val();
-          const list: SensorAlertEvent[] = Object.keys(val).map(k => ({
+          const list: SensorAlertEvent[] = val ? Object.keys(val).map(k => ({
             id: k,
             ...val[k]
-          }));
+          })) : [];
           list.sort((a, b) => b.timestamp - a.timestamp);
           localStorage.setItem('freshnex_realtime_alerts', JSON.stringify(list));
           callback(list);
+        } else {
+          try {
+            localStorage.removeItem('freshnex_realtime_alerts');
+          } catch {}
+          callback([]);
         }
       };
 
@@ -322,6 +327,11 @@ export function subscribeToFirebaseAlerts(
           list.sort((a, b) => b.timestamp - a.timestamp);
           localStorage.setItem('freshnex_realtime_alerts', JSON.stringify(list));
           callback(list);
+        } else {
+          try {
+            localStorage.removeItem('freshnex_realtime_alerts');
+          } catch {}
+          callback([]);
         }
       }, (err) => {
         console.warn('Firestore alerts onSnapshot error:', err);
@@ -464,6 +474,38 @@ export async function deleteAlertFromFirebase(alertId: string): Promise<void> {
   if (firestoreDb) {
     try {
       await deleteDoc(doc(firestoreDb, 'alerts', alertId));
+    } catch (e) {
+      console.warn(e);
+    }
+  }
+}
+
+/**
+ * Clear or delete all alerts from local storage, Realtime DB, and Firestore
+ */
+export async function clearAllAlertsFromFirebase(): Promise<void> {
+  const db = getDirectDatabase();
+
+  try {
+    localStorage.removeItem('freshnex_realtime_alerts');
+  } catch (e) {
+    console.warn(e);
+  }
+
+  if (db) {
+    try {
+      await remove(ref(db, 'alerts'));
+    } catch (e) {
+      console.warn(e);
+    }
+  }
+
+  if (firestoreDb) {
+    try {
+      const alertsCol = collection(firestoreDb, 'alerts');
+      const snap = await getDocs(alertsCol);
+      const deletions = snap.docs.map(d => deleteDoc(d.ref));
+      await Promise.all(deletions);
     } catch (e) {
       console.warn(e);
     }

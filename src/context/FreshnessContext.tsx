@@ -13,7 +13,8 @@ import {
   updateAlertReadState, 
   markAllAlertsReadFirebase, 
   resolveAlertInFirebase, 
-  deleteAlertFromFirebase 
+  deleteAlertFromFirebase,
+  clearAllAlertsFromFirebase 
 } from '../services/alertThresholdService';
 import { playAlertChime } from '../services/alertSound';
 import { useAuth } from './AuthContext';
@@ -53,6 +54,7 @@ interface FreshnessContextType {
   markAlertAsRead: (alertId: string) => Promise<void>;
   resolveAlert: (alertId: string) => Promise<void>;
   deleteAlert: (alertId: string) => Promise<void>;
+  clearAllAlerts: () => Promise<void>;
   deleteHistoryRecord: (id: string) => void;
   clearHistory: () => Promise<void>;
   reloadHistory: () => Promise<void>;
@@ -246,6 +248,11 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     await deleteAlertFromFirebase(alertId);
   };
 
+  const clearAllAlerts = async () => {
+    setAlerts([]);
+    await clearAllAlertsFromFirebase();
+  };
+
   const deleteHistoryRecord = (id: string) => {
     setScanHistory(prev => {
       const updated = prev.filter(r => r.id !== id);
@@ -308,6 +315,7 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         markAlertAsRead,
         resolveAlert,
         deleteAlert,
+        clearAllAlerts,
         deleteHistoryRecord,
         clearHistory,
         reloadHistory,

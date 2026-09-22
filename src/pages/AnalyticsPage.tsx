@@ -6,8 +6,7 @@ import {
   CheckCircle2, 
   AlertTriangle, 
   XCircle, 
-  Layers,
-  Sparkles
+  Layers
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -21,15 +20,27 @@ import {
   Pie, 
   Cell 
 } from 'recharts';
+import { useFreshness } from '../context/FreshnessContext';
 
 export const AnalyticsPage: React.FC = () => {
+  const { scanHistory } = useFreshness();
   const [timeRange, setTimeRange] = useState<'30d' | '90d' | '1y'>('30d');
+
+  // Compute metrics from actual telemetry scans (strictly 0 when no scans exist - no random mock data)
+  const totalScans = scanHistory.length;
+  const freshCount = scanHistory.filter(s => s.status === 'Fresh').length;
+  const atRiskCount = scanHistory.filter(s => s.status === 'Warning' || s.status === 'At Risk').length;
+  const expiredCount = scanHistory.filter(s => s.status === 'Critical' || s.status === 'Unsafe' || s.status === 'Spoiled').length;
+
+  const freshPercent = totalScans > 0 ? Math.round((freshCount / totalScans) * 100) : 0;
+  const atRiskPercent = totalScans > 0 ? Math.round((atRiskCount / totalScans) * 100) : 0;
+  const expiredPercent = totalScans > 0 ? Math.round((expiredCount / totalScans) * 100) : 0;
 
   const stats = [
     {
       title: 'Total Scans',
-      value: '1,284',
-      change: '+12%',
+      value: String(totalScans),
+      change: '0%',
       isPositive: true,
       icon: Layers,
       color: 'text-[#20E79A]',
@@ -37,8 +48,8 @@ export const AnalyticsPage: React.FC = () => {
     },
     {
       title: 'Fresh Items',
-      value: '1,048',
-      change: '+8%',
+      value: String(freshCount),
+      change: '0%',
       isPositive: true,
       icon: CheckCircle2,
       color: 'text-[#20E79A]',
@@ -46,8 +57,8 @@ export const AnalyticsPage: React.FC = () => {
     },
     {
       title: 'At Risk',
-      value: '182',
-      change: '-3%',
+      value: String(atRiskCount),
+      change: '0%',
       isPositive: true,
       icon: AlertTriangle,
       color: 'text-[#FFAA00]',
@@ -55,8 +66,8 @@ export const AnalyticsPage: React.FC = () => {
     },
     {
       title: 'Expired',
-      value: '54',
-      change: '-15%',
+      value: String(expiredCount),
+      change: '0%',
       isPositive: true,
       icon: XCircle,
       color: 'text-[#FF5A67]',
@@ -64,27 +75,40 @@ export const AnalyticsPage: React.FC = () => {
     },
   ];
 
-  const monthlyTrends = [
-    { month: 'Jan', scans: 940, fresh: 780, atRisk: 120 },
-    { month: 'Feb', scans: 1020, fresh: 860, atRisk: 110 },
-    { month: 'Mar', scans: 1150, fresh: 960, atRisk: 130 },
-    { month: 'Apr', scans: 1080, fresh: 900, atRisk: 125 },
-    { month: 'May', scans: 1210, fresh: 1020, atRisk: 140 },
-    { month: 'Jun', scans: 1250, fresh: 1030, atRisk: 155 },
-    { month: 'Jul', scans: 1190, fresh: 990, atRisk: 140 },
-    { month: 'Aug', scans: 1240, fresh: 1020, atRisk: 150 },
-    { month: 'Sep', scans: 1284, fresh: 1048, atRisk: 182 },
-  ];
+  // All monthly columns set strictly to zero (no random data)
+  const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+  const monthlyTrends = months.map(m => {
+    const monthScans = scanHistory.filter(s => {
+      const d = new Date(s.timestamp);
+      return d.toLocaleString('en-US', { month: 'short' }) === m;
+    });
+    return {
+      month: m,
+      scans: monthScans.length,
+      fresh: monthScans.filter(s => s.status === 'Fresh').length,
+      atRisk: monthScans.filter(s => s.status === 'Warning' || s.status === 'At Risk').length,
+    };
+  });
 
   const qualityDistribution = [
-    { name: 'Fresh', value: 81, color: '#20E79A' },
-    { name: 'At Risk', value: 14, color: '#FFAA00' },
-    { name: 'Expired', value: 5, color: '#FF5A67' },
+    { name: 'Fresh', value: freshPercent, color: '#20E79A' },
+    { name: 'At Risk', value: atRiskPercent, color: '#FFAA00' },
+    { name: 'Expired', value: expiredPercent, color: '#FF5A67' },
   ];
 
+  const pieChartData = totalScans > 0 
+    ? qualityDistribution.filter(q => q.value > 0)
+    : [{ name: 'Zero Scans', value: 1, color: '#E2E8F0' }];
+
+  // Monitored categories - calculated strictly from real scan items (defaults to 0)
+  const dairyCount = scanHistory.filter(s => s.itemName?.toLowerCase().includes('milk') || s.itemName?.toLowerCase().includes('dairy') || s.itemId === 'MILK').length;
+  const meatCount = scanHistory.filter(s => s.itemName?.toLowerCase().includes('meat') || s.itemId === 'MEAT').length;
+  const dairyRatio = totalScans > 0 ? Math.round((dairyCount / totalScans) * 100) : 0;
+  const meatRatio = totalScans > 0 ? Math.round((meatCount / totalScans) * 100) : 0;
+
   const categoryBreakdown = [
-    { name: 'Dairy Products', count: 706, ratio: 55, color: '#20E79A' },
-    { name: 'Meat Products', count: 578, ratio: 45, color: '#FFAA00' },
+    { name: 'Dairy Products', count: dairyCount, ratio: dairyRatio, color: '#20E79A' },
+    { name: 'Meat Products', count: meatCount, ratio: meatRatio, color: '#FFAA00' },
   ];
 
   return (
@@ -104,7 +128,7 @@ export const AnalyticsPage: React.FC = () => {
             </span>
           </h1>
           <p className="text-xs font-bold text-[#5C7F75] mt-1">
-            Insights on scan trends, spoilage mitigation, and cold-chain compliance.
+            Real-time telemetry analytics. All column metrics reflect actual recorded scans.
           </p>
         </div>
 
@@ -156,8 +180,8 @@ export const AnalyticsPage: React.FC = () => {
               </div>
               <div className="flex items-baseline justify-between">
                 <span className="text-2xl sm:text-3xl font-black text-[#07221A]">{s.value}</span>
-                <span className="text-xs font-bold text-[#20E79A] flex items-center gap-0.5 bg-[#20E79A]/10 px-2 py-0.5 rounded-md">
-                  <TrendingUp className="w-3 h-3" />
+                <span className="text-xs font-bold text-[#5C7F75] flex items-center gap-0.5 bg-[#13493B]/5 px-2 py-0.5 rounded-md">
+                  <TrendingUp className="w-3 h-3 text-[#5C7F75]" />
                   {s.change}
                 </span>
               </div>
@@ -173,8 +197,13 @@ export const AnalyticsPage: React.FC = () => {
           <div className="flex items-center justify-between">
             <div>
               <h3 className="text-sm font-black text-[#07221A]">Scan Volume & Freshness Trends</h3>
-              <p className="text-[11px] text-[#5C7F75] font-semibold">Monthly throughput across connected cold-storage vaults.</p>
+              <p className="text-[11px] text-[#5C7F75] font-semibold">Monthly throughput columns across connected cold-storage vaults.</p>
             </div>
+            {totalScans === 0 && (
+              <span className="text-[11px] font-bold text-[#5C7F75] bg-[#F4F7F6] px-3 py-1 rounded-full border border-[#13493B]/10">
+                0 Scans Recorded
+              </span>
+            )}
           </div>
 
           <div className="h-72 w-full">
@@ -182,7 +211,7 @@ export const AnalyticsPage: React.FC = () => {
               <BarChart data={monthlyTrends} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F4F7F6" vertical={false} />
                 <XAxis dataKey="month" stroke="#5C7F75" fontSize={10} fontWeight={700} tickLine={false} axisLine={false} />
-                <YAxis stroke="#5C7F75" fontSize={10} fontWeight={700} tickLine={false} axisLine={false} />
+                <YAxis stroke="#5C7F75" fontSize={10} fontWeight={700} tickLine={false} axisLine={false} domain={[0, 10]} allowDecimals={false} />
                 <Tooltip
                   contentStyle={{
                     backgroundColor: '#FFFFFF',
@@ -204,37 +233,43 @@ export const AnalyticsPage: React.FC = () => {
         <div className="lg:col-span-4 bg-white border border-[#13493B]/10 rounded-[28px] p-6 flex flex-col justify-between shadow-sm">
           <div>
             <h3 className="text-sm font-black text-[#07221A]">Quality Distribution</h3>
-            <p className="text-[11px] text-[#5C7F75] font-semibold">Percentage breakdown of all inspected inventory.</p>
+            <p className="text-[11px] text-[#5C7F75] font-semibold">Percentage breakdown of inspected inventory.</p>
           </div>
 
-          <div className="h-48 w-full flex items-center justify-center my-2">
+          <div className="h-48 w-full flex items-center justify-center my-2 relative">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie
-                  data={qualityDistribution}
+                  data={pieChartData}
                   cx="50%"
                   cy="50%"
                   innerRadius={50}
                   outerRadius={75}
-                  paddingAngle={5}
+                  paddingAngle={totalScans > 0 ? 5 : 0}
                   dataKey="value"
                 >
-                  {qualityDistribution.map((entry, index) => (
+                  {pieChartData.map((entry, index) => (
                     <Cell key={`cell-${index}`} fill={entry.color} stroke="#FFFFFF" strokeWidth={2} />
                   ))}
                 </Pie>
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: '#FFFFFF',
-                    borderColor: 'rgba(19, 73, 59, 0.1)',
-                    borderRadius: '16px',
-                    boxShadow: '0 8px 30px rgba(0,0,0,0.06)'
-                  }}
-                  labelStyle={{ fontWeight: 800, color: '#07221A', fontSize: '11px' }}
-                  itemStyle={{ fontWeight: 700, fontSize: '11px' }}
-                />
+                {totalScans > 0 && (
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#FFFFFF',
+                      borderColor: 'rgba(19, 73, 59, 0.1)',
+                      borderRadius: '16px',
+                      boxShadow: '0 8px 30px rgba(0,0,0,0.06)'
+                    }}
+                    labelStyle={{ fontWeight: 800, color: '#07221A', fontSize: '11px' }}
+                    itemStyle={{ fontWeight: 700, fontSize: '11px' }}
+                  />
+                )}
               </PieChart>
             </ResponsiveContainer>
+            <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
+              <span className="text-2xl font-black text-[#07221A]">{totalScans}</span>
+              <span className="text-[9px] font-bold text-[#5C7F75] uppercase">Total Scans</span>
+            </div>
           </div>
 
           <div className="space-y-2 border-t border-[#F4F7F6] pt-4">

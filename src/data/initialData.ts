@@ -41,20 +41,4 @@ export const DEFAULT_SENSOR_DATA: Record<string, SensorData> = {
   }
 };
 
-export const DEFAULT_SCAN_HISTORY: ScanHistoryRecord[] = [
-  {
-    id: 'scan-initial-milk',
-    itemId: 'MILK',
-    itemName: 'Milk Package',
-    tagId: '#YGS-FD-000124',
-    itemImage: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400&auto=format&fit=crop&q=80',
-    temperature: 4.2,
-    humidity: 62,
-    gas: 120,
-    freshnessScore: 92,
-    status: 'Fresh',
-    timestamp: Date.now() - 3600000,
-    dateStr: new Date(Date.now() - 3600000).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-    timeStr: new Date(Date.now() - 3600000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
-  }
-];
+export const DEFAULT_SCAN_HISTORY: ScanHistoryRecord[] = [];

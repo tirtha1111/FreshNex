@@ -5,14 +5,25 @@ import { useFreshness } from '../context/FreshnessContext';
 import { useNavigate } from 'react-router-dom';
 
 export const Alerts: React.FC = () => {
-  const { alerts, markAlertAsRead, resolveAlert, deleteAlert } = useFreshness();
+  const { alerts, markAlertAsRead, resolveAlert, deleteAlert, clearAllAlerts } = useFreshness();
   const navigate = useNavigate();
 
   return (
     <div className="space-y-4 max-w-3xl mx-auto select-none">
-      <div>
-        <h1 className="text-2xl font-black text-[#FDF8F5] tracking-tight">Sensor Notifications & Alerts</h1>
-        <p className="text-xs text-[#8C7A70] font-medium">Real-time telemetry threshold warnings & Firebase events</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black text-[#FDF8F5] tracking-tight">Sensor Notifications & Alerts</h1>
+          <p className="text-xs text-[#8C7A70] font-medium">Real-time telemetry threshold warnings & Firebase events</p>
+        </div>
+        {alerts.length > 0 && (
+          <button
+            onClick={clearAllAlerts}
+            className="px-3 py-1.5 rounded-xl text-xs font-bold text-rose-400 bg-rose-500/10 hover:bg-rose-500/20 border border-rose-500/20 flex items-center gap-1.5 cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span>Clear All</span>
+          </button>
+        )}
       </div>
 
       {alerts.length === 0 ? (
@@ -20,9 +31,9 @@ export const Alerts: React.FC = () => {
           <div className="w-12 h-12 rounded-2xl bg-[#20E79A]/15 text-[#20E79A] border border-[#20E79A]/30 flex items-center justify-center mx-auto shadow-md">
             <ShieldCheck className="w-6 h-6" />
           </div>
-          <h3 className="text-base font-bold text-[#FDF8F5]">All Systems Nominal</h3>
+          <h3 className="text-base font-bold text-[#FDF8F5]">0 Active Notifications</h3>
           <p className="text-xs text-[#8C7A70] max-w-xs mx-auto">
-            No active sensor threshold warnings. ESP32 devices and food containers are within safe limits.
+            All systems normal. Zero alerts recorded across all sensors and devices.
           </p>
         </div>
       ) : (

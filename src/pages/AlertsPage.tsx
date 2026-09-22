@@ -28,6 +28,7 @@ export const AlertsPage: React.FC = () => {
     markAlertAsRead, 
     resolveAlert, 
     deleteAlert,
+    clearAllAlerts,
     thresholds,
     updateThresholds,
     isAudioMuted,
@@ -107,6 +108,18 @@ export const AlertsPage: React.FC = () => {
           >
             {isAudioMuted ? <VolumeX className="w-4 h-4 text-slate-400" /> : <Volume2 className="w-4 h-4 text-[#20E79A]" />}
           </motion.button>
+
+          {alerts.length > 0 && (
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={clearAllAlerts}
+              className="px-4 py-2 rounded-xl text-xs font-black text-rose-600 bg-rose-50 hover:bg-rose-100 border border-rose-200 flex items-center gap-1.5 cursor-pointer shadow-sm"
+            >
+              <Trash2 className="w-4 h-4 text-rose-500" />
+              <span>Clear All</span>
+            </motion.button>
+          )}
 
           {unreadCount > 0 && (
             <motion.button
@@ -246,9 +259,13 @@ export const AlertsPage: React.FC = () => {
             <div className="w-16 h-16 rounded-[20px] bg-[#EBFBF4] text-[#20E79A] flex items-center justify-center mx-auto shadow-sm">
               <ShieldCheck className="w-8 h-8" />
             </div>
-            <h3 className="text-lg font-black text-[#07221A] tracking-tight">No Alerts Matching Criteria</h3>
+            <h3 className="text-lg font-black text-[#07221A] tracking-tight">
+              {alerts.length === 0 ? '0 Active Notifications' : 'No Alerts Matching Criteria'}
+            </h3>
             <p className="text-xs font-semibold text-[#5C7F75] max-w-sm mx-auto leading-relaxed">
-              All connected IoT telemetry sensors are currently operating within safe baseline threshold limits.
+              {alerts.length === 0
+                ? 'All connected IoT sensors and monitors are safe. No notification anomalies recorded.'
+                : 'All connected IoT telemetry sensors are currently operating within safe baseline threshold limits.'}
             </p>
           </div>
         ) : (

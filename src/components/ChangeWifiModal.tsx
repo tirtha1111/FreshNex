@@ -113,6 +113,17 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
     espDeviceRef.current = espDevice;
   }, [espDevice]);
 
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   // Reset errors when changing steps
   useEffect(() => {
     setErrorType(null);
@@ -532,39 +543,48 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-md select-none font-sans">
+    <div 
+      onClick={onClose}
+      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 md:p-6 bg-slate-950/85 backdrop-blur-md select-none font-sans overflow-hidden"
+    >
       <motion.div
-        initial={{ opacity: 0, scale: 0.95, y: 10 }}
+        initial={{ opacity: 0, scale: 0.94, y: 15 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        exit={{ opacity: 0, scale: 0.95, y: 10 }}
-        className="glass-card w-full max-w-lg rounded-3xl p-6 bg-[#140C08] text-[#FDF8F5] border border-[#FF6A00]/30 shadow-2xl relative overflow-hidden space-y-5"
+        exit={{ opacity: 0, scale: 0.94, y: 15 }}
+        transition={{ type: "spring", damping: 25, stiffness: 350 }}
+        onClick={(e) => e.stopPropagation()}
+        className="glass-card relative w-full max-w-md sm:max-w-lg max-h-[85vh] sm:max-h-[80vh] rounded-xl sm:rounded-2xl bg-[#140C08] text-[#FDF8F5] border border-[#FF6A00]/30 shadow-2xl shadow-black/80 flex flex-col overflow-hidden"
       >
         {/* Background Accent Glow */}
         <div className="absolute top-0 right-0 w-40 h-40 bg-[#FF6A00]/15 rounded-full blur-3xl pointer-events-none" />
 
-        {/* Close Button */}
-        <button
-          onClick={onClose}
-          className="absolute top-4 right-4 w-8 h-8 rounded-full bg-[#1C1410] border border-[#FF6A00]/25 hover:border-[#FFAA00] text-[#B8A89E] hover:text-[#FDF8F5] flex items-center justify-center transition-all z-10 cursor-pointer"
-        >
-          <X className="w-4 h-4" />
-        </button>
-
-        {/* Header Title */}
-        <div className="space-y-1">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#FF6A00]/15 border border-[#FF6A00]/30 text-[#FFAA00] text-[10px] font-black uppercase tracking-wider">
-            <Radio className="w-3 h-3" />
-            <span>Admin Control Panel • Wi-Fi Reconfiguration</span>
+        {/* Fixed Header */}
+        <div className="shrink-0 px-5 py-4 sm:px-6 sm:py-5 border-b border-[#FF6A00]/20 bg-[#140C08]/95 backdrop-blur-sm flex items-start justify-between gap-3 z-10">
+          <div className="space-y-1">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-[#FF6A00]/15 border border-[#FF6A00]/30 text-[#FFAA00] text-[10px] font-black uppercase tracking-wider">
+              <Radio className="w-3 h-3" />
+              <span>Admin Control Panel • Wi-Fi Setup</span>
+            </div>
+            <h2 className="text-lg sm:text-xl font-black text-[#FDF8F5] tracking-tight">Change Wi-Fi Network</h2>
+            <p className="text-xs text-[#B8A89E] font-medium font-mono">
+              Target Node: <span className="text-[#FFAA00] font-bold">{deviceId}</span>
+              {isVirtual && <span className="ml-2 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">Virtual Mode</span>}
+            </p>
           </div>
-          <h2 className="text-xl font-black text-[#FDF8F5] tracking-tight">Change Wi-Fi Network</h2>
-          <p className="text-xs text-[#B8A89E] font-medium font-mono">
-            Target Node: <span className="text-[#FFAA00] font-bold">{deviceId}</span>
-            {isVirtual && <span className="ml-2 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-[10px] font-bold">Virtual Mode</span>}
-          </p>
+
+          <motion.button
+            whileHover={{ scale: 1.1, rotate: 90 }}
+            whileTap={{ scale: 0.9 }}
+            onClick={onClose}
+            className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-[#1C1410] border border-[#FF6A00]/25 hover:border-[#FFAA00] text-[#B8A89E] hover:text-[#FDF8F5] flex items-center justify-center transition-colors cursor-pointer shrink-0"
+            aria-label="Close modal"
+          >
+            <X className="w-4 h-4" />
+          </motion.button>
         </div>
 
         {/* Wizard Steps Progress Bar */}
-        <div className="flex items-center gap-1.5 py-1">
+        <div className="shrink-0 px-5 sm:px-6 py-2 bg-[#1C1410]/60 border-b border-[#FF6A00]/10 flex items-center gap-1.5">
           {[1, 2, 3, 4, 5, 6, 7].map((s) => (
             <div
               key={s}
@@ -575,8 +595,10 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
           ))}
         </div>
 
-        {/* DYNAMIC STEP CONTENT */}
-        <AnimatePresence mode="wait">
+        {/* Scrollable Modal Body */}
+        <div className="flex-1 overflow-y-auto overscroll-contain px-5 py-4 sm:px-6 sm:py-5 space-y-4">
+          {/* DYNAMIC STEP CONTENT */}
+          <AnimatePresence mode="wait">
           {/* STEP 1: Confirmation Modal */}
           {step === 1 && (
             <motion.div
@@ -1148,7 +1170,8 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
             </div>
           </div>
         )}
-      </motion.div>
-    </div>
-  );
+      </div>
+    </motion.div>
+  </div>
+);
 };

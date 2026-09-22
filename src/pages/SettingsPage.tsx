@@ -14,7 +14,8 @@ import {
   Key, 
   Link, 
   Lock, 
-  AlertCircle 
+  AlertCircle,
+  Sparkles
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { firebaseConfig } from '../firebase/firebase';
@@ -368,6 +369,43 @@ export const SettingsPage: React.FC = () => {
               {pingStatus}
             </motion.p>
           )}
+        </div>
+
+        {/* AI Threshold Engine Integration Section */}
+        <div className="card-solid p-6 sm:p-8 space-y-4 shadow-2xl border border-[#20E79A]/30">
+          <div className="flex items-center gap-3 pb-3 border-b border-[#3D261A]">
+            <div className="w-8 h-8 rounded-xl bg-[#20E79A]/15 text-[#20E79A] flex items-center justify-center">
+              <Sparkles className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-sm font-bold text-[#FDF8F5]">AI Threshold Intelligence</h3>
+                <span className="px-2 py-0.5 rounded-full bg-[#20E79A]/20 text-[#20E79A] text-[9px] font-black uppercase">
+                  Connected
+                </span>
+              </div>
+              <p className="text-xs text-[#8C7A70]">
+                Automated food science research and dynamic threshold determination powered by openai/gpt-oss-120b.
+              </p>
+            </div>
+          </div>
+
+          <div className="p-4 rounded-xl bg-[#1E140E] border border-[#3D261A] space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div>
+                <p className="text-xs font-bold text-[#FDF8F5]">AI Model: openai/gpt-oss-120b</p>
+                <p className="text-[11px] text-[#8C7A70]">
+                  Grounded with USDA Handbook 66 & UC Davis Postharvest standards.
+                </p>
+              </div>
+              <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-[#261A12] text-[#20E79A] border border-[#3D261A]">
+                API Route: /api/ai/suggest-thresholds
+              </span>
+            </div>
+            <p className="text-[11px] text-[#8C7A70] leading-relaxed">
+              When registering or configuring nodes in the Devices section, FreshNex leverages AI threshold intelligence to evaluate produce biology, safe chilling bounds, transpirational humidity limits, and MQ-135 TVOC/gas spoilage thresholds automatically with research citations.
+            </p>
+          </div>
         </div>
 
         {/* Custom Firebase RTDB */}

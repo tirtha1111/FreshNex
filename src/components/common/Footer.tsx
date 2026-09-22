@@ -17,7 +17,7 @@ export const Footer: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-[#3D261A]/70">
           {/* Brand Col */}
           <div className="lg:col-span-2 space-y-4">
-            <Logo size="lg" linkTo="/" />
+            <Logo size="lg" variant="dark" showTagline={true} linkTo="/" />
             <p className="text-xs font-bold text-[#FF6A00] tracking-widest uppercase">
               SMART FOOD. BRIGHTER TOMORROWS.
             </p>

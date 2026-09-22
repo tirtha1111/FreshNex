@@ -50,7 +50,7 @@ export const ForgotPasswordPage: React.FC = () => {
       >
         <div className="text-center space-y-3">
           <div className="flex justify-center">
-            <Logo size="lg" linkTo="/" />
+            <Logo size="lg" variant="dark" showTagline={true} linkTo="/" />
           </div>
           <h2 className="text-2xl font-black text-[#FDF8F5] tracking-tight mt-4">
             Reset your password

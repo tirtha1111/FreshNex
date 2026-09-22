@@ -74,6 +74,7 @@ const AppRoutes: React.FC = () => {
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
         <Route path="/admin/devices" element={<AdminDevices />} />
+        <Route path="/devices" element={<AdminDevices />} />
       </Route>
 
       {/* Fallback to Home */}

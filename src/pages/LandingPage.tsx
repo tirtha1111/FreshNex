@@ -91,7 +91,7 @@ export const LandingPage: React.FC = () => {
       <header className="sticky top-0 z-50 bg-[#140C08]/90 backdrop-blur-xl border-b border-[#3D261A]">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between gap-6">
           {/* Left: FreshNex Logo */}
-          <Logo size="lg" linkTo="/" />
+          <Logo size="lg" variant="dark" showTagline={true} linkTo="/" />
 
           {/* Center Navigation Links */}
           <nav className="hidden md:flex items-center gap-8 text-sm font-semibold text-[#B8A89E]">
