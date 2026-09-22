@@ -2,11 +2,64 @@ import express, { Request, Response } from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
+import http from 'http';
+import { Server } from 'socket.io';
+import { initializeApp } from 'firebase/app';
+import { getFirestore, doc, updateDoc, collection, getDocs } from 'firebase/firestore';
+import firebaseConfig from './firebase-applet-config.json';
 
 dotenv.config();
 
 const app = express();
+const httpServer = http.createServer(app);
+const io = new Server(httpServer, {
+  cors: { origin: '*' }
+});
 const PORT = 3000;
+
+const firebaseApp = initializeApp(firebaseConfig);
+const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
+
+const deviceHeartbeats = new Map<string, number>();
+
+io.on('connection', (socket) => {
+  socket.on('heartbeat', (deviceId: string) => {
+    deviceHeartbeats.set(deviceId, Date.now());
+    updateDoc(doc(db, 'devices', deviceId), {
+      status: 'online',
+      lastHeartbeat: Date.now()
+    }).catch(console.error);
+  });
+});
+
+setInterval(async () => {
+  const now = Date.now();
+  
+  // 1. Update based on socket heartbeats
+  for (const [deviceId, lastHeartbeat] of deviceHeartbeats.entries()) {
+    if (now - lastHeartbeat > 30000) {
+      await updateDoc(doc(db, 'devices', deviceId), {
+        status: 'offline'
+      }).catch(console.error);
+      deviceHeartbeats.delete(deviceId);
+    }
+  }
+
+  // 2. Check all devices in Firestore to ensure offline status
+  try {
+    const devicesSnapshot = await getDocs(collection(db, 'devices'));
+    devicesSnapshot.forEach(async (deviceDoc) => {
+      const data = deviceDoc.data();
+      if (data.status === 'online' && (!data.lastHeartbeat || (now - data.lastHeartbeat > 30000))) {
+        await updateDoc(doc(db, 'devices', deviceDoc.id), {
+          status: 'offline'
+        }).catch(console.error);
+      }
+    });
+  } catch (err) {
+    console.error('Error checking device statuses in Firestore:', err);
+  }
+}, 10000);
 
 app.use(express.json());
 
@@ -341,7 +394,7 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  httpServer.listen(PORT, '0.0.0.0', () => {
     console.log(`FreshNex Full-Stack Server running on port ${PORT}`);
   });
 }

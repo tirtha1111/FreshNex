@@ -1,6 +1,23 @@
 {
   "entities": {
+    "Device": {
+      "title": "Device",
+      "description": "IoT device state and health information.",
+      "type": "object",
+      "properties": {
+        "status": {
+          "type": "string",
+          "enum": ["online", "offline"]
+        },
+        "lastHeartbeat": {
+          "type": "number",
+          "description": "Unix timestamp of last received heartbeat"
+        }
+      },
+      "required": ["status"]
+    },
     "Alert": {
+
       "title": "Alert",
       "description": "Real-time alert notification generated when sensor thresholds are exceeded.",
       "type": "object",
@@ -90,6 +107,12 @@
         "$ref": "#/entities/Alert"
       },
       "description": "Collection of real-time sensor threshold alerts and notifications"
+    },
+    "/devices/{deviceId}": {
+      "schema": {
+        "$ref": "#/entities/Device"
+      },
+      "description": "State and health status for IoT devices"
     },
     "/devices/{deviceId}/commands/{commandId}": {
       "schema": {

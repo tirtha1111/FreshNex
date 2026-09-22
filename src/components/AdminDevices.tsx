@@ -3,6 +3,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
+import { FirebaseService } from '../services/firebaseService';
 import { 
   Cpu, 
   Wifi, 
@@ -33,6 +34,7 @@ import {
 } from 'lucide-react';
 import { DeviceData } from '../types';
 import { ChangeWifiModal } from './ChangeWifiModal';
+import { DeviceCard } from './DeviceCard';
 import { researchProductThresholds, AIThresholdResearchResult } from '../services/aiThresholdService';
 
 export const AdminDevices: React.FC = () => {
@@ -189,6 +191,20 @@ export const AdminDevices: React.FC = () => {
     }, 1200);
   };
 
+  const [realtimeStatus, setRealtimeStatus] = useState<'online' | 'offline' | undefined>(undefined);
+
+  // Subscribe to real-time status
+  useEffect(() => {
+    if (!activeDeviceId) {
+      setRealtimeStatus(undefined);
+      return;
+    }
+    const unsubscribe = FirebaseService.subscribeToDeviceStatus(activeDeviceId, (status) => {
+      setRealtimeStatus(status);
+    });
+    return unsubscribe;
+  }, [activeDeviceId]);
+
   // Sync URL search params ?id=YGS-FD-000124
   useEffect(() => {
     const devId = searchParams.get('id');
@@ -334,11 +350,11 @@ export const AdminDevices: React.FC = () => {
                 <motion.span 
                   whileHover={{ scale: 1.05 }}
                   className={`px-3.5 py-1.5 rounded-full text-xs font-black flex items-center gap-2 shadow-xs ${
-                    activeDevice.online ? 'bg-emerald-100/90 text-emerald-700 border border-emerald-300' : 'bg-slate-100 text-slate-600 border border-slate-300'
+                    realtimeStatus === 'online' ? 'bg-emerald-100/90 text-emerald-700 border border-emerald-300' : 'bg-slate-100 text-slate-600 border border-slate-300'
                   }`}
                 >
-                  <span className={`w-2.5 h-2.5 rounded-full ${activeDevice.online ? 'bg-emerald-500 animate-pulse ring-4 ring-emerald-400/20' : 'bg-slate-400'}`} />
-                  <span>{activeDevice.online ? 'ONLINE' : 'OFFLINE'}</span>
+                  <span className={`w-2.5 h-2.5 rounded-full ${realtimeStatus === 'online' ? 'bg-emerald-500 animate-pulse ring-4 ring-emerald-400/20' : 'bg-slate-400'}`} />
+                  <span>{realtimeStatus === 'online' ? 'ONLINE' : 'OFFLINE'}</span>
                 </motion.span>
               </div>
             </div>
@@ -357,8 +373,8 @@ export const AdminDevices: React.FC = () => {
                 <div className="min-w-0">
                   <span className="text-[10px] font-extrabold uppercase text-[#5C7F75] block truncate">ESP32 Hardware</span>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className={`w-2 h-2 rounded-full ${activeDevice.online ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                    <span className="text-xs font-black text-[#07221A]">{activeDevice.online ? 'Online' : 'Offline'}</span>
+                    <span className={`w-2 h-2 rounded-full ${realtimeStatus === 'online' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                    <span className="text-xs font-black text-[#07221A]">{realtimeStatus === 'online' ? 'Online' : 'Offline'}</span>
                   </div>
                 </div>
               </motion.div>
@@ -489,74 +505,13 @@ export const AdminDevices: React.FC = () => {
         /* VIEW MODE B: ALL DEVICES FLOATING GRID */
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 md:gap-6">
           {devicesList.map((dev, idx) => (
-            <motion.div
+            <DeviceCard
               key={dev.device_id}
-              initial={{ opacity: 0, y: 16 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.05, duration: 0.25 }}
-              whileHover={{ y: -5, scale: 1.015 }}
-              className="glass-card bg-white/95 rounded-[24px] sm:rounded-[30px] p-5 sm:p-6 border border-[#13493B]/10 shadow-[0_10px_30px_-6px_rgba(7,34,26,0.07),0_2px_8px_rgba(0,0,0,0.02)] hover:shadow-[0_20px_40px_-8px_rgba(32,231,154,0.18),0_6px_16px_rgba(0,0,0,0.04)] hover:border-[#20E79A]/30 transition-all duration-300 flex flex-col justify-between space-y-4 relative overflow-hidden group"
-            >
-              {/* Subtle top floating edge gradient highlight */}
-              <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-[#20E79A]/0 group-hover:via-[#20E79A]/60 to-transparent transition-all duration-300" />
-
-              <div className="space-y-4">
-                <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <span className="text-[9px] font-black uppercase tracking-wider text-[#20E79A] bg-[#EBFBF4] px-2.5 py-0.5 rounded-full border border-[#20E79A]/20 inline-block truncate">
-                      Micro-Node
-                    </span>
-                    <h3 className="text-base sm:text-lg font-black text-[#07221A] mt-1.5 truncate">{dev.product || 'Milk'}</h3>
-                    <p className="text-xs font-mono font-bold text-[#FFAA00] truncate">{dev.device_id}</p>
-                  </div>
-
-                  <span className={`px-2.5 py-1 rounded-full text-[10px] font-black shrink-0 flex items-center gap-1.5 shadow-xs ${
-                    dev.online ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'bg-slate-100 text-slate-600 border border-slate-300'
-                  }`}>
-                    <span className={`w-2 h-2 rounded-full ${dev.online ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
-                    <span>{dev.online ? 'ONLINE' : 'OFFLINE'}</span>
-                  </span>
-                </div>
-
-                {/* Sensor Summary Floating Strip */}
-                <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-gradient-to-b from-[#F4F7F6] to-[#EAEFEB] text-center border border-[#13493B]/8 shadow-inner">
-                  <div className="space-y-0.5">
-                    <span className="text-[9px] font-bold text-[#5C7F75] uppercase block truncate">Temp</span>
-                    <span className="text-xs sm:text-sm font-black text-[#07221A]">{dev.temperature}°C</span>
-                  </div>
-                  <div className="space-y-0.5 border-x border-[#13493B]/10">
-                    <span className="text-[9px] font-bold text-[#5C7F75] uppercase block truncate">Humidity</span>
-                    <span className="text-xs sm:text-sm font-black text-[#07221A]">{dev.humidity}%</span>
-                  </div>
-                  <div className="space-y-0.5">
-                    <span className="text-[9px] font-bold text-[#5C7F75] uppercase block truncate">MQ-135</span>
-                    <span className="text-xs sm:text-sm font-black text-[#07221A]">{dev.mq135_raw}</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Actions Button Row */}
-              <div className="flex gap-2 pt-1">
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => { setActiveDeviceId(dev.device_id); setSearchParams({ id: dev.device_id }); }}
-                  className="flex-1 py-2.5 px-3 rounded-xl bg-[#07221A] text-white font-bold text-xs hover:bg-[#134336] flex items-center justify-center gap-1.5 cursor-pointer shadow-sm min-h-[40px]"
-                >
-                  <Cpu className="w-3.5 h-3.5 text-[#20E79A] shrink-0" />
-                  <span className="truncate">DETAILS</span>
-                </motion.button>
-                <motion.button
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.97 }}
-                  onClick={() => setWifiModalDeviceId(dev.device_id)}
-                  className="flex-1 py-2.5 px-3 rounded-xl btn-orange text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer shadow-sm min-h-[40px]"
-                >
-                  <Wifi className="w-3.5 h-3.5 shrink-0" />
-                  <span className="truncate">CHANGE WI-FI</span>
-                </motion.button>
-              </div>
-            </motion.div>
+              dev={dev}
+              idx={idx}
+              onDetailsClick={() => { setActiveDeviceId(dev.device_id); setSearchParams({ id: dev.device_id }); }}
+              onWifiClick={() => setWifiModalDeviceId(dev.device_id)}
+            />
           ))}
         </div>
       )}

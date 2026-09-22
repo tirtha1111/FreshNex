@@ -1,8 +1,33 @@
 import { ref, get, set, onValue, off, getDatabase, Database } from 'firebase/database';
 import { getApps, initializeApp, getApp } from 'firebase/app';
+import { getFirestore, doc, onSnapshot } from 'firebase/firestore';
 import { database as defaultDatabase, firebaseConfig } from '../firebase/firebase';
 import { FoodItem, SensorData, ScanHistoryRecord } from '../types';
 import { DEFAULT_ITEMS, DEFAULT_SENSOR_DATA, DEFAULT_SCAN_HISTORY } from '../data/initialData';
+
+// ... (previous code)
+
+/**
+ * Subscribe to real-time status of a device in Firestore
+ */
+export function subscribeToDeviceStatus(
+  deviceId: string,
+  callback: (status: 'online' | 'offline' | undefined) => void
+): () => void {
+  const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const deviceRef = doc(db, 'devices', deviceId);
+
+  return onSnapshot(deviceRef, (snapshot) => {
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      callback(data.status as 'online' | 'offline');
+    } else {
+      callback(undefined);
+    }
+  });
+}
+
 
 // Provided Realtime Database URL
 export const REALTIME_DATABASE_URL = 'https://freshnex-9bf3f-default-rtdb.firebaseio.com';
@@ -321,6 +346,7 @@ export async function clearScanHistory(userUid?: string): Promise<void> {
 export class FirebaseService {
   static getItemById = getItemById;
   static subscribeToSensorData = subscribeToSensorData;
+  static subscribeToDeviceStatus = subscribeToDeviceStatus;
   static saveScanHistory = saveScanHistory;
   static getScanHistory = getScanHistory;
   static clearScanHistory = clearScanHistory;
