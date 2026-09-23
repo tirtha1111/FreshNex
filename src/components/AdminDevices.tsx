@@ -192,18 +192,46 @@ export const AdminDevices: React.FC = () => {
   };
 
   const [realtimeStatus, setRealtimeStatus] = useState<'online' | 'offline' | undefined>(undefined);
+  const [liveSensor, setLiveSensor] = useState({
+    temperature: 4.2,
+    humidity: 62.0,
+    mq135_raw: 120
+  });
 
-  // Subscribe to real-time status
+  // Subscribe to real-time status and sensor data
   useEffect(() => {
     if (!activeDeviceId) {
       setRealtimeStatus(undefined);
       return;
     }
-    const unsubscribe = FirebaseService.subscribeToDeviceStatus(activeDeviceId, (status) => {
+    const unsubStatus = FirebaseService.subscribeToDeviceStatus(activeDeviceId, (status) => {
       setRealtimeStatus(status);
     });
-    return unsubscribe;
-  }, [activeDeviceId]);
+
+    const dev = devicesMap[activeDeviceId];
+    if (dev) {
+      setLiveSensor({
+        temperature: dev.temperature ?? 4.2,
+        humidity: dev.humidity ?? 62.0,
+        mq135_raw: dev.mq135_raw ?? 120
+      });
+    }
+
+    const unsubSensor = FirebaseService.subscribeToSensorData(activeDeviceId, (data) => {
+      if (data) {
+        setLiveSensor({
+          temperature: data.temperature ?? dev?.temperature ?? 4.2,
+          humidity: data.humidity ?? dev?.humidity ?? 62.0,
+          mq135_raw: (data as any).gas ?? (data as any).mq135_raw ?? dev?.mq135_raw ?? 120
+        });
+      }
+    });
+
+    return () => {
+      unsubStatus();
+      unsubSensor();
+    };
+  }, [activeDeviceId, devicesMap]);
 
   // Sync URL search params ?id=YGS-FD-000124
   useEffect(() => {
@@ -231,7 +259,14 @@ export const AdminDevices: React.FC = () => {
     );
   }
 
-  const activeDevice = activeDeviceId ? devicesMap[activeDeviceId] : null;
+  const baseDevice = activeDeviceId ? devicesMap[activeDeviceId] : null;
+  const activeDevice = baseDevice ? {
+    ...baseDevice,
+    temperature: liveSensor.temperature,
+    humidity: liveSensor.humidity,
+    mq135_raw: liveSensor.mq135_raw,
+    online: realtimeStatus === 'online'
+  } : null;
 
   const handleOpenConfigModal = (dev: DeviceData) => {
     setConfigModalDevice(dev);

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
+import { FirebaseService } from '../services/firebaseService';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   ArrowLeft, 
@@ -23,7 +24,7 @@ export const ProductDetails: React.FC = () => {
   const { devicesMap, sensorHistory } = useApp();
 
   const deviceId = productId ? productId.toUpperCase() : 'YGS-FD-000124';
-  const device = devicesMap[deviceId] || {
+  const baseDevice = devicesMap[deviceId] || {
     device_id: deviceId,
     product: 'Milk',
     temperature: 27.4,
@@ -31,6 +32,45 @@ export const ProductDetails: React.FC = () => {
     mq135_raw: 1320,
     online: true,
     last_update: Date.now()
+  };
+
+  const [realtimeStatus, setRealtimeStatus] = useState<'online' | 'offline'>('online');
+  const [liveSensor, setLiveSensor] = useState({
+    temperature: baseDevice.temperature ?? 4.2,
+    humidity: baseDevice.humidity ?? 62.0,
+    mq135_raw: baseDevice.mq135_raw ?? 120,
+    last_update: baseDevice.last_update ?? Date.now()
+  });
+
+  useEffect(() => {
+    const unsubStatus = FirebaseService.subscribeToDeviceStatus(deviceId, (status) => {
+      if (status) setRealtimeStatus(status);
+    });
+
+    const unsubSensor = FirebaseService.subscribeToSensorData(deviceId, (data) => {
+      if (data) {
+        setLiveSensor({
+          temperature: data.temperature ?? baseDevice.temperature ?? 4.2,
+          humidity: data.humidity ?? baseDevice.humidity ?? 62.0,
+          mq135_raw: (data as any).gas ?? (data as any).mq135_raw ?? baseDevice.mq135_raw ?? 120,
+          last_update: data.timestamp ?? Date.now()
+        });
+      }
+    });
+
+    return () => {
+      unsubStatus();
+      unsubSensor();
+    };
+  }, [deviceId]);
+
+  const device = {
+    ...baseDevice,
+    temperature: liveSensor.temperature,
+    humidity: liveSensor.humidity,
+    mq135_raw: liveSensor.mq135_raw,
+    online: realtimeStatus === 'online',
+    last_update: liveSensor.last_update
   };
 
   const [showHistoryModal, setShowHistoryModal] = useState<boolean>(false);
