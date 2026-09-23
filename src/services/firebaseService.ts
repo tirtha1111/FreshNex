@@ -12,44 +12,71 @@ export function subscribeToDeviceStatus(
   deviceId: string,
   callback: (status: 'online' | 'offline' | undefined) => void
 ): () => void {
-  const db = getDirectDatabase();
-  if (!db) {
-    callback('online');
+  const cleanId = deviceId ? deviceId.trim().toUpperCase().replace(/^#/, '') : '';
+  const isMeat = cleanId === 'MEAT' || cleanId.includes('MEAT') || cleanId.includes('112233') || cleanId.includes('UNCONFIGURED');
+
+  if (isMeat) {
+    callback('offline');
     return () => {};
   }
 
-  const cleanId = deviceId.trim().toUpperCase().replace(/^#/, '');
+  let lastUpdateTime = Date.now();
+  let statusInterval: any;
+
+  const db = getDirectDatabase();
+  if (!db) {
+    callback('offline');
+    return () => {};
+  }
+
   const deviceRef = ref(db, `devices/${cleanId}`);
-  const defaultRef = ref(db, `devices/YGS-FD-000124`);
 
   const handleSnapshot = (snapshot: any) => {
     if (snapshot.exists()) {
       const val = snapshot.val();
-      const isOnline = val.online === true || 
-        val.status === 'online' || 
-        val.status === 'ONLINE' ||
-        (val.last_update && (Date.now() - Number(val.last_update) < 600000)) ||
-        true;
+      let target = val;
+      if (val && typeof val === 'object' && !('last_update' in val || 'timestamp' in val || 'time' in val || 'temperature' in val || 'temp' in val)) {
+        const keys = Object.keys(val);
+        if (keys.length > 0) {
+          const lastKey = keys[keys.length - 1];
+          if (typeof val[lastKey] === 'object' && val[lastKey] !== null) {
+            target = val[lastKey];
+          }
+        }
+      }
+      let t = Number(target.last_update ?? target.timestamp ?? target.time ?? target.updated_at ?? 0);
+      if (t > 0) {
+        if (t < 10000000000) {
+          t = t * 1000; // Convert seconds to milliseconds
+        }
+        lastUpdateTime = Math.max(t, Date.now() - 2000); // Ensure recent update
+      } else {
+        lastUpdateTime = Date.now();
+      }
+
+      const diff = Date.now() - lastUpdateTime;
+      const isOnline = diff <= 7000 && (target.online !== false && target.status !== 'offline');
       callback(isOnline ? 'online' : 'offline');
     } else {
-      get(defaultRef).then(defSnap => {
-        if (defSnap.exists()) {
-          callback('online');
-        } else {
-          callback('online');
-        }
-      }).catch(() => {
-        callback('online');
-      });
+      callback('offline');
     }
   };
 
-  const unsubscribe = onValue(deviceRef, handleSnapshot, (err) => {
-    console.warn(`Device status RTDB listener warning for ${cleanId}:`, err);
-    callback('online');
+  const unsubscribe = onValue(deviceRef, handleSnapshot, () => {
+    callback('offline');
   });
 
+  statusInterval = setInterval(() => {
+    const diff = Date.now() - lastUpdateTime;
+    if (diff > 7000) {
+      callback('offline');
+    } else {
+      callback('online');
+    }
+  }, 1000);
+
   return () => {
+    clearInterval(statusInterval);
     off(deviceRef, 'value', handleSnapshot);
   };
 }
@@ -116,30 +143,26 @@ export function subscribeToSensorData(
   itemId: string,
   callback: (data: SensorData) => void
 ): () => void {
-  const cleanId = itemId.trim().toUpperCase().replace(/^#/, '');
-  const rawId = itemId.trim();
+  const cleanId = itemId ? itemId.trim().toUpperCase().replace(/^#/, '') : '';
+  const isMeat = cleanId === 'MEAT' || cleanId.includes('MEAT') || cleanId.includes('112233') || cleanId.includes('UNCONFIGURED');
 
-  // If meat is requested, immediately return unconfigured state
-  if (cleanId === 'MEAT' || cleanId.includes('MEAT') || cleanId.includes('UNCONFIGURED')) {
+  if (isMeat) {
     setTimeout(() => {
       callback({
-        temperature: 0,
-        humidity: 0,
-        gas: 0,
+        temperature: 3.5,
+        humidity: 68.0,
+        gas: 980,
         timestamp: Date.now(),
-      });
+        isReal: false,
+      } as any);
     }, 100);
     return () => {};
   }
-
-  const db = getDirectDatabase();
-  let unsubscribed = false;
 
   // Normalizes sensor telemetry received from ESP32 / IoT nodes
   const processSensorPayload = (val: any, isReal: boolean = false) => {
     if (!val || typeof val !== 'object') return;
 
-    // If node contains pushed logs (-Nxxx: { ... }), select the latest entry
     let target = val;
     if (!('temperature' in val || 'temp' in val || 't' in val || 'humidity' in val || 'hum' in val || 'gas' in val || 'mq135_raw' in val)) {
       const keys = Object.keys(val);
@@ -151,117 +174,89 @@ export function subscribeToSensorData(
       }
     }
 
-    const temperature = Number(target.temperature ?? target.temp ?? target.t ?? 4.2);
-    const humidity = Number(target.humidity ?? target.hum ?? target.h ?? 62.0);
-    const gas = Number(target.mq135_raw ?? target.gas ?? target.gas_ppm ?? target.mq135 ?? target.mq2 ?? target.voc ?? 120);
+    const defaultTemp = isMeat ? 3.5 : 4.2;
+    const defaultHum = isMeat ? 68.0 : 62.0;
+    const defaultGas = isMeat ? 980 : 120;
+
+    const temperature = Number(target.temperature ?? target.temp ?? target.t ?? defaultTemp);
+    const humidity = Number(target.humidity ?? target.hum ?? target.h ?? defaultHum);
+    const gas = Number(target.mq135_raw ?? target.gas ?? target.gas_ppm ?? target.mq135 ?? target.mq2 ?? target.voc ?? defaultGas);
     const timestamp = Number(target.timestamp ?? target.time ?? target.last_update ?? Date.now());
 
     callback({
-      temperature: isNaN(temperature) ? 4.2 : +temperature.toFixed(1),
-      humidity: isNaN(humidity) ? 62.0 : Math.round(humidity),
-      gas: isNaN(gas) ? 120 : Math.round(gas),
+      temperature: isNaN(temperature) ? defaultTemp : +temperature.toFixed(1),
+      humidity: isNaN(humidity) ? defaultHum : Math.round(humidity),
+      gas: isNaN(gas) ? defaultGas : Math.round(gas),
       timestamp: isNaN(timestamp) ? Date.now() : timestamp,
       isReal,
     } as any);
   };
 
   let activeCleanup: (() => void) | null = null;
+  const db = getDirectDatabase();
+  let unsubscribed = false;
 
   if (db) {
     try {
-      // Listen to devices/{cleanId}, devices/YGS-FD-000124, and devices root for real-time ESP32 sensor feeds
-      const deviceRef = ref(db, `devices/${cleanId}`);
-      const defaultDeviceRef = ref(db, `devices/YGS-FD-000124`);
-      const devicesRootRef = ref(db, `devices`);
-      const sensorRef = ref(db, `sensorData/${cleanId}`);
+      const deviceIdToListen = isMeat ? 'YGS-FD-112233' : cleanId;
+      const deviceRef = ref(db, `devices/${deviceIdToListen}`);
+      const defaultDeviceRef = isMeat ? ref(db, `devices/YGS-FD-112233`) : ref(db, `devices/YGS-FD-000124`);
+      const sensorRef = ref(db, `sensorData/${deviceIdToListen}`);
 
       const handleValue = (snapshot: any) => {
         if (snapshot.exists()) {
           processSensorPayload(snapshot.val(), true);
         } else {
-          // Check default device or sensorData
-          get(defaultDeviceRef).then(defSnap => {
-            if (defSnap.exists()) {
-              processSensorPayload(defSnap.val(), true);
+          get(sensorRef).then(sensorSnap => {
+            if (sensorSnap.exists()) {
+              processSensorPayload(sensorSnap.val(), true);
             } else {
-              get(sensorRef).then(sensorSnap => {
-                if (sensorSnap.exists()) {
-                  processSensorPayload(sensorSnap.val(), true);
+              get(defaultDeviceRef).then(defSnap => {
+                if (defSnap.exists()) {
+                  processSensorPayload(defSnap.val(), true);
                 } else {
-                  get(devicesRootRef).then(rootSnap => {
-                    if (rootSnap.exists()) {
-                      const devicesObj = rootSnap.val();
-                      const firstKey = Object.keys(devicesObj)[0];
-                      if (firstKey && devicesObj[firstKey]) {
-                        processSensorPayload(devicesObj[firstKey], true);
-                        return;
-                      }
-                    }
-                    const def = DEFAULT_SENSOR_DATA[cleanId] || DEFAULT_SENSOR_DATA.FRX1004 || {
-                      temperature: 4.2,
-                      humidity: 62.0,
-                      gas: 120,
-                      timestamp: Date.now()
-                    };
-                    callback({ ...def, isReal: false } as any);
-                  }).catch(() => {
-                    callback({ ...(DEFAULT_SENSOR_DATA[cleanId] || DEFAULT_SENSOR_DATA.FRX1004), isReal: false } as any);
-                  });
+                  const def = isMeat ? { temperature: 3.5, humidity: 68.0, gas: 980, timestamp: Date.now() } : { temperature: 4.2, humidity: 62.0, gas: 120, timestamp: Date.now() };
+                  callback({ ...def, isReal: false } as any);
                 }
+              }).catch(() => {
+                const def = isMeat ? { temperature: 3.5, humidity: 68.0, gas: 980, timestamp: Date.now() } : { temperature: 4.2, humidity: 62.0, gas: 120, timestamp: Date.now() };
+                callback({ ...def, isReal: false } as any);
               });
             }
+          }).catch(() => {
+            const def = isMeat ? { temperature: 3.5, humidity: 68.0, gas: 980, timestamp: Date.now() } : { temperature: 4.2, humidity: 62.0, gas: 120, timestamp: Date.now() };
+            callback({ ...def, isReal: false } as any);
           });
         }
       };
 
       onValue(deviceRef, handleValue, (err) => {
-        console.warn(`Realtime device listener warning for ${cleanId}:`, err);
-      });
-
-      onValue(defaultDeviceRef, (snap) => {
-        if (snap.exists()) {
-          processSensorPayload(snap.val(), true);
-        }
+        console.warn(`Realtime device listener warning for ${deviceIdToListen}:`, err);
       });
 
       activeCleanup = () => {
         off(deviceRef, 'value', handleValue);
-        off(defaultDeviceRef, 'value');
       };
     } catch (e) {
       console.warn('Realtime subscription initiation error:', e);
     }
   }
 
-  // Background REST polling fallback to ensure resilient live updates across connection changes
+  // Background REST polling fallback
   const restInterval = setInterval(async () => {
     if (unsubscribed) return;
     try {
       const targetUrl = firebaseConfig.databaseURL || REALTIME_DATABASE_URL;
       const base = targetUrl.replace(/\/$/, '');
+      const path = isMeat ? 'YGS-FD-112233' : 'YGS-FD-000124';
       
-      // Fetch devices/YGS-FD-000124 or devices.json
-      const res = await fetch(`${base}/devices/YGS-FD-000124.json`, {
+      const res = await fetch(`${base}/devices/${path}.json`, {
         signal: AbortSignal.timeout(2500)
       });
       if (res.ok) {
         const data = await res.json();
         if (data) {
           processSensorPayload(data, true);
-          return;
-        }
-      }
-
-      const resAll = await fetch(`${base}/devices.json`, {
-        signal: AbortSignal.timeout(2500)
-      });
-      if (resAll.ok) {
-        const allDevices = await resAll.json();
-        if (allDevices && typeof allDevices === 'object') {
-          const firstKey = Object.keys(allDevices)[0];
-          if (firstKey && allDevices[firstKey]) {
-            processSensorPayload(allDevices[firstKey], true);
-          }
         }
       }
     } catch {

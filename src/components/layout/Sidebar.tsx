@@ -51,7 +51,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
   const userNavItems: NavItem[] = [
     { name: 'Dashboard', path: '/dashboard', icon: Home },
     { name: 'Scanner', path: '/scan', icon: QrCode },
-    { name: 'Devices', path: '/admin/devices', icon: Cpu, matchPrefix: '/admin/devices' },
     { name: 'Live Readings', path: liveDataPath, icon: Cpu, matchPrefix: '/live-data' },
     { name: 'Analytics', path: '/analytics', icon: BarChart3 },
     { name: 'Settings', path: '/settings', icon: Settings },

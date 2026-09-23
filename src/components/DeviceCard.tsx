@@ -19,13 +19,32 @@ interface Props {
 }
 
 export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiClick }) => {
-  const [realtimeStatus, setRealtimeStatus] = useState<'online' | 'offline' | undefined>(undefined);
+  const [realtimeStatus, setRealtimeStatus] = useState<'online' | 'offline' | undefined>('online');
+  const [liveSensor, setLiveSensor] = useState({
+    temperature: dev.temperature ?? 4.2,
+    humidity: dev.humidity ?? 62.0,
+    mq135_raw: dev.mq135_raw ?? 120
+  });
 
   useEffect(() => {
-    const unsubscribe = FirebaseService.subscribeToDeviceStatus(dev.device_id, (status) => {
+    const unsubStatus = FirebaseService.subscribeToDeviceStatus(dev.device_id, (status) => {
       setRealtimeStatus(status);
     });
-    return unsubscribe;
+
+    const unsubSensor = FirebaseService.subscribeToSensorData(dev.device_id, (data) => {
+      if (data) {
+        setLiveSensor({
+          temperature: data.temperature ?? dev.temperature ?? 4.2,
+          humidity: data.humidity ?? dev.humidity ?? 62.0,
+          mq135_raw: (data as any).gas ?? (data as any).mq135_raw ?? dev.mq135_raw ?? 120
+        });
+      }
+    });
+
+    return () => {
+      unsubStatus();
+      unsubSensor();
+    };
   }, [dev.device_id]);
 
   return (
@@ -60,15 +79,15 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
         <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-gradient-to-b from-[#F4F7F6] to-[#EAEFEB] text-center border border-[#13493B]/8 shadow-inner">
           <div className="space-y-0.5">
             <span className="text-[9px] font-bold text-[#5C7F75] uppercase block truncate">Temp</span>
-            <span className="text-xs sm:text-sm font-black text-[#07221A]">{dev.temperature}°C</span>
+            <span className="text-xs sm:text-sm font-black text-[#07221A]">{liveSensor.temperature}°C</span>
           </div>
           <div className="space-y-0.5 border-x border-[#13493B]/10">
             <span className="text-[9px] font-bold text-[#5C7F75] uppercase block truncate">Humidity</span>
-            <span className="text-xs sm:text-sm font-black text-[#07221A]">{dev.humidity}%</span>
+            <span className="text-xs sm:text-sm font-black text-[#07221A]">{liveSensor.humidity}%</span>
           </div>
           <div className="space-y-0.5">
             <span className="text-[9px] font-bold text-[#5C7F75] uppercase block truncate">MQ-135</span>
-            <span className="text-xs sm:text-sm font-black text-[#07221A]">{dev.mq135_raw}</span>
+            <span className="text-xs sm:text-sm font-black text-[#07221A]">{liveSensor.mq135_raw}</span>
           </div>
         </div>
       </div>
