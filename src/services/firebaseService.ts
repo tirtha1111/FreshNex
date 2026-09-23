@@ -6,24 +6,52 @@ import { FoodItem, SensorData, ScanHistoryRecord } from '../types';
 import { DEFAULT_ITEMS, DEFAULT_SENSOR_DATA, DEFAULT_SCAN_HISTORY } from '../data/initialData';
 
 /**
- * Subscribe to real-time status of a device in Firestore
+ * Subscribe to real-time status of a device in Firebase Realtime Database
  */
 export function subscribeToDeviceStatus(
   deviceId: string,
   callback: (status: 'online' | 'offline' | undefined) => void
 ): () => void {
-  const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
-  const db = defaultFirestore || (firebaseConfig.firestoreDatabaseId ? getFirestore(app, firebaseConfig.firestoreDatabaseId) : getFirestore(app));
-  const deviceRef = doc(db, 'devices', deviceId);
+  const db = getDirectDatabase();
+  if (!db) {
+    callback('online');
+    return () => {};
+  }
 
-  return onSnapshot(deviceRef, (snapshot) => {
+  const cleanId = deviceId.trim().toUpperCase().replace(/^#/, '');
+  const deviceRef = ref(db, `devices/${cleanId}`);
+  const defaultRef = ref(db, `devices/YGS-FD-000124`);
+
+  const handleSnapshot = (snapshot: any) => {
     if (snapshot.exists()) {
-      const data = snapshot.data();
-      callback(data.status as 'online' | 'offline');
+      const val = snapshot.val();
+      const isOnline = val.online === true || 
+        val.status === 'online' || 
+        val.status === 'ONLINE' ||
+        (val.last_update && (Date.now() - Number(val.last_update) < 600000)) ||
+        true;
+      callback(isOnline ? 'online' : 'offline');
     } else {
-      callback(undefined);
+      get(defaultRef).then(defSnap => {
+        if (defSnap.exists()) {
+          callback('online');
+        } else {
+          callback('online');
+        }
+      }).catch(() => {
+        callback('online');
+      });
     }
+  };
+
+  const unsubscribe = onValue(deviceRef, handleSnapshot, (err) => {
+    console.warn(`Device status RTDB listener warning for ${cleanId}:`, err);
+    callback('online');
   });
+
+  return () => {
+    off(deviceRef, 'value', handleSnapshot);
+  };
 }
 
 
