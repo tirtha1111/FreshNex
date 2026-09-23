@@ -98,6 +98,50 @@ const PROTOTYPE_MEAT: DeviceData = {
   last_update: Date.now()
 };
 
+// Normalization helper for ESP32 hardware telemetry payloads from Realtime Database
+function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
+  if (!rawDevice || typeof rawDevice !== 'object') {
+    return {
+      device_id: deviceId,
+      product: 'Milk',
+      temperature: 4.2,
+      humidity: 62.0,
+      mq135_raw: 120,
+      online: true,
+      last_update: Date.now()
+    };
+  }
+
+  let target = rawDevice;
+  if (!('temperature' in rawDevice || 'temp' in rawDevice || 't' in rawDevice || 'humidity' in rawDevice || 'hum' in rawDevice || 'gas' in rawDevice || 'mq135_raw' in rawDevice)) {
+    const keys = Object.keys(rawDevice);
+    if (keys.length > 0) {
+      const lastKey = keys[keys.length - 1];
+      if (typeof rawDevice[lastKey] === 'object' && rawDevice[lastKey] !== null) {
+        target = rawDevice[lastKey];
+      }
+    }
+  }
+
+  const temperature = Number(target.temperature ?? target.temp ?? target.t ?? 4.2);
+  const humidity = Number(target.humidity ?? target.hum ?? target.h ?? 62.0);
+  const mq135_raw = Number(target.mq135_raw ?? target.gas ?? target.gas_ppm ?? target.mq135 ?? target.mq2 ?? target.voc ?? 120);
+  const last_update = Number(target.last_update ?? target.lastUpdated ?? target.timestamp ?? target.time ?? Date.now());
+  const online = target.online !== undefined ? Boolean(target.online) : (target.status ? target.status.toLowerCase() === 'online' : true);
+  const product = target.product || target.name || 'Milk';
+
+  return {
+    ...rawDevice,
+    device_id: rawDevice.device_id || rawDevice.id || deviceId,
+    product,
+    temperature: isNaN(temperature) ? 4.2 : +temperature.toFixed(1),
+    humidity: isNaN(humidity) ? 62.0 : +humidity.toFixed(1),
+    mq135_raw: isNaN(mq135_raw) ? 120 : Math.round(mq135_raw),
+    online,
+    last_update
+  };
+}
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isDemoMode, setDemoMode] = useState<boolean>(!isFirebaseConfigured);
   const [devicesMap, setDevicesMap] = useState<Record<string, DeviceData>>({
@@ -277,8 +321,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const devicesRef = ref(database, 'devices');
         onValue(devicesRef, (snapshot) => {
           if (snapshot.exists()) {
-            const data = snapshot.val();
-            setDevicesMap(data);
+            const rawData = snapshot.val();
+            const normalizedMap: Record<string, DeviceData> = {};
+            if (rawData && typeof rawData === 'object') {
+              Object.keys(rawData).forEach(devId => {
+                normalizedMap[devId] = normalizeDeviceData(rawData[devId], devId);
+              });
+            }
+            setDevicesMap(normalizedMap);
           } else {
             // Seed prototype device YGS-FD-000124 in Firebase RTDB if missing
             dbSet(ref(database, 'devices/YGS-FD-000124'), PROTOTYPE_MILK);
