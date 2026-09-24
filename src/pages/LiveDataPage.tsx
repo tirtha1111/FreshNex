@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
@@ -15,7 +15,9 @@ import {
   Sliders,
   Bell,
   Scan,
-  ShieldCheck
+  ShieldCheck,
+  Clock,
+  Calendar
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -33,6 +35,7 @@ import { SensorCard } from '../components/common/SensorCard';
 import { ThresholdConfigModal } from '../components/common/ThresholdConfigModal';
 import { FreshnessPrincipleCard } from '../components/common/FreshnessPrincipleCard';
 import { HistoricalReadingPoint } from '../types';
+import { calculateMoisture } from '../utils/moistureCalculator';
 
 export const LiveDataPage: React.FC = () => {
   const { itemId } = useParams<{ itemId: string }>();
@@ -46,7 +49,7 @@ export const LiveDataPage: React.FC = () => {
     updateThresholds
   } = useFreshness();
 
-  const [activeMetricTab, setActiveMetricTab] = useState<'temp' | 'humidity' | 'gas'>('temp');
+  const [activeMetricTab, setActiveMetricTab] = useState<'temp' | 'humidity' | 'moisture' | 'gas'>('temp');
   const [copiedLink, setCopiedLink] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
@@ -63,13 +66,33 @@ export const LiveDataPage: React.FC = () => {
   const isHumidityBreached = sensorData && (sensorData.humidity > thresholds.humidityMax || sensorData.humidity < thresholds.humidityMin);
   const hasActiveBreach = isTempBreached || isGasBreached || isHumidityBreached;
 
+  const liveMoisture = calculateMoisture(
+    sensorData ? sensorData.temperature : 4.2,
+    sensorData ? sensorData.humidity : 62
+  );
+
+  const lastResponseFormatted = useMemo(() => {
+    const ts = sensorData?.timestamp || Date.now();
+    const d = new Date(ts);
+    const dateStr = d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    return `${dateStr}, ${timeStr}`;
+  }, [sensorData?.timestamp]);
+
   const chartData: HistoricalReadingPoint[] = [
-    { time: '09:00', timestamp: 1, temperature: 4.0, humidity: 60, gas: 112 },
-    { time: '09:30', timestamp: 2, temperature: 4.1, humidity: 61, gas: 115 },
-    { time: '10:00', timestamp: 3, temperature: 4.3, humidity: 63, gas: 118 },
-    { time: '10:15', timestamp: 4, temperature: 4.2, humidity: 62, gas: 119 },
-    { time: '10:30', timestamp: 5, temperature: 4.1, humidity: 61, gas: 120 },
-    { time: '10:45', timestamp: 6, temperature: sensorData ? sensorData.temperature : 4.2, humidity: sensorData ? sensorData.humidity : 62, gas: sensorData ? sensorData.gas : 120 },
+    { time: '09:00', timestamp: 1, temperature: 4.0, humidity: 60, gas: 112, moisture: calculateMoisture(4.0, 60).absoluteMoisture },
+    { time: '09:30', timestamp: 2, temperature: 4.1, humidity: 61, gas: 115, moisture: calculateMoisture(4.1, 61).absoluteMoisture },
+    { time: '10:00', timestamp: 3, temperature: 4.3, humidity: 63, gas: 118, moisture: calculateMoisture(4.3, 63).absoluteMoisture },
+    { time: '10:15', timestamp: 4, temperature: 4.2, humidity: 62, gas: 119, moisture: calculateMoisture(4.2, 62).absoluteMoisture },
+    { time: '10:30', timestamp: 5, temperature: 4.1, humidity: 61, gas: 120, moisture: calculateMoisture(4.1, 61).absoluteMoisture },
+    { 
+      time: '10:45', 
+      timestamp: 6, 
+      temperature: sensorData ? sensorData.temperature : 4.2, 
+      humidity: sensorData ? sensorData.humidity : 62, 
+      gas: sensorData ? sensorData.gas : 120,
+      moisture: sensorData?.moisture ?? liveMoisture.absoluteMoisture
+    },
   ];
 
   const handleShare = () => {
@@ -88,6 +111,8 @@ export const LiveDataPage: React.FC = () => {
       timestamp: new Date().toISOString(),
       temperature: sensorData?.temperature,
       humidity: sensorData?.humidity,
+      moisture: sensorData?.moisture ?? liveMoisture.absoluteMoisture,
+      dewPoint: sensorData?.dewPoint ?? liveMoisture.dewPoint,
       gas: sensorData?.gas,
       freshnessScore: freshnessReport?.score,
       status: freshnessReport?.status,
@@ -131,6 +156,7 @@ export const LiveDataPage: React.FC = () => {
   const metricConfig = {
     temp: { name: 'Temperature', unit: '°C', color: '#FF5A67', bg: '#FFECEE' },
     humidity: { name: 'Humidity', unit: '%', color: '#3B82F6', bg: '#EBF5FF' },
+    moisture: { name: 'Calculated Moisture', unit: 'g/m³', color: '#0EA5E9', bg: '#E0F2FE' },
     gas: { name: 'Gas Level (VOC)', unit: 'ppm', color: '#9333EA', bg: '#F5EBFF' },
   };
 
@@ -274,13 +300,20 @@ export const LiveDataPage: React.FC = () => {
               </div>
               <p className="text-xs font-semibold text-[#5C7F75]">{currentProduct.category} • FreshNex IoT Node</p>
               
-              <div className="pt-1 flex flex-wrap items-center justify-center sm:justify-start gap-x-4 gap-y-1 text-[11px] font-bold text-[#5C7F75]">
+              <div className="pt-1 flex flex-wrap items-center justify-center sm:justify-start gap-x-3.5 gap-y-1.5 text-[11px] font-bold text-[#5C7F75]">
                 <div className="flex items-center gap-1">
                   <span className={`w-2 h-2 rounded-full ${((currentProduct as any)?.isUnconfigured) ? 'bg-[#FFAA00]' : 'bg-[#20E79A]'}`} />
                   <span>{((currentProduct as any)?.isUnconfigured) ? 'Awaiting Device Sync' : 'Bio-Sensor Linked'}</span>
                 </div>
                 <span>•</span>
                 <span>ID: {currentProduct.id}</span>
+                <span>•</span>
+                <div className="flex items-center gap-1 text-[#07221A] font-mono">
+                  <Clock className="w-3.5 h-3.5 text-[#20E79A]" />
+                  <span>Last Response: {lastResponseFormatted}</span>
+                </div>
+                <span>•</span>
+                <span className="text-[#13493B] font-sans font-semibold">Note: response valid for only 2 hours from the last response time</span>
               </div>
             </div>
           </div>
@@ -295,8 +328,8 @@ export const LiveDataPage: React.FC = () => {
         </div>
       </div>
  
-      {/* THREE LIVE METRIC TILES */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      {/* FOUR LIVE METRIC TILES */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         <SensorCard
           title="Ambient Temperature"
           value={((currentProduct as any)?.isUnconfigured) ? '--' : (sensorData?.temperature || 4.2)}
@@ -316,6 +349,17 @@ export const LiveDataPage: React.FC = () => {
           color={metricConfig.humidity.color}
           status={((currentProduct as any)?.isUnconfigured) ? undefined : (isHumidityBreached ? 'critical' : 'normal')}
           message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : "Moisture level steady"}
+          isEmpty={!!((currentProduct as any)?.isUnconfigured)}
+        />
+
+        <SensorCard
+          title="Calculated Moisture"
+          value={((currentProduct as any)?.isUnconfigured) ? '--' : (sensorData?.moisture ?? liveMoisture.absoluteMoisture)}
+          unit={((currentProduct as any)?.isUnconfigured) ? undefined : "g/m³"}
+          icon={Droplets}
+          color={metricConfig.moisture.color}
+          status={((currentProduct as any)?.isUnconfigured) ? undefined : (liveMoisture.status === 'Condensation Hazard' ? 'critical' : liveMoisture.status === 'Elevated' ? 'warning' : 'normal')}
+          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : `Dew: ${liveMoisture.dewPoint}°C • ${liveMoisture.status}`}
           isEmpty={!!((currentProduct as any)?.isUnconfigured)}
         />
  
@@ -346,10 +390,19 @@ export const LiveDataPage: React.FC = () => {
           <div className="space-y-0.5">
             <h3 className="text-sm font-black text-[#07221A]">Live Bio-Telemetry Trends</h3>
             <p className="text-[11px] text-[#5C7F75] font-semibold">Continuous sensor telemetry feed synced via Bluetooth/RFID.</p>
+            <div className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-[10px] font-mono text-[#5C7F75]">
+              <div className="flex items-center gap-1">
+                <Clock className="w-3 h-3 text-[#20E79A]" />
+                <span>Last Response Received:</span>
+                <strong className="text-[#07221A] font-bold">{lastResponseFormatted}</strong>
+              </div>
+              <span>•</span>
+              <span className="text-[#13493B] font-sans font-semibold">Note: response valid for only 2 hours from the last response time</span>
+            </div>
           </div>
 
-          <div className="flex bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10 self-start sm:self-auto">
-            {(['temp', 'humidity', 'gas'] as const).map((tab) => {
+          <div className="flex flex-wrap bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10 self-start sm:self-auto">
+            {(['temp', 'humidity', 'moisture', 'gas'] as const).map((tab) => {
               const active = activeMetricTab === tab;
               return (
                 <button
@@ -365,7 +418,7 @@ export const LiveDataPage: React.FC = () => {
                     />
                   )}
                   <span className={`relative z-10 ${active ? 'text-[#07221A]' : 'text-[#5C7F75] hover:text-[#07221A]'}`}>
-                    {tab === 'temp' ? 'Temperature (°C)' : tab === 'humidity' ? 'Humidity (%)' : 'Gas Level (ppm)'}
+                    {tab === 'temp' ? 'Temperature (°C)' : tab === 'humidity' ? 'Humidity (%)' : tab === 'moisture' ? 'Moisture (g/m³)' : 'Gas Level (ppm)'}
                   </span>
                 </button>
               );
@@ -420,6 +473,8 @@ export const LiveDataPage: React.FC = () => {
                     ? 'temperature'
                     : activeMetricTab === 'humidity'
                     ? 'humidity'
+                    : activeMetricTab === 'moisture'
+                    ? 'moisture'
                     : 'gas'
                 }
                 stroke={metricConfig[activeMetricTab].color}

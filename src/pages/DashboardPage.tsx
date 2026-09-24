@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
@@ -18,24 +18,20 @@ import {
   Plus,
   BarChart3,
   Sliders,
-  ChevronDown
+  ChevronDown,
+  Clock,
+  Calendar,
+  Info
 } from 'lucide-react';
-import { 
-  ResponsiveContainer, 
-  AreaChart, 
-  Area, 
-  XAxis, 
-  YAxis, 
-  Tooltip, 
-  CartesianGrid 
-} from 'recharts';
+import { RealtimeTrendCharts } from '../components/dashboard/RealtimeTrendCharts';
+import { ThresholdConfigModal } from '../components/common/ThresholdConfigModal';
+import { calculateMoisture } from '../utils/moistureCalculator';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { userProfile } = useAuth();
-  const { scanHistory, activeItem, sensorData, freshnessReport } = useFreshness();
-  const [selectedMetric, setSelectedMetric] = useState<'Temperature' | 'Humidity' | 'Gas' | 'Score'>('Temperature');
-  const [timeRange, setTimeRange] = useState('1D');
+  const { scanHistory, activeItem, sensorData, freshnessReport, thresholds, updateThresholds } = useFreshness();
+  const [isThresholdModalOpen, setIsThresholdModalOpen] = useState(false);
 
   const isAdmin = userProfile?.role === 'admin';
   const assignedTag = userProfile?.assignedProductId || 'MILK';
@@ -51,6 +47,8 @@ export const DashboardPage: React.FC = () => {
       itemImage: activeItem.image,
       temperature: sensorData.temperature,
       humidity: sensorData.humidity,
+      moisture: sensorData.moisture,
+      dewPoint: sensorData.dewPoint,
       gas: sensorData.gas,
       freshnessScore: freshnessReport?.score ?? 0,
       status: freshnessReport?.status ?? 'Fresh',
@@ -61,36 +59,46 @@ export const DashboardPage: React.FC = () => {
     } : null
   );
 
-  // Dynamic trend data generated purely from previous scan results
-  const trendData = scanHistory.length > 0 
-    ? scanHistory.slice(0, 10).reverse().map((record) => {
-        let val = record.temperature;
-        if (selectedMetric === 'Humidity') val = record.humidity;
-        if (selectedMetric === 'Gas') val = record.gas;
-        if (selectedMetric === 'Score') val = record.freshnessScore;
-        return {
-          time: record.timeStr || new Date(record.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          value: val,
-          product: record.itemName,
-        };
-      })
-    : lastScanned
-    ? [
-        { 
-          time: 'Previous Scan', 
-          value: selectedMetric === 'Temperature' 
-            ? lastScanned.temperature 
-            : selectedMetric === 'Humidity' 
-            ? lastScanned.humidity 
-            : selectedMetric === 'Gas' 
-            ? lastScanned.gas 
-            : lastScanned.freshnessScore, 
-          product: lastScanned.itemName 
-        }
-      ]
-    : [
-        { time: 'No Scans', value: 0, product: 'None' }
-      ];
+  const liveMoisture = lastScanned 
+    ? calculateMoisture(lastScanned.temperature, lastScanned.humidity)
+    : (sensorData ? calculateMoisture(sensorData.temperature, sensorData.humidity) : null);
+
+  // Formatted last response received timestamp with full date, time, and 2-hour validity window
+  const lastResponseInfo = useMemo(() => {
+    const ts = sensorData?.timestamp || (lastScanned?.timestamp ?? Date.now());
+    const d = new Date(ts);
+    const dateStr = d.toLocaleDateString('en-US', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+    const timeStr = d.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hour12: true
+    });
+
+    const validityDurationMs = 2 * 60 * 60 * 1000;
+    const expiryTimestamp = ts + validityDurationMs;
+    const expiryDate = new Date(expiryTimestamp);
+    const expiryTimeStr = expiryDate.toLocaleTimeString('en-US', {
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: true
+    });
+
+    return {
+      timestamp: ts,
+      date: dateStr,
+      time: timeStr,
+      fullText: `${dateStr}, ${timeStr}`,
+      displayTag: `${dateStr} at ${timeStr}`,
+      expiryTimestamp,
+      expiryTimeStr,
+      validityNote: 'Response valid for only 2 hours from the last response time'
+    };
+  }, [sensorData?.timestamp, lastScanned?.timestamp]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -271,10 +279,10 @@ export const DashboardPage: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* 2. FOUR SENSOR METRICS CARDS - REPLACED WITH LAST SCANNED PRODUCT TELEMETRY */}
+      {/* 2. FIVE SENSOR METRICS CARDS - REPLACED WITH LAST SCANNED PRODUCT TELEMETRY */}
       <motion.div 
         variants={itemVariants}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4"
+        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
       >
         {/* Metric 1: Temp */}
         <motion.div 
@@ -349,7 +357,43 @@ export const DashboardPage: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Metric 3: Air Quality Gas */}
+        {/* Metric 3: Calculated Moisture (g/m³) */}
+        <motion.div 
+          whileHover={{ y: -3 }}
+          transition={{ duration: 0.2 }}
+          className="glass-card p-5 depth-2 space-y-4 flex flex-col justify-between hover:border-sky-300/40 hover:shadow-[0_8px_25px_rgba(14,165,233,0.12)] transition-all"
+        >
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <span className="text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block">Calc. Moisture</span>
+              <span className="text-2xl font-black text-[#07221A] tracking-tight block">
+                {liveMoisture ? `${liveMoisture.absoluteMoisture} g/m³` : '0 g/m³'}
+              </span>
+              <span className={`text-[10px] font-bold flex items-center gap-0.5 ${
+                !liveMoisture ? 'text-[#5C7F75]' : liveMoisture.status === 'Condensation Hazard' ? 'text-[#FF5A67]' : 'text-[#0EA5E9]'
+              }`}>
+                <span>{liveMoisture ? `Dew: ${liveMoisture.dewPoint}°C • ${liveMoisture.status}` : '0 Scans Recorded'}</span>
+              </span>
+            </div>
+            <div className="neo-icon-box w-10 h-10 rounded-2xl flex items-center justify-center text-[#0EA5E9] shadow-sm">
+              <Droplets className="w-5 h-5" />
+            </div>
+          </div>
+          <div className="w-full h-8 pt-1">
+            <svg viewBox="0 0 100 30" className="w-full h-full overflow-visible">
+              <path 
+                d={liveMoisture ? "M 0 18 Q 25 12 50 16 T 100 14" : "M 0 25 L 100 25"} 
+                fill="none" 
+                stroke="#0EA5E9" 
+                strokeWidth="2.5" 
+                strokeLinecap="round"
+                strokeOpacity={liveMoisture ? 1 : 0.3}
+              />
+            </svg>
+          </div>
+        </motion.div>
+
+        {/* Metric 4: Air Quality Gas */}
         <motion.div 
           whileHover={{ y: -3 }}
           transition={{ duration: 0.2 }}
@@ -385,7 +429,7 @@ export const DashboardPage: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Metric 4: Freshness Quality Score */}
+        {/* Metric 5: Freshness Quality Score */}
         <motion.div 
           whileHover={{ y: -3 }}
           transition={{ duration: 0.2 }}
@@ -431,18 +475,34 @@ export const DashboardPage: React.FC = () => {
             variants={itemVariants}
             className="glass-card p-5 sm:p-6 depth-2 space-y-4"
           >
-            <div className="flex justify-between items-center pb-2 border-b border-[#13493B]/10">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#13493B]/10 gap-3">
               <div>
-                <h3 className="text-sm font-black text-[#07221A]">Recent Scan History</h3>
+                <h3 className="text-sm font-black text-[#07221A] flex items-center gap-2">
+                  <span>Recent Scan History</span>
+                  <span className="w-2 h-2 rounded-full bg-[#20E79A] animate-pulse" />
+                </h3>
                 <p className="text-[11px] text-[#5C7F75] font-semibold">Real-time inspection logs recorded across IoT sensors.</p>
               </div>
-              <button 
-                onClick={() => navigate('/history')}
-                className="text-xs font-bold text-[#20E79A] hover:underline flex items-center gap-1 cursor-pointer"
-              >
-                <span>View Full Log</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </button>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
+                <div className="flex flex-col sm:items-end gap-1">
+                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#EBFBF4] border border-[#20E79A]/30 text-[10px] font-mono font-bold text-[#07221A] shadow-xs">
+                    <Clock className="w-3.5 h-3.5 text-[#20E79A]" />
+                    <span className="text-[#5C7F75]">Last Response:</span>
+                    <span className="text-[#13493B] font-extrabold">{lastResponseInfo.fullText}</span>
+                  </div>
+                  <div className="flex items-center gap-1 text-[9.5px] font-semibold text-[#13493B]">
+                    <Info className="w-3 h-3 text-[#20E79A]" />
+                    <span>Note: response valid for only 2 hours from the last response time</span>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => navigate('/history')}
+                  className="text-xs font-bold text-[#20E79A] hover:underline flex items-center gap-1 cursor-pointer self-start sm:self-center"
+                >
+                  <span>View Full Log</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
             {scanHistory.length > 0 ? (
@@ -487,102 +547,16 @@ export const DashboardPage: React.FC = () => {
             )}
           </motion.div>
 
-          {/* Sensor Trends Section */}
-          <motion.div 
-            variants={itemVariants}
-            className="glass-card p-5 sm:p-6 depth-2 space-y-4"
-          >
-            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-[#13493B]/10">
-              <div>
-                <h3 className="text-sm font-black text-[#07221A]">Telemetry Trends ({selectedMetric})</h3>
-                <p className="text-[11px] text-[#5C7F75] font-semibold">
-                  {lastScanned ? `Historical progression for ${lastScanned.itemName}` : 'Telemetry progression from scanned products'}
-                </p>
-              </div>
-              <div className="flex items-center gap-3 self-end sm:self-auto">
-                {/* Metric dropdown selector */}
-                <div className="relative">
-                  <select
-                    value={selectedMetric}
-                    onChange={(e) => setSelectedMetric(e.target.value as any)}
-                    className="appearance-none px-3.5 py-1.5 pr-8 rounded-xl neo-input text-xs font-bold text-[#07221A] cursor-pointer focus:outline-none"
-                  >
-                    <option value="Temperature">Temperature (°C)</option>
-                    <option value="Humidity">Humidity (%)</option>
-                    <option value="Gas">Gas (MQ-135)</option>
-                    <option value="Score">Freshness Score (%)</option>
-                  </select>
-                  <ChevronDown className="w-3.5 h-3.5 text-[#5C7F75] absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-                {/* Time range selector tabs */}
-                <div className="flex neo-input p-1 rounded-xl">
-                  {['1H', '1D', '7D', '30D'].map((range) => (
-                    <button
-                      key={range}
-                      onClick={() => setTimeRange(range)}
-                      className={`px-3 py-1 rounded-lg text-[10px] font-black transition-all cursor-pointer ${
-                        timeRange === range 
-                          ? 'bg-white text-[#07221A] shadow-md' 
-                          : 'text-[#5C7F75] hover:text-[#07221A]'
-                      }`}
-                    >
-                      {range}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            {/* Recharts Area Diagram */}
-            <div className="w-full h-64 pt-4">
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={trendData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="trendGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#20E79A" stopOpacity={0.35} />
-                      <stop offset="95%" stopColor="#20E79A" stopOpacity={0.0} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="rgba(19, 73, 59, 0.06)" vertical={false} />
-                  <XAxis 
-                    dataKey="time" 
-                    stroke="#5C7F75" 
-                    fontSize={10} 
-                    fontWeight={700}
-                    tickLine={false} 
-                    axisLine={false} 
-                  />
-                  <YAxis 
-                    stroke="#5C7F75" 
-                    fontSize={10} 
-                    fontWeight={700}
-                    tickLine={false} 
-                    axisLine={false}
-                    domain={[0, (dataMax: number) => Math.max(10, Math.ceil(dataMax * 1.2))]}
-                    allowDecimals={false}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'rgba(255, 255, 255, 0.9)', 
-                      backdropFilter: 'blur(12px)',
-                      borderRadius: '16px', 
-                      border: '1px solid rgba(19, 73, 59, 0.15)',
-                      boxShadow: '0 12px 36px rgba(0,0,0,0.08)'
-                    }} 
-                    labelStyle={{ fontWeight: 800, color: '#07221A', fontSize: '11px' }}
-                    itemStyle={{ fontWeight: 700, fontSize: '11px', color: '#20E79A' }}
-                  />
-                  <Area 
-                    type="monotone" 
-                    dataKey="value" 
-                    stroke="#20E79A" 
-                    strokeWidth={3} 
-                    fillOpacity={1} 
-                    fill="url(#trendGradient)" 
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
-            </div>
+          {/* Real-time Environmental & Freshness Trend Charts (Recharts) */}
+          <motion.div variants={itemVariants}>
+            <RealtimeTrendCharts
+              currentSensorData={sensorData}
+              currentReport={freshnessReport}
+              activeItem={activeItem}
+              thresholdRules={thresholds}
+              scanHistory={scanHistory}
+              onOpenThresholdModal={() => setIsThresholdModalOpen(true)}
+            />
           </motion.div>
         </div>
 
@@ -598,6 +572,37 @@ export const DashboardPage: React.FC = () => {
               <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-[#20E79A]">
                 <span className={`w-2 h-2 rounded-full ${lastScanned ? 'bg-[#20E79A] shadow-[0_0_8px_#20E79A] animate-pulse' : 'bg-slate-300'}`} />
                 <span>{lastScanned ? 'Telemetry Online' : 'Standby / Ready'}</span>
+              </div>
+            </div>
+
+            {/* Last Response Received Tile with Full Date & Time and 2-Hour Validity Note */}
+            <div className="p-3.5 rounded-2xl bg-[#EBFBF4] border border-[#20E79A]/30 space-y-2.5 shadow-xs">
+              <div className="flex items-center justify-between">
+                <span className="text-[9px] font-black uppercase tracking-wider text-[#5C7F75] flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-[#20E79A]" />
+                  Last Response Received
+                </span>
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#20E79A]/20 text-[#07221A]">
+                  Active Telemetry
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-xs font-mono font-black text-[#07221A]">
+                <div className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-[#5C7F75]" />
+                  <span>{lastResponseInfo.date}</span>
+                </div>
+                <div className="px-2 py-0.5 rounded-md bg-white border border-[#20E79A]/30 text-[#13493B]">
+                  {lastResponseInfo.time}
+                </div>
+              </div>
+              {/* Note: Response valid for only 2 hours */}
+              <div className="pt-2 border-t border-[#20E79A]/20 flex items-start gap-1.5 text-[10.5px] leading-snug">
+                <Info className="w-3.5 h-3.5 text-[#20E79A] shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-[#07221A]">Note: </span>
+                  <span className="font-semibold text-[#13493B]">Response valid for only 2 hours from the last response time</span>
+                  <span className="block text-[9px] font-mono text-[#5C7F75] mt-0.5">Telemetry window valid until: {lastResponseInfo.expiryTimeStr}</span>
+                </div>
               </div>
             </div>
 
@@ -641,9 +646,16 @@ export const DashboardPage: React.FC = () => {
               </div>
             </div>
 
-            <p className="text-[10px] text-[#5C7F75] font-semibold text-center border-t border-[#13493B]/10 pt-3">
-              {lastScanned ? `Last verified: ${lastScanned.itemName} (${lastScanned.tagId})` : 'Awaiting first RFID/QR scan.'}
-            </p>
+            <div className="text-[10px] text-[#5C7F75] font-semibold text-center border-t border-[#13493B]/10 pt-3 space-y-1">
+              <p>{lastScanned ? `Last verified: ${lastScanned.itemName} (${lastScanned.tagId})` : 'Awaiting first RFID/QR scan.'}</p>
+              <div className="flex flex-col items-center justify-center gap-0.5 text-[9px] font-mono text-[#13493B] font-bold">
+                <div className="flex items-center gap-1.5">
+                  <Clock className="w-3 h-3 text-[#20E79A]" />
+                  <span>Last Response Received: {lastResponseInfo.fullText}</span>
+                </div>
+                <span className="text-[9px] font-sans text-[#5C7F75] font-normal">Note: response valid for only 2 hours from the last response time</span>
+              </div>
+            </div>
           </motion.div>
 
           {/* Quick Actions Grid with Neomorphic tactile buttons */}
@@ -830,6 +842,14 @@ export const DashboardPage: React.FC = () => {
           <span className="hover:underline cursor-pointer">Help & Support</span>
         </div>
       </motion.div>
+
+      {/* Sensor Threshold Rules Configuration Modal */}
+      <ThresholdConfigModal
+        isOpen={isThresholdModalOpen}
+        onClose={() => setIsThresholdModalOpen(false)}
+        thresholds={thresholds}
+        onSaveThresholds={updateThresholds}
+      />
     </motion.div>
   );
 };

@@ -4,6 +4,7 @@ import { getFirestore, doc, onSnapshot } from 'firebase/firestore';
 import { database as defaultDatabase, db as defaultFirestore, firebaseConfig } from '../firebase/firebase';
 import { FoodItem, SensorData, ScanHistoryRecord } from '../types';
 import { DEFAULT_ITEMS, DEFAULT_SENSOR_DATA, DEFAULT_SCAN_HISTORY } from '../data/initialData';
+import { calculateMoisture } from '../utils/moistureCalculator';
 
 /**
  * Subscribe to real-time status of a device in Firebase Realtime Database
@@ -147,11 +148,14 @@ export function subscribeToSensorData(
   const isMeat = cleanId === 'MEAT' || cleanId.includes('MEAT') || cleanId.includes('112233') || cleanId.includes('UNCONFIGURED');
 
   if (isMeat) {
+    const meatMoisture = calculateMoisture(3.5, 68.0);
     setTimeout(() => {
       callback({
         temperature: 3.5,
         humidity: 68.0,
         gas: 980,
+        moisture: meatMoisture.absoluteMoisture,
+        dewPoint: meatMoisture.dewPoint,
         timestamp: Date.now(),
         isReal: false,
       } as any);
@@ -183,10 +187,19 @@ export function subscribeToSensorData(
     const gas = Number(target.mq135_raw ?? target.gas ?? target.gas_ppm ?? target.mq135 ?? target.mq2 ?? target.voc ?? defaultGas);
     const timestamp = Number(target.timestamp ?? target.time ?? target.last_update ?? Date.now());
 
+    const finalTemp = isNaN(temperature) ? defaultTemp : +temperature.toFixed(1);
+    const finalHum = isNaN(humidity) ? defaultHum : Math.round(humidity);
+    const finalGas = isNaN(gas) ? defaultGas : Math.round(gas);
+
+    // Repeatedly calculate psychrometric moisture metrics from live temperature and humidity
+    const moistureReading = calculateMoisture(finalTemp, finalHum);
+
     callback({
-      temperature: isNaN(temperature) ? defaultTemp : +temperature.toFixed(1),
-      humidity: isNaN(humidity) ? defaultHum : Math.round(humidity),
-      gas: isNaN(gas) ? defaultGas : Math.round(gas),
+      temperature: finalTemp,
+      humidity: finalHum,
+      gas: finalGas,
+      moisture: moistureReading.absoluteMoisture,
+      dewPoint: moistureReading.dewPoint,
       timestamp: isNaN(timestamp) ? Date.now() : timestamp,
       isReal,
     } as any);
@@ -203,6 +216,21 @@ export function subscribeToSensorData(
       const defaultDeviceRef = isMeat ? ref(db, `devices/YGS-FD-112233`) : ref(db, `devices/YGS-FD-000124`);
       const sensorRef = ref(db, `sensorData/${deviceIdToListen}`);
 
+      const createDefaultSensor = (isMeatItem: boolean) => {
+        const t = isMeatItem ? 3.5 : 4.2;
+        const h = isMeatItem ? 68.0 : 62.0;
+        const g = isMeatItem ? 980 : 120;
+        const m = calculateMoisture(t, h);
+        return {
+          temperature: t,
+          humidity: h,
+          gas: g,
+          moisture: m.absoluteMoisture,
+          dewPoint: m.dewPoint,
+          timestamp: Date.now(),
+        };
+      };
+
       const handleValue = (snapshot: any) => {
         if (snapshot.exists()) {
           processSensorPayload(snapshot.val(), true);
@@ -215,17 +243,14 @@ export function subscribeToSensorData(
                 if (defSnap.exists()) {
                   processSensorPayload(defSnap.val(), true);
                 } else {
-                  const def = isMeat ? { temperature: 3.5, humidity: 68.0, gas: 980, timestamp: Date.now() } : { temperature: 4.2, humidity: 62.0, gas: 120, timestamp: Date.now() };
-                  callback({ ...def, isReal: false } as any);
+                  callback({ ...createDefaultSensor(isMeat), isReal: false } as any);
                 }
               }).catch(() => {
-                const def = isMeat ? { temperature: 3.5, humidity: 68.0, gas: 980, timestamp: Date.now() } : { temperature: 4.2, humidity: 62.0, gas: 120, timestamp: Date.now() };
-                callback({ ...def, isReal: false } as any);
+                callback({ ...createDefaultSensor(isMeat), isReal: false } as any);
               });
             }
           }).catch(() => {
-            const def = isMeat ? { temperature: 3.5, humidity: 68.0, gas: 980, timestamp: Date.now() } : { temperature: 4.2, humidity: 62.0, gas: 120, timestamp: Date.now() };
-            callback({ ...def, isReal: false } as any);
+            callback({ ...createDefaultSensor(isMeat), isReal: false } as any);
           });
         }
       };

@@ -19,6 +19,8 @@ export interface SensorData {
   temperature: number;
   humidity: number;
   gas: number;
+  moisture?: number; // Absolute moisture content in air (g/m³), repeatedly calculated from temp & humidity
+  dewPoint?: number; // Dew point condensation temperature (°C)
   timestamp: number;
 }
 
@@ -28,6 +30,8 @@ export interface HistoricalReadingPoint {
   temperature: number;
   humidity: number;
   gas: number;
+  moisture?: number; // Calculated moisture (g/m³)
+  dewPoint?: number;
 }
 
 export interface ScanHistoryRecord {
@@ -39,6 +43,7 @@ export interface ScanHistoryRecord {
   temperature: number;
   humidity: number;
   gas: number;
+  moisture?: number; // Calculated moisture (g/m³)
   freshnessScore: number;
   status: FreshnessStatus;
   timestamp: number;

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect, useCallback } fr
 import { FoodItem, SensorData, ScanHistoryRecord } from '../types';
 import { DEFAULT_ITEMS, DEFAULT_SENSOR_DATA, DEFAULT_SCAN_HISTORY } from '../data/initialData';
 import { calculateFreshness, FreshnessReport } from '../utils/freshnessEngine';
+import { calculateMoisture } from '../utils/moistureCalculator';
 import { FirebaseService } from '../services/firebaseService';
 import { 
   SensorThresholdConfig, 
@@ -147,23 +148,31 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   // 3. Process and evaluate incoming sensor data against thresholds
   const handleSensorTelemetry = useCallback((data: SensorData & { isReal?: boolean }, currentItem?: FoodItem | null) => {
-    setSensorData(data);
+    // Repeatedly calculate moisture from temperature and humidity
+    const moistureInfo = calculateMoisture(data.temperature, data.humidity);
+    const enrichedData: SensorData & { isReal?: boolean } = {
+      ...data,
+      moisture: data.moisture !== undefined ? data.moisture : moistureInfo.absoluteMoisture,
+      dewPoint: data.dewPoint !== undefined ? data.dewPoint : moistureInfo.dewPoint,
+    };
+
+    setSensorData(enrichedData);
     const itemToEval = currentItem || activeItem;
     
     if (itemToEval) {
       const report = calculateFreshness({
-        temperature: data.temperature,
-        humidity: data.humidity,
-        gas: data.gas,
+        temperature: enrichedData.temperature,
+        humidity: enrichedData.humidity,
+        gas: enrichedData.gas,
         category: itemToEval.category,
         activeThresholdRules: thresholds,
       });
       setFreshnessReport(report);
 
       // ONLY evaluate and trigger alerts if the actual physical product is connected successfully
-      if (data.isReal) {
+      if (enrichedData.isReal) {
         // Evaluate sensor readings for threshold breaches
-        const triggeredAlerts = evaluateSensorReading(data, itemToEval, thresholds);
+        const triggeredAlerts = evaluateSensorReading(enrichedData, itemToEval, thresholds);
         if (triggeredAlerts.length > 0) {
           triggeredAlerts.forEach(alert => {
             // Push to Firebase in real-time
@@ -224,6 +233,8 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       });
       setFreshnessReport(report);
 
+      const initMoisture = calculateMoisture(initSensor.temperature, initSensor.humidity);
+
       // Record to history
       const record: ScanHistoryRecord = {
         id: `scan-${Date.now()}`,
@@ -234,6 +245,7 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         temperature: initSensor.temperature,
         humidity: initSensor.humidity,
         gas: initSensor.gas,
+        moisture: initSensor.moisture ?? initMoisture.absoluteMoisture,
         freshnessScore: report.score,
         status: report.status,
         timestamp: Date.now(),

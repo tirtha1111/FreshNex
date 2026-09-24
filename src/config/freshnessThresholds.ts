@@ -174,24 +174,24 @@ export const CATEGORY_THRESHOLDS: Record<string, FreshnessCategoryThresholds> = 
 
 export const DEFAULT_THRESHOLDS: FreshnessCategoryThresholds = {
   categoryName: 'Standard Perishable Goods',
-  tempOptimalMin: 2.0,
-  tempOptimalMax: 6.0,
-  tempWarningMax: 9.0,
-  tempCriticalMax: 14.0,
-  tempFreezeRisk: 0.0,
-  humidityOptimalMin: 55.0,
-  humidityOptimalMax: 78.0,
-  humidityWarningMin: 40.0,
+  tempOptimalMin: 0.0,
+  tempOptimalMax: 8.0,
+  tempWarningMax: 8.0,
+  tempCriticalMax: 15.0,
+  tempFreezeRisk: -1.0,
+  humidityOptimalMin: 40.0,
+  humidityOptimalMax: 85.0,
+  humidityWarningMin: 30.0,
   humidityWarningMax: 90.0,
-  gasOptimalMax: 150.0,
-  gasWarningMax: 240.0,
-  gasCriticalMax: 360.0,
+  gasOptimalMax: 250.0,
+  gasWarningMax: 250.0,
+  gasCriticalMax: 400.0,
   gasAdcBaseline: 1150,
   gasAdcWarning: 1400,
   gasAdcCritical: 1800,
   weights: { temp: 0.40, humidity: 0.25, gas: 0.35 },
-  scientificReference: 'USDA / FDA General Cold-Chain Standards',
-  rationale: 'General baseline cold-chain criteria balancing chilling safety with humidity and volatile gas monitoring.'
+  scientificReference: 'FreshNex Cold-Chain Quality Threshold Standards',
+  rationale: 'Calibrated directly to active threshold safety rules (Safe ≤ 8°C, RH 40–85%, Gas ≤ 250 ppm).'
 };
 
 /**
