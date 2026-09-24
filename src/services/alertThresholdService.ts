@@ -146,7 +146,12 @@ export function evaluateSensorReading(
   }
 
   // 2. Gas / VOC Level Threshold Checks
-  if (sensor.gas > config.gasCritical) {
+  const isRawAdc = sensor.gas > 500;
+  const gasWarningLimit = isRawAdc ? 1400 : config.gasWarning;
+  const gasCriticalLimit = isRawAdc ? 1800 : config.gasCritical;
+  const gasUnit = isRawAdc ? 'ADC' : 'ppm';
+
+  if (sensor.gas > gasCriticalLimit) {
     const key = `${itemId}_gas_crit`;
     if (!recentAlertCooldowns[key] || now - recentAlertCooldowns[key] > ALERT_COOLDOWN_MS) {
       recentAlertCooldowns[key] = now;
@@ -154,12 +159,12 @@ export function evaluateSensorReading(
         id: `alert-gas-crit-${now}-${Math.random().toString(36).substring(2, 6)}`,
         type: 'Hazardous VOC Spike',
         title: 'Severe Gas / Spoilage Threshold Exceeded',
-        message: `${itemName} VOC / Gas sensor spiked to ${Math.round(sensor.gas)} ppm (Hazard Limit: ${config.gasCritical} ppm). Elevated bacterial amine off-gassing detected!`,
+        message: `${itemName} VOC / Gas sensor spiked to ${Math.round(sensor.gas)} ${gasUnit} (Hazard Limit: ${gasCriticalLimit} ${gasUnit}). Elevated bacterial amine off-gassing detected!`,
         severity: 'critical',
         metric: 'gas',
         currentValue: Math.round(sensor.gas),
-        thresholdValue: config.gasCritical,
-        unit: 'ppm',
+        thresholdValue: gasCriticalLimit,
+        unit: gasUnit,
         deviceId: item?.tagId || `#${itemId}`,
         itemId: itemId,
         itemName: itemName,
@@ -168,7 +173,7 @@ export function evaluateSensorReading(
         resolved: false,
       });
     }
-  } else if (sensor.gas > config.gasWarning) {
+  } else if (sensor.gas > gasWarningLimit) {
     const key = `${itemId}_gas_warn`;
     if (!recentAlertCooldowns[key] || now - recentAlertCooldowns[key] > ALERT_COOLDOWN_MS) {
       recentAlertCooldowns[key] = now;
@@ -176,12 +181,12 @@ export function evaluateSensorReading(
         id: `alert-gas-warn-${now}-${Math.random().toString(36).substring(2, 6)}`,
         type: 'Gas Level Elevated',
         title: 'Volatile Gas Threshold Exceeded',
-        message: `${itemName} VOC reading is ${Math.round(sensor.gas)} ppm (Threshold: ${config.gasWarning} ppm). Early ethylene / ripening gas buildup observed.`,
+        message: `${itemName} VOC reading is ${Math.round(sensor.gas)} ${gasUnit} (Threshold: ${gasWarningLimit} ${gasUnit}). Early ethylene / ripening gas buildup observed.`,
         severity: 'warning',
         metric: 'gas',
         currentValue: Math.round(sensor.gas),
-        thresholdValue: config.gasWarning,
-        unit: 'ppm',
+        thresholdValue: gasWarningLimit,
+        unit: gasUnit,
         deviceId: item?.tagId || `#${itemId}`,
         itemId: itemId,
         itemName: itemName,

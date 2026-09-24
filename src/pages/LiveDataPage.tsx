@@ -31,6 +31,7 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { FreshnessGauge } from '../components/common/FreshnessGauge';
 import { SensorCard } from '../components/common/SensorCard';
 import { ThresholdConfigModal } from '../components/common/ThresholdConfigModal';
+import { FreshnessPrincipleCard } from '../components/common/FreshnessPrincipleCard';
 import { HistoricalReadingPoint } from '../types';
 
 export const LiveDataPage: React.FC = () => {
@@ -58,7 +59,7 @@ export const LiveDataPage: React.FC = () => {
   }, [itemId]);
 
   const isTempBreached = sensorData && sensorData.temperature > thresholds.tempMax;
-  const isGasBreached = sensorData && sensorData.gas > thresholds.gasWarning;
+  const isGasBreached = sensorData && (sensorData.gas > 500 ? sensorData.gas > 1400 : sensorData.gas > thresholds.gasWarning);
   const isHumidityBreached = sensorData && (sensorData.humidity > thresholds.humidityMax || sensorData.humidity < thresholds.humidityMin);
   const hasActiveBreach = isTempBreached || isGasBreached || isHumidityBreached;
 
@@ -321,7 +322,7 @@ export const LiveDataPage: React.FC = () => {
         <SensorCard
           title="MQ-135 Gas Sensors"
           value={((currentProduct as any)?.isUnconfigured) ? '--' : (sensorData?.gas || 120)}
-          unit={((currentProduct as any)?.isUnconfigured) ? undefined : "ppm"}
+          unit={((currentProduct as any)?.isUnconfigured) ? undefined : (sensorData?.gas && sensorData.gas > 500 ? "ADC" : "ppm")}
           icon={Wind}
           color={metricConfig.gas.color}
           status={((currentProduct as any)?.isUnconfigured) ? undefined : (isGasBreached ? 'critical' : 'normal')}
@@ -329,6 +330,15 @@ export const LiveDataPage: React.FC = () => {
           isEmpty={!!((currentProduct as any)?.isUnconfigured)}
         />
       </div>
+
+      {/* FRESHNESS SCORE WORKING PRINCIPLE & SCIENTIFIC REMARK CARD */}
+      <FreshnessPrincipleCard
+        report={freshnessReport}
+        productName={currentProduct.name}
+        category={currentProduct.category}
+        isUnconfigured={!!((currentProduct as any)?.isUnconfigured)}
+        thresholdRules={thresholds}
+      />
 
       {/* TREND GRAPH CARD */}
       <div className="bg-white border border-[#13493B]/10 rounded-[28px] p-5 sm:p-6 shadow-sm space-y-4">

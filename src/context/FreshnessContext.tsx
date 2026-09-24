@@ -103,6 +103,17 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     } catch (e) {
       console.warn(e);
     }
+    // Re-evaluate freshness report with updated threshold rules immediately
+    if (activeItem && sensorData) {
+      const report = calculateFreshness({
+        temperature: sensorData.temperature,
+        humidity: sensorData.humidity,
+        gas: sensorData.gas,
+        category: activeItem.category,
+        activeThresholdRules: newConfig,
+      });
+      setFreshnessReport(report);
+    }
   };
 
   // 1. Subscribe to Real-Time Firebase Alerts Collection
@@ -136,6 +147,7 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         humidity: data.humidity,
         gas: data.gas,
         category: itemToEval.category,
+        activeThresholdRules: thresholds,
       });
       setFreshnessReport(report);
 
@@ -199,6 +211,7 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         humidity: initSensor.humidity,
         gas: initSensor.gas,
         category: item.category,
+        activeThresholdRules: thresholds,
       });
       setFreshnessReport(report);
 

@@ -149,9 +149,9 @@ export const DashboardPage: React.FC = () => {
               {lastScanned ? `STATUS: ${lastScanned.status.toUpperCase()}` : 'PORTAL'}
             </h1>
           </div>
-          <p className="text-xs text-[#5C7F75] font-semibold max-w-sm leading-relaxed">
+          <p className="text-xs text-[#5C7F75] font-semibold max-w-md leading-relaxed">
             {lastScanned 
-              ? `Previous scan results: ${lastScanned.temperature}°C, ${lastScanned.humidity}% humidity, ${lastScanned.gas} ppm MQ-135 gas.` 
+              ? (freshnessReport?.message || `Inspection telemetry: ${lastScanned.temperature}°C, ${lastScanned.humidity}% humidity, ${lastScanned.gas} ppm MQ-135 gas. ${lastScanned.status === 'Fresh' ? 'Optimal preservation bounds confirmed.' : 'Monitor cold-chain retention.'}`)
               : 'IoT telemetry from physical RFID and QR scanned products. Ready for next product tag inspection.'}
           </p>
 
