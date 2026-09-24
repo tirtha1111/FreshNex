@@ -30,12 +30,14 @@ import {
   Check,
   Loader2,
   Calendar,
-  AlertTriangle
+  AlertTriangle,
+  Waves
 } from 'lucide-react';
 import { DeviceData } from '../types';
 import { ChangeWifiModal } from './ChangeWifiModal';
 import { DeviceCard } from './DeviceCard';
 import { researchProductThresholds, AIThresholdResearchResult } from '../services/aiThresholdService';
+import { calculateMoisture } from '../utils/moistureCalculator';
 
 export const AdminDevices: React.FC = () => {
   const { userProfile, isDemoMode } = useAuth();
@@ -268,6 +270,10 @@ export const AdminDevices: React.FC = () => {
     online: realtimeStatus === 'online'
   } : null;
 
+  const activeMoisture = activeDevice
+    ? calculateMoisture(activeDevice.temperature, activeDevice.humidity)
+    : null;
+
   const handleOpenConfigModal = (dev: DeviceData) => {
     setConfigModalDevice(dev);
     setProductName(dev.product || 'Milk');
@@ -461,7 +467,7 @@ export const AdminDevices: React.FC = () => {
                 <span className="text-[10px] font-bold text-[#20E79A] bg-[#EBFBF4] px-2 py-0.5 rounded-full">Real-time Stream</span>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 <motion.div 
                   whileHover={{ y: -3, scale: 1.02 }}
                   transition={{ type: "spring", stiffness: 350, damping: 20 }}
@@ -487,6 +493,35 @@ export const AdminDevices: React.FC = () => {
                   </div>
                   <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-500 border border-blue-100 flex items-center justify-center shrink-0 shadow-xs">
                     <Droplets className="w-6 h-6" />
+                  </div>
+                </motion.div>
+
+                {/* Calculated Absolute Moisture Card */}
+                <motion.div 
+                  whileHover={{ y: -3, scale: 1.02 }}
+                  transition={{ type: "spring", stiffness: 350, damping: 20 }}
+                  className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-[#EBFBF4] via-white to-[#F0FAF5] border border-[#20E79A]/30 shadow-sm hover:shadow-md transition-all flex items-center justify-between relative overflow-hidden"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-extrabold text-[#13493B] uppercase block tracking-wider">Moisture</span>
+                      {activeMoisture && (
+                        <span className="px-1.5 py-0.5 rounded-md text-[8.5px] font-bold bg-[#20E79A]/20 text-[#07221A]">
+                          {activeMoisture.status}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-2xl sm:text-3xl font-black text-[#07221A] block truncate">
+                      {activeMoisture ? activeMoisture.absoluteMoisture : '--'} <span className="text-sm font-bold text-[#5C7F75]">g/m³</span>
+                    </span>
+                    {activeMoisture && (
+                      <span className="text-[10px] font-mono text-[#5C7F75] font-semibold block mt-0.5 truncate">
+                        Dew Pt: {activeMoisture.dewPoint}°C • VP: {activeMoisture.vaporPressure.toFixed(1)} hPa
+                      </span>
+                    )}
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-[#EBFBF4] text-[#20E79A] border border-[#20E79A]/40 flex items-center justify-center shrink-0 shadow-xs">
+                    <Waves className="w-6 h-6 text-[#13493B]" />
                   </div>
                 </motion.div>
 
@@ -721,6 +756,17 @@ export const AdminDevices: React.FC = () => {
                           className="w-full bg-white border border-slate-200 px-3 py-2 rounded-xl text-xs font-bold"
                         />
                       </div>
+                    </div>
+
+                    {/* Derived Safe Moisture Target */}
+                    <div className="p-2.5 rounded-xl bg-[#EBFBF4] border border-[#20E79A]/30 flex items-center justify-between text-xs mt-2">
+                      <div className="flex items-center gap-1.5">
+                        <Waves className="w-3.5 h-3.5 text-[#20E79A]" />
+                        <span className="font-extrabold text-[#07221A] text-[11px]">Derived Safe Moisture Bounds:</span>
+                      </div>
+                      <span className="font-mono font-black text-[#13493B] text-[11px]">
+                        ~{calculateMoisture(Number(tempMin || 2.0), Number(humMin || 50)).absoluteMoisture} - {calculateMoisture(Number(tempMax || 6.0), Number(humMax || 70)).absoluteMoisture} g/m³
+                      </span>
                     </div>
                   </div>
 
@@ -1137,6 +1183,17 @@ export const AdminDevices: React.FC = () => {
                                 className="w-full bg-white border border-slate-200 px-3 py-2 rounded-xl text-xs font-bold text-[#07221A]"
                               />
                             </div>
+                          </div>
+
+                          {/* Derived Safe Moisture Target */}
+                          <div className="p-2.5 rounded-xl bg-[#EBFBF4] border border-[#20E79A]/30 flex items-center justify-between text-xs mt-2">
+                            <div className="flex items-center gap-1.5">
+                              <Waves className="w-3.5 h-3.5 text-[#20E79A]" />
+                              <span className="font-extrabold text-[#07221A] text-[11px]">Derived Safe Moisture Bounds:</span>
+                            </div>
+                            <span className="font-mono font-black text-[#13493B] text-[11px]">
+                              ~{calculateMoisture(Number(regTempMin || 2.0), Number(regHumMin || 50)).absoluteMoisture} - {calculateMoisture(Number(regTempMax || 6.0), Number(regHumMax || 70)).absoluteMoisture} g/m³
+                            </span>
                           </div>
                         </div>
 

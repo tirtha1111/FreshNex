@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { PackageCheck, Plus, Trash2, Edit3, Save, X } from 'lucide-react';
+import { PackageCheck, Plus, Trash2, Edit3, Save, X, Waves } from 'lucide-react';
 import { ProductProfile } from '../types';
+import { calculateMoisture } from '../utils/moistureCalculator';
 
 export const AdminProducts: React.FC = () => {
   const { productProfiles, updateProductProfile } = useApp();
@@ -107,6 +108,15 @@ export const AdminProducts: React.FC = () => {
               <div className="flex justify-between">
                 <span>Humidity Range:</span>
                 <span className="font-bold text-[#1A120D]">{prof.humidity_min}% to {prof.humidity_max}%</span>
+              </div>
+              <div className="flex justify-between items-center text-[#13493B]">
+                <span className="flex items-center gap-1 font-semibold">
+                  <Waves className="w-3 h-3 text-[#20E79A]" />
+                  Moisture Range:
+                </span>
+                <span className="font-mono font-bold text-[#13493B]">
+                  ~{calculateMoisture(prof.temperature_min, prof.humidity_min).absoluteMoisture} - {calculateMoisture(prof.temperature_max, prof.humidity_max).absoluteMoisture} g/m³
+                </span>
               </div>
               <div className="flex justify-between">
                 <span>MQ-135 Threshold:</span>

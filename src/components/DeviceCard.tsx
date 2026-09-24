@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Cpu, Wifi } from 'lucide-react';
+import { Cpu, Wifi, Waves } from 'lucide-react';
 import { FirebaseService } from '../services/firebaseService';
+import { calculateMoisture } from '../utils/moistureCalculator';
 
 interface Device {
   device_id: string;
@@ -47,6 +48,8 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
     };
   }, [dev.device_id]);
 
+  const liveMoisture = calculateMoisture(liveSensor.temperature, liveSensor.humidity);
+
   return (
     <motion.div
       key={dev.device_id}
@@ -76,16 +79,23 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
           </span>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 p-3 rounded-2xl bg-gradient-to-b from-[#F4F7F6] to-[#EAEFEB] text-center border border-[#13493B]/8 shadow-inner">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 rounded-2xl bg-gradient-to-b from-[#F4F7F6] to-[#EAEFEB] text-center border border-[#13493B]/8 shadow-inner">
           <div className="space-y-0.5">
             <span className="text-[9px] font-bold text-[#5C7F75] uppercase block truncate">Temp</span>
             <span className="text-xs sm:text-sm font-black text-[#07221A]">{liveSensor.temperature}°C</span>
           </div>
-          <div className="space-y-0.5 border-x border-[#13493B]/10">
+          <div className="space-y-0.5 border-l sm:border-x border-[#13493B]/10">
             <span className="text-[9px] font-bold text-[#5C7F75] uppercase block truncate">Humidity</span>
             <span className="text-xs sm:text-sm font-black text-[#07221A]">{liveSensor.humidity}%</span>
           </div>
-          <div className="space-y-0.5">
+          <div className="space-y-0.5 sm:border-r border-[#13493B]/10">
+            <span className="text-[9px] font-bold text-[#13493B] uppercase block truncate flex items-center justify-center gap-0.5">
+              <Waves className="w-2.5 h-2.5 text-[#20E79A]" />
+              <span>Moisture</span>
+            </span>
+            <span className="text-xs sm:text-sm font-black text-[#13493B]">{liveMoisture.absoluteMoisture} <span className="text-[9px] font-bold text-[#5C7F75]">g/m³</span></span>
+          </div>
+          <div className="space-y-0.5 border-l sm:border-l-0 border-[#13493B]/10">
             <span className="text-[9px] font-bold text-[#5C7F75] uppercase block truncate">MQ-135</span>
             <span className="text-xs sm:text-sm font-black text-[#07221A]">{liveSensor.mq135_raw}</span>
           </div>

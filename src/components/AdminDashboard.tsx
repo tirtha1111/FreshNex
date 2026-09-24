@@ -9,8 +9,10 @@ import {
   Users, 
   Bell, 
   Activity, 
-  ArrowRight
+  ArrowRight,
+  Waves
 } from 'lucide-react';
+import { calculateMoisture } from '../utils/moistureCalculator';
 
 export const AdminDashboard: React.FC = () => {
   const { devicesMap, allUsersList, alertsList } = useApp();
@@ -125,36 +127,46 @@ export const AdminDashboard: React.FC = () => {
                 <th className="py-2.5 px-3">Product</th>
                 <th className="py-2.5 px-3">Temperature</th>
                 <th className="py-2.5 px-3">Humidity</th>
+                <th className="py-2.5 px-3">Moisture</th>
                 <th className="py-2.5 px-3">MQ-135 Raw</th>
                 <th className="py-2.5 px-3">Status</th>
                 <th className="py-2.5 px-3 text-right">Action</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#FF6A00]/10 text-xs font-medium text-[#FDF8F5]">
-              {devicesArray.map((dev) => (
-                <tr key={dev.device_id} className="hover:bg-[#FF6A00]/5 transition-colors">
-                  <td className="py-3 px-3 font-mono font-bold text-[#FFAA00]">{dev.device_id}</td>
-                  <td className="py-3 px-3 font-bold">{dev.product || 'Milk'}</td>
-                  <td className="py-3 px-3 font-bold">{dev.temperature}°C</td>
-                  <td className="py-3 px-3 font-bold">{dev.humidity}%</td>
-                  <td className="py-3 px-3 font-bold">{dev.mq135_raw}</td>
-                  <td className="py-3 px-3">
-                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black ${
-                      dev.online ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-[#1C1410] text-[#8C7A70] border border-[#FF6A00]/20'
-                    }`}>
-                      {dev.online ? 'ONLINE' : 'OFFLINE'}
-                    </span>
-                  </td>
-                  <td className="py-3 px-3 text-right">
-                    <button
-                      onClick={() => navigate(`/admin/devices?id=${dev.device_id}`)}
-                      className="px-2.5 py-1 rounded-lg bg-[#FF6A00]/15 text-[#FFAA00] text-[10px] font-bold hover:bg-[#FF6A00]/25 border border-[#FF6A00]/30 cursor-pointer"
-                    >
-                      Inspect / Configure
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {devicesArray.map((dev) => {
+                const devMoisture = calculateMoisture(dev.temperature, dev.humidity);
+                return (
+                  <tr key={dev.device_id} className="hover:bg-[#FF6A00]/5 transition-colors">
+                    <td className="py-3 px-3 font-mono font-bold text-[#FFAA00]">{dev.device_id}</td>
+                    <td className="py-3 px-3 font-bold">{dev.product || 'Milk'}</td>
+                    <td className="py-3 px-3 font-bold">{dev.temperature}°C</td>
+                    <td className="py-3 px-3 font-bold">{dev.humidity}%</td>
+                    <td className="py-3 px-3 font-bold text-[#20E79A]">
+                      <span className="inline-flex items-center gap-1 font-mono">
+                        <Waves className="w-3 h-3 text-[#20E79A]/80" />
+                        {devMoisture.absoluteMoisture} g/m³
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 font-bold">{dev.mq135_raw}</td>
+                    <td className="py-3 px-3">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black ${
+                        dev.online ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-[#1C1410] text-[#8C7A70] border border-[#FF6A00]/20'
+                      }`}>
+                        {dev.online ? 'ONLINE' : 'OFFLINE'}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 text-right">
+                      <button
+                        onClick={() => navigate(`/admin/devices?id=${dev.device_id}`)}
+                        className="px-2.5 py-1 rounded-lg bg-[#FF6A00]/15 text-[#FFAA00] text-[10px] font-bold hover:bg-[#FF6A00]/25 border border-[#FF6A00]/30 cursor-pointer"
+                      >
+                        Inspect / Configure
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
