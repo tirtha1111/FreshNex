@@ -1,55 +1,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // Global Default Deny Safety Net
     match /{document=**} {
-      allow read, write: if false;
-    }
-
-    function isSignedIn() {
-      return request.auth != null;
-    }
-
-    function isValidId(id) {
-      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
-    }
-
-    function incoming() {
-      return request.resource.data;
-    }
-
-    function existing() {
-      return resource.data;
-    }
-
-    // Validation helper for alerts
-    function isValidAlert(data) {
-      return data.keys().hasAll(['id', 'type', 'severity', 'message', 'timestamp', 'read']) &&
-             data.id is string && data.id.size() <= 128 &&
-             data.type is string && data.type.size() <= 128 &&
-             data.message is string && data.message.size() <= 512 &&
-             data.severity in ['low', 'medium', 'warning', 'high', 'critical', 'info'] &&
-             data.timestamp is number &&
-             data.read is bool;
-    }
-
-    // Alerts collection
-    match /alerts/{alertId} {
-      allow read: if isSignedIn() || resource.data.userId == request.auth.uid;
-      allow create: if isSignedIn() && isValidId(alertId) && isValidAlert(incoming());
-      allow update: if isSignedIn() && isValidId(alertId) && isValidAlert(incoming()) && 
-                    incoming().diff(existing()).affectedKeys().hasOnly(['read', 'resolved', 'message']);
-      allow delete: if isSignedIn();
-    }
-
-    // Devices & commands
-    match /devices/{deviceId} {
-      allow read, write: if isSignedIn();
-      
-      match /commands/{commandId} {
-        allow read, write: if isSignedIn();
-      }
+      allow read, write: if true;
     }
   }
 }

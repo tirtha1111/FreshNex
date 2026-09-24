@@ -14,7 +14,9 @@ import {
   markAllAlertsReadFirebase, 
   resolveAlertInFirebase, 
   deleteAlertFromFirebase,
-  clearAllAlertsFromFirebase 
+  clearAllAlertsFromFirebase,
+  saveGlobalThresholdsToFirebase,
+  subscribeToGlobalThresholds
 } from '../services/alertThresholdService';
 import { playAlertChime } from '../services/alertSound';
 import { useAuth } from './AuthContext';
@@ -98,11 +100,8 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
   const updateThresholds = (newConfig: SensorThresholdConfig) => {
     setThresholds(newConfig);
-    try {
-      localStorage.setItem('freshnex_sensor_thresholds', JSON.stringify(newConfig));
-    } catch (e) {
-      console.warn(e);
-    }
+    saveGlobalThresholdsToFirebase(newConfig);
+    
     // Re-evaluate freshness report with updated threshold rules immediately
     if (activeItem && sensorData) {
       const report = calculateFreshness({
@@ -115,6 +114,16 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setFreshnessReport(report);
     }
   };
+
+  // 0. Subscribe to Global Real-Time Thresholds (so any admin change syncs instantly for all users & admins)
+  useEffect(() => {
+    const unsubscribe = subscribeToGlobalThresholds((globalConfig) => {
+      setThresholds(globalConfig);
+    });
+    return () => {
+      unsubscribe();
+    };
+  }, []);
 
   // 1. Subscribe to Real-Time Firebase Alerts Collection
   useEffect(() => {

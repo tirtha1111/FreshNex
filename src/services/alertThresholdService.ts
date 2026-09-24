@@ -516,3 +516,89 @@ export async function clearAllAlertsFromFirebase(): Promise<void> {
     }
   }
 }
+
+/**
+ * Save global sensor thresholds to Firebase Realtime Database & Firestore so all users/admins sync instantly
+ */
+export async function saveGlobalThresholdsToFirebase(config: SensorThresholdConfig): Promise<void> {
+  const db = getDirectDatabase();
+  try {
+    localStorage.setItem('freshnex_sensor_thresholds', JSON.stringify(config));
+  } catch (e) {}
+
+  if (db) {
+    try {
+      await set(ref(db, 'system/thresholds'), config);
+    } catch (e) {
+      console.warn('RTDB threshold save error:', e);
+    }
+  }
+
+  if (firestoreDb) {
+    try {
+      await setDoc(doc(firestoreDb, 'system', 'thresholds'), config);
+    } catch (e) {
+      console.warn('Firestore threshold save error:', e);
+    }
+  }
+}
+
+/**
+ * Subscribe to global real-time sensor thresholds from Firebase so any admin update instantly reflects for all users and admins
+ */
+export function subscribeToGlobalThresholds(
+  callback: (config: SensorThresholdConfig) => void
+): () => void {
+  const db = getDirectDatabase();
+  let unsubRtdb: (() => void) | null = null;
+  let unsubFirestore: (() => void) | null = null;
+
+  if (db) {
+    try {
+      const thRef = ref(db, 'system/thresholds');
+      const handler = (snapshot: any) => {
+        if (snapshot.exists()) {
+          const val = snapshot.val();
+          if (val) {
+            const merged = { ...DEFAULT_THRESHOLDS, ...val };
+            try {
+              localStorage.setItem('freshnex_sensor_thresholds', JSON.stringify(merged));
+            } catch {}
+            callback(merged);
+          }
+        }
+      };
+      onValue(thRef, handler);
+      unsubRtdb = () => off(thRef, 'value', handler);
+    } catch (e) {
+      console.warn('RTDB threshold subscription error:', e);
+    }
+  }
+
+  if (firestoreDb) {
+    try {
+      const docRef = doc(firestoreDb, 'system', 'thresholds');
+      unsubFirestore = onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const val = docSnap.data() as SensorThresholdConfig;
+          if (val) {
+            const merged = { ...DEFAULT_THRESHOLDS, ...val };
+            try {
+              localStorage.setItem('freshnex_sensor_thresholds', JSON.stringify(merged));
+            } catch {}
+            callback(merged);
+          }
+        }
+      }, (err) => {
+        console.warn('Firestore threshold listener error:', err);
+      });
+    } catch (e) {
+      console.warn('Firestore threshold subscription error:', e);
+    }
+  }
+
+  return () => {
+    if (unsubRtdb) unsubRtdb();
+    if (unsubFirestore) unsubFirestore();
+  };
+}
