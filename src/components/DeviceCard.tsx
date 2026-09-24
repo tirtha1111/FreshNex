@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Cpu, Wifi, Waves } from 'lucide-react';
+import { Cpu, Wifi, Clock } from 'lucide-react';
 import { FirebaseService } from '../services/firebaseService';
 import { calculateMoisture } from '../utils/moistureCalculator';
 
@@ -10,6 +10,8 @@ interface Device {
   temperature: number;
   humidity: number;
   mq135_raw: number;
+  last_update?: number;
+  lastUpdated?: number;
 }
 
 interface Props {
@@ -24,7 +26,8 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
   const [liveSensor, setLiveSensor] = useState({
     temperature: dev.temperature ?? 4.2,
     humidity: dev.humidity ?? 62.0,
-    mq135_raw: dev.mq135_raw ?? 120
+    mq135_raw: dev.mq135_raw ?? 120,
+    timestamp: dev.last_update ?? dev.lastUpdated ?? Date.now()
   });
 
   useEffect(() => {
@@ -37,7 +40,8 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
         setLiveSensor({
           temperature: data.temperature ?? dev.temperature ?? 4.2,
           humidity: data.humidity ?? dev.humidity ?? 62.0,
-          mq135_raw: (data as any).gas ?? (data as any).mq135_raw ?? dev.mq135_raw ?? 120
+          mq135_raw: (data as any).gas ?? (data as any).mq135_raw ?? dev.mq135_raw ?? 120,
+          timestamp: (data as any).timestamp ?? Date.now()
         });
       }
     });
@@ -50,6 +54,10 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
 
   const liveMoisture = calculateMoisture(liveSensor.temperature, liveSensor.humidity);
 
+  const responseDate = new Date(liveSensor.timestamp || Date.now());
+  const formattedDate = responseDate.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
+  const formattedTime = responseDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+
   return (
     <motion.div
       key={dev.device_id}
@@ -61,14 +69,14 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
     >
       <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-transparent via-[#20E79A]/0 group-hover:via-[#20E79A]/60 to-transparent transition-all duration-300" />
 
-      <div className="space-y-4">
+      <div className="space-y-3.5">
         <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
-            <span className="text-[9px] font-black uppercase tracking-wider text-[#20E79A] bg-[#EBFBF4] px-2.5 py-0.5 rounded-full border border-[#20E79A]/20 inline-block truncate">
+            <span className="text-[9px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100/90 px-2.5 py-0.5 rounded-full border border-emerald-300 inline-block truncate">
               Micro-Node
             </span>
             <h3 className="text-base sm:text-lg font-black text-[#07221A] mt-1.5 truncate">{dev.product || 'Milk'}</h3>
-            <p className="text-xs font-mono font-bold text-[#FFAA00] truncate">{dev.device_id}</p>
+            <p className="text-xs font-mono font-bold text-amber-900 bg-amber-100/80 px-2 py-0.5 rounded-md border border-amber-300/80 inline-block mt-0.5 truncate">{dev.device_id}</p>
           </div>
 
           <span className={`px-2.5 py-1 rounded-full text-[10px] font-black shrink-0 flex items-center gap-1.5 shadow-xs ${
@@ -79,26 +87,34 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
           </span>
         </div>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 p-3 rounded-2xl bg-gradient-to-b from-[#F4F7F6] to-[#EAEFEB] text-center border border-[#13493B]/8 shadow-inner">
+        {/* 4-column Sensor Readout */}
+        <div className="grid grid-cols-4 gap-1.5 sm:gap-2 p-3 rounded-2xl bg-gradient-to-b from-[#F4F7F6] to-[#EAEFEB] text-center border border-[#13493B]/8 shadow-inner">
           <div className="space-y-0.5">
             <span className="text-[9px] font-bold text-[#5C7F75] uppercase block truncate">Temp</span>
             <span className="text-xs sm:text-sm font-black text-[#07221A]">{liveSensor.temperature}°C</span>
           </div>
-          <div className="space-y-0.5 border-l sm:border-x border-[#13493B]/10">
+          <div className="space-y-0.5 border-l border-[#13493B]/10">
             <span className="text-[9px] font-bold text-[#5C7F75] uppercase block truncate">Humidity</span>
             <span className="text-xs sm:text-sm font-black text-[#07221A]">{liveSensor.humidity}%</span>
           </div>
-          <div className="space-y-0.5 sm:border-r border-[#13493B]/10">
-            <span className="text-[9px] font-bold text-[#13493B] uppercase block truncate flex items-center justify-center gap-0.5">
-              <Waves className="w-2.5 h-2.5 text-[#20E79A]" />
-              <span>Moisture</span>
-            </span>
-            <span className="text-xs sm:text-sm font-black text-[#13493B]">{liveMoisture.absoluteMoisture} <span className="text-[9px] font-bold text-[#5C7F75]">g/m³</span></span>
+          <div className="space-y-0.5 border-l border-[#13493B]/10">
+            <span className="text-[9px] font-bold text-[#5C7F75] uppercase block truncate">Moisture</span>
+            <span className="text-xs sm:text-sm font-black text-[#07221A]">{liveMoisture.absoluteMoisture}</span>
           </div>
-          <div className="space-y-0.5 border-l sm:border-l-0 border-[#13493B]/10">
+          <div className="space-y-0.5 border-l border-[#13493B]/10">
             <span className="text-[9px] font-bold text-[#5C7F75] uppercase block truncate">MQ-135</span>
             <span className="text-xs sm:text-sm font-black text-[#07221A]">{liveSensor.mq135_raw}</span>
           </div>
+        </div>
+
+        {/* Last Response Date & Timestamp */}
+        <div className="flex items-center justify-between text-[10px] bg-[#F4F7F6] px-2.5 py-1.5 rounded-xl border border-[#13493B]/8 shadow-xs">
+          <div className="flex items-center gap-1.5 truncate min-w-0">
+            <Clock className="w-3.5 h-3.5 text-[#20E79A] shrink-0" />
+            <span className="font-bold text-[#5C7F75] shrink-0">Last Response:</span>
+            <span className="font-mono font-bold text-[#07221A] truncate">{formattedDate}, {formattedTime}</span>
+          </div>
+          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0 ml-1.5" />
         </div>
       </div>
 

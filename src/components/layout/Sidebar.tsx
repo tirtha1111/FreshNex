@@ -5,6 +5,7 @@ import {
   Home, 
   QrCode, 
   Cpu,
+  PlusCircle,
   Package,
   BarChart3, 
   Bell,
@@ -35,12 +36,14 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
     icon: React.ComponentType<{ className?: string }>;
     matchPrefix?: string;
     badge?: number;
+    isAction?: boolean;
   }
 
   const adminNavItems: NavItem[] = [
     { name: 'Dashboard', path: '/dashboard', icon: Home },
     { name: 'Scan Product', path: '/scan', icon: QrCode },
-    { name: 'Devices', path: '/admin/devices', icon: Cpu, matchPrefix: '/admin/devices' },
+    { name: 'Devices', path: '/admin/devices', icon: Cpu },
+    { name: 'Add a device', path: '/admin/devices?action=add', icon: PlusCircle, isAction: true },
     { name: 'Products', path: '/history', icon: Package },
     { name: 'Analytics', path: '/analytics', icon: BarChart3 },
     { name: 'Notifications', path: '/alerts', icon: Bell, badge: unreadCount },
@@ -52,6 +55,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
     { name: 'Dashboard', path: '/dashboard', icon: Home },
     { name: 'Scanner', path: '/scan', icon: QrCode },
     { name: 'Live Readings', path: liveDataPath, icon: Cpu, matchPrefix: '/live-data' },
+    { name: 'Add a device', path: '/devices?action=add', icon: PlusCircle, isAction: true },
     { name: 'Analytics', path: '/analytics', icon: BarChart3 },
     { name: 'Settings', path: '/settings', icon: Settings },
   ];
@@ -94,7 +98,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
           >
             {navItems.map((item) => {
               const Icon = item.icon;
-              const isActive = item.matchPrefix 
+              const isAddDeviceAction = item.path.includes('action=add');
+              const isActive = isAddDeviceAction
+                ? (location.pathname.includes('devices') && location.search.includes('action=add'))
+                : item.name === 'Devices'
+                ? (location.pathname.startsWith('/admin/devices') || location.pathname === '/devices') && !location.search.includes('action=add')
+                : item.matchPrefix 
                 ? location.pathname.startsWith(item.matchPrefix) 
                 : location.pathname === item.path;
 
@@ -174,6 +183,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
                       >
                         {item.name}
                       </motion.span>
+
+                      {/* Add Device Action Indicator Badge */}
+                      {item.isAction && (
+                        <span className="ml-auto px-1.5 py-0.5 rounded-md text-[8px] font-mono font-black bg-[#20E79A]/15 text-[#20E79A] border border-[#20E79A]/30 tracking-tight z-10">
+                          + ADD
+                        </span>
+                      )}
 
                       {/* Notification Count Badge with animated pop */}
                       {item.badge !== undefined && item.badge > 0 && (

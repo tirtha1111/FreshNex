@@ -94,6 +94,8 @@ export interface DeviceData {
   mq135_raw?: number;
   lastUpdated?: number;
   last_update?: number;
+  timestamp?: number;
+  lastResponse?: number | string;
   status?: string;
   online?: boolean;
   assignedProduct?: string;

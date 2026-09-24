@@ -266,6 +266,23 @@ export const LoginPage: React.FC = () => {
                       className="w-full px-4 py-3.5 bg-slate-50 text-sm font-bold text-slate-900 placeholder-slate-400 rounded-2xl border border-slate-200/80 focus:outline-none focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all uppercase font-mono tracking-wider"
                     />
                   </div>
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Demo Tags:</span>
+                    <button 
+                      type="button" 
+                      onClick={() => setProductId('MILK')}
+                      className="px-2 py-0.5 rounded-lg bg-orange-100/70 hover:bg-orange-200 text-orange-800 text-[11px] font-mono font-bold cursor-pointer transition-colors"
+                    >
+                      MILK
+                    </button>
+                    <button 
+                      type="button" 
+                      onClick={() => setProductId('MEAT')}
+                      className="px-2 py-0.5 rounded-lg bg-amber-100/70 hover:bg-amber-200 text-amber-800 text-[11px] font-mono font-bold cursor-pointer transition-colors"
+                    >
+                      MEAT
+                    </button>
+                  </div>
                 </div>
 
                 {/* QR Scanner Modal Overlay */}
@@ -428,7 +445,7 @@ export const LoginPage: React.FC = () => {
                   </div>
                 </div>
 
-                {/* Remember Me & Forgot Password */}
+                {/* Remember Me Checkbox */}
                 <div className="flex items-center justify-between text-xs pt-1">
                   <label className="flex items-center gap-2 cursor-pointer text-slate-600 font-medium">
                     <input
@@ -439,14 +456,6 @@ export const LoginPage: React.FC = () => {
                     />
                     <span>Remember Me</span>
                   </label>
-
-                  <button
-                    type="button"
-                    onClick={() => navigate('/forgot-password')}
-                    className="text-orange-600 hover:text-orange-700 font-bold text-[11px] cursor-pointer"
-                  >
-                    Forgot Password?
-                  </button>
                 </div>
 
                 {/* Submit Pill Button */}

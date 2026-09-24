@@ -478,3 +478,24 @@
   background: #20E79A;
 }
 
+/* Primary Action Buttons */
+.btn-orange {
+  background: linear-gradient(135deg, #FF6A00 0%, #E65100 100%) !important;
+  color: #FFFFFF !important;
+  border: 1px solid rgba(255, 106, 0, 0.4) !important;
+  box-shadow: 0 4px 14px 0 rgba(255, 106, 0, 0.35);
+  font-weight: 800;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-orange:hover {
+  background: linear-gradient(135deg, #FF7B1A 0%, #FF5A00 100%) !important;
+  box-shadow: 0 6px 20px 0 rgba(255, 106, 0, 0.5);
+  transform: translateY(-1px);
+}
+
+.btn-orange:active {
+  transform: translateY(1px);
+}
+
+

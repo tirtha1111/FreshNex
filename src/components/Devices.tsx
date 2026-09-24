@@ -211,6 +211,13 @@ export const Devices: React.FC = () => {
                       {dev.location}
                     </span>
                   </div>
+                  <div className="flex justify-between font-bold">
+                    <span className="text-slate-400">Last Response:</span>
+                    <span className="text-slate-700 flex items-center gap-1 font-mono text-[11px]">
+                      <Clock className="w-3 h-3 text-[#20E79A]" />
+                      {new Date(dev.lastSeen || Date.now()).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}, {new Date(dev.lastSeen || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+                    </span>
+                  </div>
                 </div>
 
                 {/* Associated Products list */}
