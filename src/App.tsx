@@ -50,7 +50,7 @@ const AppRoutes: React.FC = () => {
   return (
     <Routes>
       {/* Public Pages */}
-      <Route path="/" element={<LandingPage />} />
+      <Route path="/" element={<Navigate to="/login" replace />} />
       <Route path="/about" element={<AboutPage />} />
       <Route path="/login" element={<LoginPage />} />
       <Route path="/signup" element={<SignUpPage />} />
@@ -77,8 +77,8 @@ const AppRoutes: React.FC = () => {
         <Route path="/devices" element={<AdminDevices />} />
       </Route>
 
-      {/* Fallback to Home */}
-      <Route path="*" element={<Navigate to="/" replace />} />
+      {/* Fallback to Login */}
+      <Route path="*" element={<Navigate to="/login" replace />} />
     </Routes>
   );
 };
