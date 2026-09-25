@@ -3,6 +3,7 @@ import { FoodItem, SensorData, ScanHistoryRecord } from '../types';
 import { DEFAULT_ITEMS, DEFAULT_SENSOR_DATA, DEFAULT_SCAN_HISTORY } from '../data/initialData';
 import { calculateFreshness, FreshnessReport } from '../utils/freshnessEngine';
 import { calculateMoisture } from '../utils/moistureCalculator';
+import { calculatePH } from '../utils/phCalculator';
 import { FirebaseService } from '../services/firebaseService';
 import { 
   SensorThresholdConfig, 
@@ -150,14 +151,20 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const handleSensorTelemetry = useCallback((data: SensorData & { isReal?: boolean }, currentItem?: FoodItem | null) => {
     // Repeatedly calculate moisture from temperature and humidity
     const moistureInfo = calculateMoisture(data.temperature, data.humidity);
+    const itemToEval = currentItem || activeItem;
+    const phInfo = calculatePH(data.temperature, data.humidity, moistureInfo.absoluteMoisture, {
+      category: itemToEval?.category,
+      gas: data.gas,
+    });
+
     const enrichedData: SensorData & { isReal?: boolean } = {
       ...data,
       moisture: data.moisture !== undefined ? data.moisture : moistureInfo.absoluteMoisture,
       dewPoint: data.dewPoint !== undefined ? data.dewPoint : moistureInfo.dewPoint,
+      ph: data.ph !== undefined ? data.ph : phInfo.ph,
     };
 
     setSensorData(enrichedData);
-    const itemToEval = currentItem || activeItem;
     
     if (itemToEval) {
       const report = calculateFreshness({
@@ -234,6 +241,10 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setFreshnessReport(report);
 
       const initMoisture = calculateMoisture(initSensor.temperature, initSensor.humidity);
+      const initPH = calculatePH(initSensor.temperature, initSensor.humidity, initMoisture.absoluteMoisture, {
+        category: item.category,
+        gas: initSensor.gas,
+      });
 
       // Record to history
       const record: ScanHistoryRecord = {
@@ -246,6 +257,7 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         humidity: initSensor.humidity,
         gas: initSensor.gas,
         moisture: initSensor.moisture ?? initMoisture.absoluteMoisture,
+        ph: initSensor.ph ?? initPH.ph,
         freshnessScore: report.score,
         status: report.status,
         timestamp: Date.now(),

@@ -11,10 +11,14 @@ import {
   HelpCircle,
   Tag,
   PlusSquare,
-  Sparkles
+  Sparkles,
+  Waves
 } from 'lucide-react';
 import { useApp } from '../context/AppContext';
 import { EmptyState } from './UIComponents';
+import { calculateMoisture } from '../utils/moistureCalculator';
+import { calculatePH } from '../utils/phCalculator';
+import { formatRealtimeDateTime } from '../utils/dateUtils';
 
 export const Devices: React.FC = () => {
   const { devices, addDevice, products, liveReadings } = useApp();
@@ -165,6 +169,10 @@ export const Devices: React.FC = () => {
             const associatedProducts = products.filter(p => p.deviceId === dev.id);
             const isOnline = dev.status === 'ONLINE';
 
+            const devReading = liveReadings[dev.id] || { temperature: 4.2, humidity: 62, gasLevel: 120 };
+            const devMoisture = calculateMoisture(devReading.temperature, devReading.humidity);
+            const devPH = calculatePH(devReading.temperature, devReading.humidity, devMoisture.absoluteMoisture, { gas: devReading.gasLevel });
+
             return (
               <div 
                 key={dev.id}
@@ -198,6 +206,26 @@ export const Devices: React.FC = () => {
                   <p className="text-[10px] text-slate-400 font-bold mt-0.5">ID: {dev.id}</p>
                 </div>
 
+                {/* Micro Live Reading: Temp, Humidity, Moisture, pH */}
+                <div className="grid grid-cols-4 gap-1 p-2 rounded-xl bg-emerald-50/50 border border-emerald-100 text-center">
+                  <div>
+                    <span className="text-[8.5px] font-bold text-slate-400 block uppercase">Temp</span>
+                    <span className="text-[11px] font-black text-slate-800">{devReading.temperature}°C</span>
+                  </div>
+                  <div className="border-l border-slate-200">
+                    <span className="text-[8.5px] font-bold text-slate-400 block uppercase">Hum</span>
+                    <span className="text-[11px] font-black text-slate-800">{devReading.humidity}%</span>
+                  </div>
+                  <div className="border-l border-slate-200">
+                    <span className="text-[8.5px] font-bold text-slate-400 block uppercase">Moist</span>
+                    <span className="text-[11px] font-black text-slate-800">{devMoisture.absoluteMoisture}</span>
+                  </div>
+                  <div className="border-l border-slate-200 bg-white/80 rounded-md">
+                    <span className="text-[8.5px] font-extrabold text-emerald-800 block uppercase">pH</span>
+                    <span className="text-[11px] font-black text-emerald-800 font-mono">{devPH.ph}</span>
+                  </div>
+                </div>
+
                 {/* Hardware profile */}
                 <div className="bg-slate-50 p-3 rounded-xl border border-slate-50 space-y-1.5 text-xs text-slate-600">
                   <div className="flex justify-between font-bold">
@@ -215,7 +243,7 @@ export const Devices: React.FC = () => {
                     <span className="text-slate-400">Last Response:</span>
                     <span className="text-slate-700 flex items-center gap-1 font-mono text-[11px]">
                       <Clock className="w-3 h-3 text-[#20E79A]" />
-                      {new Date(dev.lastSeen || Date.now()).toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' })}, {new Date(dev.lastSeen || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true })}
+                      {formatRealtimeDateTime(dev.lastSeen || (dev as any).last_update || (dev as any).lastUpdated || (dev as any).timestamp).fullStr}
                     </span>
                   </div>
                 </div>

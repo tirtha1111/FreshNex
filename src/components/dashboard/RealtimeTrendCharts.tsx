@@ -38,6 +38,7 @@ import {
 import { SensorData, FoodItem, ScanHistoryRecord } from '../../types';
 import { FreshnessReport, calculateFreshness } from '../../utils/freshnessEngine';
 import { calculateMoisture } from '../../utils/moistureCalculator';
+import { calculatePH } from '../../utils/phCalculator';
 import { SensorThresholdConfig, DEFAULT_THRESHOLDS } from '../../services/alertThresholdService';
 
 export interface TelemetryPoint {
@@ -49,6 +50,7 @@ export interface TelemetryPoint {
   gas: number;
   moisture: number; // Repeatedly calculated psychrometric moisture (g/m³)
   dewPoint: number; // Condensation temperature (°C)
+  ph: number; // Calculated thermodynamic pH
   freshnessScore: number;
   status: string;
   eventNote?: string;
@@ -101,6 +103,7 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
       const h = Math.round(baseHum + noiseH);
       const g = Math.round(baseGas + noiseG);
       const m = calculateMoisture(t, h);
+      const p = calculatePH(t, h, m.absoluteMoisture, { category, gas: g });
 
       const report = calculateFreshness({
         temperature: t,
@@ -119,6 +122,7 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
         gas: g,
         moisture: m.absoluteMoisture,
         dewPoint: m.dewPoint,
+        ph: p.ph,
         freshnessScore: report.score,
         status: report.status,
       });
@@ -166,6 +170,7 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
       const h = Math.round(Math.min(100, Math.max(10, baseHum + sim.hum + jitterH)));
       const g = Math.round(Math.max(15, baseGas + sim.gas + jitterG));
       const m = calculateMoisture(t, h);
+      const p = calculatePH(t, h, m.absoluteMoisture, { category, gas: g });
 
       const report = calculateFreshness({
         temperature: t,
@@ -188,6 +193,7 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
         gas: g,
         moisture: m.absoluteMoisture,
         dewPoint: m.dewPoint,
+        ph: p.ph,
         freshnessScore: report.score,
         status: report.status,
         eventNote,
@@ -270,6 +276,13 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
                 <Droplets className="w-3.5 h-3.5" /> Calculated Moisture
               </span>
               <span className="font-mono font-black">{data.moisture} g/m³ <span className="text-[9px] font-normal text-[#5C7F75]">(Dew: {data.dewPoint}°C)</span></span>
+            </div>
+
+            <div className="flex items-center justify-between text-emerald-700">
+              <span className="flex items-center gap-1.5 font-bold">
+                <Sparkles className="w-3.5 h-3.5" /> Calculated pH
+              </span>
+              <span className="font-mono font-black">pH {data.ph}</span>
             </div>
 
             <div className="flex items-center justify-between text-[#9333EA]">

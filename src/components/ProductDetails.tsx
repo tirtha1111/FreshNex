@@ -13,10 +13,14 @@ import {
   History, 
   Info,
   Wifi,
-  X
+  X,
+  Sparkles,
+  Waves
 } from 'lucide-react';
 import { LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer, CartesianGrid } from 'recharts';
 import { WifiSettings } from './WifiSettings';
+import { calculateMoisture } from '../utils/moistureCalculator';
+import { calculatePH } from '../utils/phCalculator';
 
 export const ProductDetails: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
@@ -91,6 +95,12 @@ export const ProductDetails: React.FC = () => {
     humidity: h.humidity,
     mq135: h.mq135_raw
   }));
+
+  const deviceMoisture = calculateMoisture(device.temperature ?? 4.2, device.humidity ?? 62);
+  const devicePH = calculatePH(device.temperature ?? 4.2, device.humidity ?? 62, deviceMoisture.absoluteMoisture, {
+    category: device.product,
+    gas: device.mq135_raw
+  });
 
   return (
     <div className="space-y-5 max-w-2xl mx-auto pb-10 text-[#FDF8F5]">
@@ -172,60 +182,96 @@ export const ProductDetails: React.FC = () => {
         </button>
       </motion.div>
 
-      {/* 3 Large Telemetry Sensor Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      {/* 5 Telemetry Sensor Cards Grid */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
         {/* 1. TEMPERATURE CARD */}
         <motion.div
           whileHover={{ y: -2 }}
-          className="glass-card p-5 rounded-3xl border border-[#FF6A00]/25 shadow-lg relative overflow-hidden"
+          className="glass-card p-4 sm:p-5 rounded-3xl border border-[#FF6A00]/25 shadow-lg relative overflow-hidden"
         >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-[#FDF8F5] uppercase tracking-wider">Temperature</span>
-            <div className="w-10 h-10 rounded-2xl bg-orange-500/15 text-[#FFAA00] flex items-center justify-center border border-orange-500/30">
-              <Thermometer className="w-5 h-5" />
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-[#FDF8F5] uppercase tracking-wider">Temperature</span>
+            <div className="w-8 h-8 rounded-xl bg-orange-500/15 text-[#FFAA00] flex items-center justify-center border border-orange-500/30">
+              <Thermometer className="w-4 h-4" />
             </div>
           </div>
           <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-black text-[#FDF8F5]">{device.temperature}</span>
-            <span className="text-base font-bold text-[#FFAA00]">°C</span>
+            <span className="text-2xl sm:text-3xl font-black text-[#FDF8F5]">{device.temperature}</span>
+            <span className="text-sm font-bold text-[#FFAA00]">°C</span>
           </div>
-          <p className="text-[10px] font-semibold text-[#8C7A70] mt-1">DHT22 Thermal Sensor</p>
+          <p className="text-[10px] font-semibold text-[#8C7A70] mt-1">Thermal Sensor</p>
         </motion.div>
 
         {/* 2. HUMIDITY CARD */}
         <motion.div
           whileHover={{ y: -2 }}
-          className="glass-card p-5 rounded-3xl border border-[#FF6A00]/25 shadow-lg relative overflow-hidden"
+          className="glass-card p-4 sm:p-5 rounded-3xl border border-[#FF6A00]/25 shadow-lg relative overflow-hidden"
         >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-[#FDF8F5] uppercase tracking-wider">Humidity</span>
-            <div className="w-10 h-10 rounded-2xl bg-[#FF6A00]/15 text-[#FF6A00] flex items-center justify-center border border-[#FF6A00]/30">
-              <Droplets className="w-5 h-5" />
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-[#FDF8F5] uppercase tracking-wider">Humidity</span>
+            <div className="w-8 h-8 rounded-xl bg-[#FF6A00]/15 text-[#FF6A00] flex items-center justify-center border border-[#FF6A00]/30">
+              <Droplets className="w-4 h-4" />
             </div>
           </div>
           <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-black text-[#FDF8F5]">{device.humidity}</span>
-            <span className="text-base font-bold text-[#FFAA00]">%</span>
+            <span className="text-2xl sm:text-3xl font-black text-[#FDF8F5]">{device.humidity}</span>
+            <span className="text-sm font-bold text-[#FFAA00]">%</span>
           </div>
           <p className="text-[10px] font-semibold text-[#8C7A70] mt-1">Relative Air Moisture</p>
         </motion.div>
 
-        {/* 3. MQ-135 GAS / AIR CARD */}
+        {/* 3. CALCULATED MOISTURE CARD */}
         <motion.div
           whileHover={{ y: -2 }}
-          className="glass-card p-5 rounded-3xl border border-[#FF6A00]/25 shadow-lg relative overflow-hidden"
+          className="glass-card p-4 sm:p-5 rounded-3xl border border-sky-500/30 shadow-lg relative overflow-hidden bg-sky-950/20"
         >
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-bold text-[#FDF8F5] uppercase tracking-wider">Air Sensor</span>
-            <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
-              <Wind className="w-5 h-5" />
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-[#FDF8F5] uppercase tracking-wider">Moisture</span>
+            <div className="w-8 h-8 rounded-xl bg-sky-500/15 text-sky-400 flex items-center justify-center border border-sky-500/30">
+              <Waves className="w-4 h-4" />
             </div>
           </div>
           <div className="flex items-baseline gap-1">
-            <span className="text-3xl font-black text-[#FDF8F5]">{device.mq135_raw}</span>
+            <span className="text-2xl sm:text-3xl font-black text-[#FDF8F5]">{deviceMoisture.absoluteMoisture}</span>
+            <span className="text-sm font-bold text-sky-400">g/m³</span>
+          </div>
+          <p className="text-[10px] font-semibold text-sky-300/80 mt-1">Dew: {deviceMoisture.dewPoint}°C</p>
+        </motion.div>
+
+        {/* 4. CALCULATED pH CARD */}
+        <motion.div
+          whileHover={{ y: -2 }}
+          className="glass-card p-4 sm:p-5 rounded-3xl border border-emerald-500/30 shadow-lg relative overflow-hidden bg-emerald-950/20"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-emerald-400 uppercase tracking-wider">Calculated pH</span>
+            <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center border border-emerald-500/30">
+              <Sparkles className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl sm:text-3xl font-black text-emerald-300 font-mono">{devicePH.ph}</span>
+            <span className="text-xs font-bold text-emerald-400">pH</span>
+          </div>
+          <p className="text-[10px] font-semibold text-emerald-400/80 mt-1">{devicePH.status} • {devicePH.acidityClassification}</p>
+        </motion.div>
+
+        {/* 5. MQ-135 GAS / AIR CARD */}
+        <motion.div
+          whileHover={{ y: -2 }}
+          className="glass-card p-4 sm:p-5 rounded-3xl border border-purple-500/30 shadow-lg relative overflow-hidden col-span-2 sm:col-span-1"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-[#FDF8F5] uppercase tracking-wider">MQ-135 Gas</span>
+            <div className="w-8 h-8 rounded-xl bg-purple-500/15 text-purple-400 flex items-center justify-center border border-purple-500/30">
+              <Wind className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl sm:text-3xl font-black text-[#FDF8F5]">{device.mq135_raw}</span>
             <span className="text-xs font-bold text-[#8C7A70]">RAW</span>
           </div>
-          <p className="text-[10px] font-semibold text-[#8C7A70] mt-1">MQ-135 Gas Sensor</p>
+          <p className="text-[10px] font-semibold text-[#8C7A70] mt-1">Volatile Gases (ppm / ADC)</p>
         </motion.div>
       </div>
 

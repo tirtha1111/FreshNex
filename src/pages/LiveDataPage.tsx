@@ -36,6 +36,8 @@ import { ThresholdConfigModal } from '../components/common/ThresholdConfigModal'
 import { FreshnessPrincipleCard } from '../components/common/FreshnessPrincipleCard';
 import { HistoricalReadingPoint } from '../types';
 import { calculateMoisture } from '../utils/moistureCalculator';
+import { calculatePH } from '../utils/phCalculator';
+import { formatRealtimeDateTime, parseTimestamp } from '../utils/dateUtils';
 
 export const LiveDataPage: React.FC = () => {
   const { itemId } = useParams<{ itemId: string }>();
@@ -49,7 +51,7 @@ export const LiveDataPage: React.FC = () => {
     updateThresholds
   } = useFreshness();
 
-  const [activeMetricTab, setActiveMetricTab] = useState<'temp' | 'humidity' | 'moisture' | 'gas'>('temp');
+  const [activeMetricTab, setActiveMetricTab] = useState<'temp' | 'humidity' | 'moisture' | 'ph' | 'gas'>('temp');
   const [copiedLink, setCopiedLink] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
@@ -71,27 +73,32 @@ export const LiveDataPage: React.FC = () => {
     sensorData ? sensorData.humidity : 62
   );
 
+  const livePH = calculatePH(
+    sensorData ? sensorData.temperature : 4.2,
+    sensorData ? sensorData.humidity : 62,
+    liveMoisture.absoluteMoisture,
+    { category: activeItem?.category, gas: sensorData?.gas }
+  );
+
   const lastResponseFormatted = useMemo(() => {
-    const ts = sensorData?.timestamp || Date.now();
-    const d = new Date(ts);
-    const dateStr = d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
-    const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
-    return `${dateStr}, ${timeStr}`;
+    const raw = sensorData?.timestamp || Date.now();
+    return formatRealtimeDateTime(raw).fullStr;
   }, [sensorData?.timestamp]);
 
   const chartData: HistoricalReadingPoint[] = [
-    { time: '09:00', timestamp: 1, temperature: 4.0, humidity: 60, gas: 112, moisture: calculateMoisture(4.0, 60).absoluteMoisture },
-    { time: '09:30', timestamp: 2, temperature: 4.1, humidity: 61, gas: 115, moisture: calculateMoisture(4.1, 61).absoluteMoisture },
-    { time: '10:00', timestamp: 3, temperature: 4.3, humidity: 63, gas: 118, moisture: calculateMoisture(4.3, 63).absoluteMoisture },
-    { time: '10:15', timestamp: 4, temperature: 4.2, humidity: 62, gas: 119, moisture: calculateMoisture(4.2, 62).absoluteMoisture },
-    { time: '10:30', timestamp: 5, temperature: 4.1, humidity: 61, gas: 120, moisture: calculateMoisture(4.1, 61).absoluteMoisture },
+    { time: '09:00', timestamp: 1, temperature: 4.0, humidity: 60, gas: 112, moisture: calculateMoisture(4.0, 60).absoluteMoisture, ph: calculatePH(4.0, 60, calculateMoisture(4.0, 60).absoluteMoisture).ph },
+    { time: '09:30', timestamp: 2, temperature: 4.1, humidity: 61, gas: 115, moisture: calculateMoisture(4.1, 61).absoluteMoisture, ph: calculatePH(4.1, 61, calculateMoisture(4.1, 61).absoluteMoisture).ph },
+    { time: '10:00', timestamp: 3, temperature: 4.3, humidity: 63, gas: 118, moisture: calculateMoisture(4.3, 63).absoluteMoisture, ph: calculatePH(4.3, 63, calculateMoisture(4.3, 63).absoluteMoisture).ph },
+    { time: '10:15', timestamp: 4, temperature: 4.2, humidity: 62, gas: 119, moisture: calculateMoisture(4.2, 62).absoluteMoisture, ph: calculatePH(4.2, 62, calculateMoisture(4.2, 62).absoluteMoisture).ph },
+    { time: '10:30', timestamp: 5, temperature: 4.1, humidity: 61, gas: 120, moisture: calculateMoisture(4.1, 61).absoluteMoisture, ph: calculatePH(4.1, 61, calculateMoisture(4.1, 61).absoluteMoisture).ph },
     { 
       time: '10:45', 
       timestamp: 6, 
       temperature: sensorData ? sensorData.temperature : 4.2, 
       humidity: sensorData ? sensorData.humidity : 62, 
       gas: sensorData ? sensorData.gas : 120,
-      moisture: sensorData?.moisture ?? liveMoisture.absoluteMoisture
+      moisture: sensorData?.moisture ?? liveMoisture.absoluteMoisture,
+      ph: sensorData?.ph ?? livePH.ph
     },
   ];
 
@@ -113,6 +120,7 @@ export const LiveDataPage: React.FC = () => {
       humidity: sensorData?.humidity,
       moisture: sensorData?.moisture ?? liveMoisture.absoluteMoisture,
       dewPoint: sensorData?.dewPoint ?? liveMoisture.dewPoint,
+      ph: sensorData?.ph ?? livePH.ph,
       gas: sensorData?.gas,
       freshnessScore: freshnessReport?.score,
       status: freshnessReport?.status,
@@ -157,6 +165,7 @@ export const LiveDataPage: React.FC = () => {
     temp: { name: 'Temperature', unit: '°C', color: '#FF5A67', bg: '#FFECEE' },
     humidity: { name: 'Humidity', unit: '%', color: '#3B82F6', bg: '#EBF5FF' },
     moisture: { name: 'Calculated Moisture', unit: 'g/m³', color: '#0EA5E9', bg: '#E0F2FE' },
+    ph: { name: 'Calculated pH', unit: 'pH', color: '#10B981', bg: '#ECFDF5' },
     gas: { name: 'Gas Level (VOC)', unit: 'ppm', color: '#9333EA', bg: '#F5EBFF' },
   };
 
@@ -328,8 +337,8 @@ export const LiveDataPage: React.FC = () => {
         </div>
       </div>
  
-      {/* FOUR LIVE METRIC TILES */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      {/* FIVE LIVE METRIC TILES */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <SensorCard
           title="Ambient Temperature"
           value={((currentProduct as any)?.isUnconfigured) ? '--' : (sensorData?.temperature || 4.2)}
@@ -360,6 +369,17 @@ export const LiveDataPage: React.FC = () => {
           color={metricConfig.moisture.color}
           status={((currentProduct as any)?.isUnconfigured) ? undefined : (liveMoisture.status === 'Condensation Hazard' ? 'critical' : liveMoisture.status === 'Elevated' ? 'warning' : 'normal')}
           message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : `Dew: ${liveMoisture.dewPoint}°C • ${liveMoisture.status}`}
+          isEmpty={!!((currentProduct as any)?.isUnconfigured)}
+        />
+
+        <SensorCard
+          title="Calculated pH"
+          value={((currentProduct as any)?.isUnconfigured) ? '--' : (sensorData?.ph ?? livePH.ph)}
+          unit={((currentProduct as any)?.isUnconfigured) ? undefined : "pH"}
+          icon={Activity}
+          color={metricConfig.ph.color}
+          status={((currentProduct as any)?.isUnconfigured) ? undefined : (livePH.status === 'Acidic / Fermenting' ? 'critical' : livePH.status === 'Mild Acidic' ? 'warning' : 'normal')}
+          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : `${livePH.status} • ${livePH.acidityClassification}`}
           isEmpty={!!((currentProduct as any)?.isUnconfigured)}
         />
  
@@ -402,7 +422,7 @@ export const LiveDataPage: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10 self-start sm:self-auto">
-            {(['temp', 'humidity', 'moisture', 'gas'] as const).map((tab) => {
+            {(['temp', 'humidity', 'moisture', 'ph', 'gas'] as const).map((tab) => {
               const active = activeMetricTab === tab;
               return (
                 <button
@@ -418,7 +438,7 @@ export const LiveDataPage: React.FC = () => {
                     />
                   )}
                   <span className={`relative z-10 ${active ? 'text-[#07221A]' : 'text-[#5C7F75] hover:text-[#07221A]'}`}>
-                    {tab === 'temp' ? 'Temperature (°C)' : tab === 'humidity' ? 'Humidity (%)' : tab === 'moisture' ? 'Moisture (g/m³)' : 'Gas Level (ppm)'}
+                    {tab === 'temp' ? 'Temperature (°C)' : tab === 'humidity' ? 'Humidity (%)' : tab === 'moisture' ? 'Moisture (g/m³)' : tab === 'ph' ? 'pH Level' : 'Gas Level (ppm)'}
                   </span>
                 </button>
               );
@@ -475,6 +495,8 @@ export const LiveDataPage: React.FC = () => {
                     ? 'humidity'
                     : activeMetricTab === 'moisture'
                     ? 'moisture'
+                    : activeMetricTab === 'ph'
+                    ? 'ph'
                     : 'gas'
                 }
                 stroke={metricConfig[activeMetricTab].color}

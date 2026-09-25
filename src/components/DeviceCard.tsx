@@ -3,6 +3,8 @@ import { motion } from 'motion/react';
 import { Cpu, Wifi, Clock } from 'lucide-react';
 import { FirebaseService } from '../services/firebaseService';
 import { calculateMoisture } from '../utils/moistureCalculator';
+import { calculatePH } from '../utils/phCalculator';
+import { formatRealtimeDateTime, parseTimestamp } from '../utils/dateUtils';
 
 interface Device {
   device_id: string;
@@ -27,7 +29,7 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
     temperature: dev.temperature ?? 4.2,
     humidity: dev.humidity ?? 62.0,
     mq135_raw: dev.mq135_raw ?? 120,
-    timestamp: dev.last_update ?? dev.lastUpdated ?? Date.now()
+    timestamp: parseTimestamp(dev.last_update ?? dev.lastUpdated ?? (dev as any).timestamp)
   });
 
   useEffect(() => {
@@ -41,7 +43,7 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
           temperature: data.temperature ?? dev.temperature ?? 4.2,
           humidity: data.humidity ?? dev.humidity ?? 62.0,
           mq135_raw: (data as any).gas ?? (data as any).mq135_raw ?? dev.mq135_raw ?? 120,
-          timestamp: (data as any).timestamp ?? Date.now()
+          timestamp: parseTimestamp((data as any).timestamp)
         });
       }
     });
@@ -53,10 +55,14 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
   }, [dev.device_id]);
 
   const liveMoisture = calculateMoisture(liveSensor.temperature, liveSensor.humidity);
+  const livePH = calculatePH(liveSensor.temperature, liveSensor.humidity, liveMoisture.absoluteMoisture, {
+    category: dev.product,
+    gas: liveSensor.mq135_raw,
+  });
 
-  const responseDate = new Date(liveSensor.timestamp || Date.now());
-  const formattedDate = responseDate.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
-  const formattedTime = responseDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  const { dateStr: formattedDate, timeStr: formattedTime } = formatRealtimeDateTime(
+    liveSensor.timestamp || dev.last_update || dev.lastUpdated || (dev as any).timestamp
+  );
 
   return (
     <motion.div
@@ -87,23 +93,27 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
           </span>
         </div>
 
-        {/* 4-column Sensor Readout */}
-        <div className="grid grid-cols-4 gap-1.5 sm:gap-2 p-3 rounded-2xl bg-gradient-to-b from-[#F4F7F6] to-[#EAEFEB] text-center border border-[#13493B]/8 shadow-inner">
+        {/* 5-column Sensor Readout with pH */}
+        <div className="grid grid-cols-5 gap-1 sm:gap-1.5 p-2.5 sm:p-3 rounded-2xl bg-gradient-to-b from-[#F4F7F6] to-[#EAEFEB] text-center border border-[#13493B]/8 shadow-inner">
           <div className="space-y-0.5">
-            <span className="text-[9px] font-bold text-[#5C7F75] uppercase block truncate">Temp</span>
-            <span className="text-xs sm:text-sm font-black text-[#07221A]">{liveSensor.temperature}°C</span>
+            <span className="text-[8.5px] font-bold text-[#5C7F75] uppercase block truncate">Temp</span>
+            <span className="text-[11px] sm:text-xs font-black text-[#07221A]">{liveSensor.temperature}°C</span>
           </div>
           <div className="space-y-0.5 border-l border-[#13493B]/10">
-            <span className="text-[9px] font-bold text-[#5C7F75] uppercase block truncate">Humidity</span>
-            <span className="text-xs sm:text-sm font-black text-[#07221A]">{liveSensor.humidity}%</span>
+            <span className="text-[8.5px] font-bold text-[#5C7F75] uppercase block truncate">Humidity</span>
+            <span className="text-[11px] sm:text-xs font-black text-[#07221A]">{liveSensor.humidity}%</span>
           </div>
           <div className="space-y-0.5 border-l border-[#13493B]/10">
-            <span className="text-[9px] font-bold text-[#5C7F75] uppercase block truncate">Moisture</span>
-            <span className="text-xs sm:text-sm font-black text-[#07221A]">{liveMoisture.absoluteMoisture}</span>
+            <span className="text-[8.5px] font-bold text-[#5C7F75] uppercase block truncate">Moisture</span>
+            <span className="text-[11px] sm:text-xs font-black text-[#07221A]">{liveMoisture.absoluteMoisture}</span>
+          </div>
+          <div className="space-y-0.5 border-l border-[#13493B]/10 bg-emerald-50/60 rounded-lg">
+            <span className="text-[8.5px] font-extrabold text-[#13493B] uppercase block truncate">pH</span>
+            <span className="text-[11px] sm:text-xs font-black text-emerald-800 font-mono">{livePH.ph}</span>
           </div>
           <div className="space-y-0.5 border-l border-[#13493B]/10">
-            <span className="text-[9px] font-bold text-[#5C7F75] uppercase block truncate">MQ-135</span>
-            <span className="text-xs sm:text-sm font-black text-[#07221A]">{liveSensor.mq135_raw}</span>
+            <span className="text-[8.5px] font-bold text-[#5C7F75] uppercase block truncate">MQ-135</span>
+            <span className="text-[11px] sm:text-xs font-black text-[#07221A]">{liveSensor.mq135_raw}</span>
           </div>
         </div>
 

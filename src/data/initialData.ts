@@ -39,6 +39,7 @@ export const DEFAULT_SENSOR_DATA: Record<string, SensorData> = {
     gas: 120,
     moisture: 4.0,
     dewPoint: -2.3,
+    ph: 6.65,
     timestamp: Date.now(),
   }
 };

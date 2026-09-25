@@ -26,6 +26,8 @@ import {
 import { RealtimeTrendCharts } from '../components/dashboard/RealtimeTrendCharts';
 import { ThresholdConfigModal } from '../components/common/ThresholdConfigModal';
 import { calculateMoisture } from '../utils/moistureCalculator';
+import { calculatePH } from '../utils/phCalculator';
+import { formatRealtimeDateTime, parseTimestamp } from '../utils/dateUtils';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
@@ -49,6 +51,7 @@ export const DashboardPage: React.FC = () => {
       humidity: sensorData.humidity,
       moisture: sensorData.moisture,
       dewPoint: sensorData.dewPoint,
+      ph: sensorData.ph,
       gas: sensorData.gas,
       freshnessScore: freshnessReport?.score ?? 0,
       status: freshnessReport?.status ?? 'Fresh',
@@ -63,30 +66,19 @@ export const DashboardPage: React.FC = () => {
     ? calculateMoisture(lastScanned.temperature, lastScanned.humidity)
     : (sensorData ? calculateMoisture(sensorData.temperature, sensorData.humidity) : null);
 
+  const livePH = lastScanned
+    ? calculatePH(lastScanned.temperature, lastScanned.humidity, liveMoisture?.absoluteMoisture, { category: (lastScanned as any).category, gas: lastScanned.gas })
+    : (sensorData ? calculatePH(sensorData.temperature, sensorData.humidity, liveMoisture?.absoluteMoisture, { category: activeItem?.category, gas: sensorData.gas }) : null);
+
   // Formatted last response received timestamp with full date, time, and 2-hour validity window
   const lastResponseInfo = useMemo(() => {
-    const ts = sensorData?.timestamp || (lastScanned?.timestamp ?? Date.now());
-    const d = new Date(ts);
-    const dateStr = d.toLocaleDateString('en-US', {
-      day: '2-digit',
-      month: 'short',
-      year: 'numeric'
-    });
-    const timeStr = d.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true
-    });
+    const raw = sensorData?.timestamp || (lastScanned?.timestamp ?? Date.now());
+    const ts = parseTimestamp(raw);
+    const { dateStr, timeStr } = formatRealtimeDateTime(ts);
 
     const validityDurationMs = 2 * 60 * 60 * 1000;
     const expiryTimestamp = ts + validityDurationMs;
-    const expiryDate = new Date(expiryTimestamp);
-    const expiryTimeStr = expiryDate.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      hour12: true
-    });
+    const { timeStr: expiryTimeStr } = formatRealtimeDateTime(expiryTimestamp);
 
     return {
       timestamp: ts,
@@ -279,21 +271,21 @@ export const DashboardPage: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* 2. FIVE SENSOR METRICS CARDS - REPLACED WITH LAST SCANNED PRODUCT TELEMETRY */}
+      {/* 2. SIX SENSOR METRICS CARDS - INCLUDES DERIVED THERMODYNAMIC pH */}
       <motion.div 
         variants={itemVariants}
-        className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4"
+        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4"
       >
         {/* Metric 1: Temp */}
         <motion.div 
           whileHover={{ y: -3 }}
           transition={{ duration: 0.2 }}
-          className="glass-card p-5 depth-2 space-y-4 flex flex-col justify-between hover:border-red-300/40 hover:shadow-[0_8px_25px_rgba(255,90,103,0.12)] transition-all"
+          className="glass-card p-4 sm:p-5 depth-2 space-y-4 flex flex-col justify-between hover:border-red-300/40 hover:shadow-[0_8px_25px_rgba(255,90,103,0.12)] transition-all"
         >
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <span className="text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block">Last Temperature</span>
-              <span className="text-2xl font-black text-[#07221A] tracking-tight block">
+              <span className="text-xl sm:text-2xl font-black text-[#07221A] tracking-tight block">
                 {lastScanned ? `${lastScanned.temperature} °C` : '0 °C'}
               </span>
               <span className={`text-[10px] font-bold flex items-center gap-0.5 ${
@@ -302,8 +294,8 @@ export const DashboardPage: React.FC = () => {
                 <span>{lastScanned ? (lastScanned.temperature > 8 ? 'Elevated temp' : 'Optimal range') : '0 Scans Recorded'}</span>
               </span>
             </div>
-            <div className="neo-icon-box w-10 h-10 rounded-2xl flex items-center justify-center text-[#FF5A67] shadow-sm">
-              <Thermometer className="w-5 h-5" />
+            <div className="neo-icon-box w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-[#FF5A67] shadow-sm">
+              <Thermometer className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </div>
           {/* Dynamic Sparkline rendering from actual historical data */}
@@ -325,12 +317,12 @@ export const DashboardPage: React.FC = () => {
         <motion.div 
           whileHover={{ y: -3 }}
           transition={{ duration: 0.2 }}
-          className="glass-card p-5 depth-2 space-y-4 flex flex-col justify-between hover:border-blue-300/40 hover:shadow-[0_8px_25px_rgba(59,130,246,0.12)] transition-all"
+          className="glass-card p-4 sm:p-5 depth-2 space-y-4 flex flex-col justify-between hover:border-blue-300/40 hover:shadow-[0_8px_25px_rgba(59,130,246,0.12)] transition-all"
         >
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <span className="text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block">Last Humidity</span>
-              <span className="text-2xl font-black text-[#07221A] tracking-tight block">
+              <span className="text-xl sm:text-2xl font-black text-[#07221A] tracking-tight block">
                 {lastScanned ? `${lastScanned.humidity} %` : '0 %'}
               </span>
               <span className={`text-[10px] font-bold flex items-center gap-0.5 ${
@@ -339,8 +331,8 @@ export const DashboardPage: React.FC = () => {
                 <span>{lastScanned ? (lastScanned.humidity > 70 ? 'High moisture' : 'Optimal moisture') : '0 Scans Recorded'}</span>
               </span>
             </div>
-            <div className="neo-icon-box w-10 h-10 rounded-2xl flex items-center justify-center text-[#3B82F6] shadow-sm">
-              <Droplets className="w-5 h-5" />
+            <div className="neo-icon-box w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-[#3B82F6] shadow-sm">
+              <Droplets className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </div>
           <div className="w-full h-8 pt-1">
@@ -361,12 +353,12 @@ export const DashboardPage: React.FC = () => {
         <motion.div 
           whileHover={{ y: -3 }}
           transition={{ duration: 0.2 }}
-          className="glass-card p-5 depth-2 space-y-4 flex flex-col justify-between hover:border-sky-300/40 hover:shadow-[0_8px_25px_rgba(14,165,233,0.12)] transition-all"
+          className="glass-card p-4 sm:p-5 depth-2 space-y-4 flex flex-col justify-between hover:border-sky-300/40 hover:shadow-[0_8px_25px_rgba(14,165,233,0.12)] transition-all"
         >
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <span className="text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block">Calc. Moisture</span>
-              <span className="text-2xl font-black text-[#07221A] tracking-tight block">
+              <span className="text-xl sm:text-2xl font-black text-[#07221A] tracking-tight block">
                 {liveMoisture ? `${liveMoisture.absoluteMoisture} g/m³` : '0 g/m³'}
               </span>
               <span className={`text-[10px] font-bold flex items-center gap-0.5 ${
@@ -375,8 +367,8 @@ export const DashboardPage: React.FC = () => {
                 <span>{liveMoisture ? `Dew: ${liveMoisture.dewPoint}°C • ${liveMoisture.status}` : '0 Scans Recorded'}</span>
               </span>
             </div>
-            <div className="neo-icon-box w-10 h-10 rounded-2xl flex items-center justify-center text-[#0EA5E9] shadow-sm">
-              <Droplets className="w-5 h-5" />
+            <div className="neo-icon-box w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-[#0EA5E9] shadow-sm">
+              <Droplets className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </div>
           <div className="w-full h-8 pt-1">
@@ -393,16 +385,52 @@ export const DashboardPage: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Metric 4: Air Quality Gas */}
+        {/* Metric 4: Calculated pH (Thermodynamic Acidity & Ionization) */}
         <motion.div 
           whileHover={{ y: -3 }}
           transition={{ duration: 0.2 }}
-          className="glass-card p-5 depth-2 space-y-4 flex flex-col justify-between hover:border-purple-300/40 hover:shadow-[0_8px_25px_rgba(147,51,234,0.12)] transition-all"
+          className="glass-card p-4 sm:p-5 depth-2 space-y-4 flex flex-col justify-between hover:border-emerald-300/60 hover:shadow-[0_8px_25px_rgba(32,231,154,0.18)] transition-all bg-emerald-50/30"
+        >
+          <div className="flex justify-between items-start">
+            <div className="space-y-1">
+              <span className="text-[10px] font-extrabold text-[#13493B] uppercase tracking-wider block">Calculated pH</span>
+              <span className="text-xl sm:text-2xl font-black text-emerald-950 font-mono tracking-tight block">
+                {livePH ? `pH ${livePH.ph}` : 'pH --'}
+              </span>
+              <span className={`text-[10px] font-bold flex items-center gap-0.5 ${
+                !livePH ? 'text-[#5C7F75]' : livePH.status === 'Acidic / Fermenting' ? 'text-red-500' : 'text-emerald-700'
+              }`}>
+                <span>{livePH ? `${livePH.status} • ${livePH.acidityClassification}` : '0 Scans Recorded'}</span>
+              </span>
+            </div>
+            <div className="neo-icon-box w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-emerald-600 bg-emerald-100/90 border border-emerald-300 shadow-sm">
+              <Activity className="w-4 h-4 sm:w-5 sm:h-5 glow-icon-emerald" />
+            </div>
+          </div>
+          <div className="w-full h-8 pt-1">
+            <svg viewBox="0 0 100 30" className="w-full h-full overflow-visible">
+              <path 
+                d={livePH ? "M 0 14 Q 25 20 50 12 T 100 15" : "M 0 25 L 100 25"} 
+                fill="none" 
+                stroke="#10B981" 
+                strokeWidth="2.5" 
+                strokeLinecap="round"
+                strokeOpacity={livePH ? 1 : 0.3}
+              />
+            </svg>
+          </div>
+        </motion.div>
+
+        {/* Metric 5: Air Quality Gas */}
+        <motion.div 
+          whileHover={{ y: -3 }}
+          transition={{ duration: 0.2 }}
+          className="glass-card p-4 sm:p-5 depth-2 space-y-4 flex flex-col justify-between hover:border-purple-300/40 hover:shadow-[0_8px_25px_rgba(147,51,234,0.12)] transition-all"
         >
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <span className="text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block">Last MQ-135 Gas</span>
-              <span className="text-2xl font-black text-[#07221A] tracking-tight block">
+              <span className="text-xl sm:text-2xl font-black text-[#07221A] tracking-tight block">
                 {lastScanned ? `${lastScanned.gas}` : '0'}
               </span>
               <span className={`text-[10px] font-bold flex items-center gap-0.5 ${
@@ -411,8 +439,8 @@ export const DashboardPage: React.FC = () => {
                 <span>{lastScanned ? (lastScanned.gas > 300 ? 'VOC Spike Detected' : 'Normal Purity') : '0 Scans Recorded'}</span>
               </span>
             </div>
-            <div className="neo-icon-box w-10 h-10 rounded-2xl flex items-center justify-center text-purple-600 shadow-sm">
-              <Wind className="w-5 h-5" />
+            <div className="neo-icon-box w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-purple-600 shadow-sm">
+              <Wind className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </div>
           <div className="w-full h-8 pt-1">
@@ -429,16 +457,16 @@ export const DashboardPage: React.FC = () => {
           </div>
         </motion.div>
 
-        {/* Metric 5: Freshness Quality Score */}
+        {/* Metric 6: Freshness Quality Score */}
         <motion.div 
           whileHover={{ y: -3 }}
           transition={{ duration: 0.2 }}
-          className="glass-card p-5 depth-2 space-y-4 flex flex-col justify-between hover:border-[#20E79A]/40 hover:shadow-[0_8px_25px_rgba(32,231,154,0.15)] transition-all"
+          className="glass-card p-4 sm:p-5 depth-2 space-y-4 flex flex-col justify-between hover:border-[#20E79A]/40 hover:shadow-[0_8px_25px_rgba(32,231,154,0.15)] transition-all"
         >
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <span className="text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block">Freshness Score</span>
-              <span className="text-2xl font-black text-[#07221A] tracking-tight block">
+              <span className="text-xl sm:text-2xl font-black text-[#07221A] tracking-tight block">
                 {lastScanned ? `${lastScanned.freshnessScore}%` : '0%'}
               </span>
               <span className={`text-[10px] font-bold block ${
@@ -447,8 +475,8 @@ export const DashboardPage: React.FC = () => {
                 {lastScanned ? `${lastScanned.status} • ${lastScanned.itemName}` : '0 Scans Recorded'}
               </span>
             </div>
-            <div className="neo-icon-box w-10 h-10 rounded-2xl flex items-center justify-center text-[#20E79A] shadow-sm">
-              <Package className="w-5 h-5 glow-icon-emerald" />
+            <div className="neo-icon-box w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-[#20E79A] shadow-sm">
+              <Package className="w-4 h-4 sm:w-5 sm:h-5 glow-icon-emerald" />
             </div>
           </div>
           <div className="w-full h-8 pt-1">

@@ -21,6 +21,7 @@ export interface SensorData {
   gas: number;
   moisture?: number; // Absolute moisture content in air (g/m³), repeatedly calculated from temp & humidity
   dewPoint?: number; // Dew point condensation temperature (°C)
+  ph?: number; // Calculated thermodynamic pH derived from temperature, humidity, and moisture
   timestamp: number;
 }
 
@@ -32,6 +33,7 @@ export interface HistoricalReadingPoint {
   gas: number;
   moisture?: number; // Calculated moisture (g/m³)
   dewPoint?: number;
+  ph?: number; // Calculated pH
 }
 
 export interface ScanHistoryRecord {
@@ -44,6 +46,7 @@ export interface ScanHistoryRecord {
   humidity: number;
   gas: number;
   moisture?: number; // Calculated moisture (g/m³)
+  ph?: number; // Calculated pH
   freshnessScore: number;
   status: FreshnessStatus;
   timestamp: number;
@@ -92,6 +95,8 @@ export interface DeviceData {
   humidity?: number;
   gasLevel?: number;
   mq135_raw?: number;
+  moisture?: number;
+  ph?: number;
   lastUpdated?: number;
   last_update?: number;
   timestamp?: number;
@@ -124,6 +129,8 @@ export interface UserScanItem {
   temperature?: number;
   humidity?: number;
   gasLevel?: number;
+  moisture?: number;
+  ph?: number;
 }
 
 export interface SensorHistoryEntry {
@@ -133,6 +140,8 @@ export interface SensorHistoryEntry {
   humidity: number;
   gasLevel?: number;
   mq135_raw?: number;
+  moisture?: number;
+  ph?: number;
 }
 
 export interface ProductProfile {
@@ -177,5 +186,7 @@ export interface LiveReading {
   temperature: number;
   humidity: number;
   gasLevel: number;
+  moisture?: number;
+  ph?: number;
   timestamp: number;
 }

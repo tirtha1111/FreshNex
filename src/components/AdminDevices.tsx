@@ -40,6 +40,8 @@ import { DeviceCard } from './DeviceCard';
 import { SmartDeviceRegistrationModal } from './SmartDeviceRegistrationModal';
 import { researchProductThresholds, AIThresholdResearchResult } from '../services/aiThresholdService';
 import { calculateMoisture } from '../utils/moistureCalculator';
+import { calculatePH } from '../utils/phCalculator';
+import { formatRealtimeDateTime, parseTimestamp } from '../utils/dateUtils';
 
 export const AdminDevices: React.FC = () => {
   const { userProfile, isDemoMode } = useAuth();
@@ -219,7 +221,7 @@ export const AdminDevices: React.FC = () => {
         temperature: dev.temperature ?? 4.2,
         humidity: dev.humidity ?? 62.0,
         mq135_raw: dev.mq135_raw ?? 120,
-        timestamp: dev.last_update ?? dev.lastUpdated ?? Date.now()
+        timestamp: parseTimestamp(dev.last_update ?? dev.lastUpdated ?? (dev as any).timestamp)
       });
     }
 
@@ -229,7 +231,7 @@ export const AdminDevices: React.FC = () => {
           temperature: data.temperature ?? dev?.temperature ?? 4.2,
           humidity: data.humidity ?? dev?.humidity ?? 62.0,
           mq135_raw: (data as any).gas ?? (data as any).mq135_raw ?? dev?.mq135_raw ?? 120,
-          timestamp: (data as any).timestamp ?? Date.now()
+          timestamp: parseTimestamp((data as any).timestamp)
         });
       }
     });
@@ -279,9 +281,15 @@ export const AdminDevices: React.FC = () => {
     ? calculateMoisture(activeDevice.temperature, activeDevice.humidity)
     : null;
 
-  const lastResponseDate = new Date(liveSensor.timestamp || Date.now());
-  const formattedResponseDate = lastResponseDate.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
-  const formattedResponseTime = lastResponseDate.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+  const activePH = activeDevice && activeMoisture
+    ? calculatePH(activeDevice.temperature, activeDevice.humidity, activeMoisture.absoluteMoisture, {
+        category: activeDevice.product,
+        gas: activeDevice.mq135_raw
+      })
+    : null;
+
+  const rawResponseTimestamp = liveSensor.timestamp || (activeDevice as any)?.last_update || (activeDevice as any)?.lastUpdated || (activeDevice as any)?.timestamp;
+  const { dateStr: formattedResponseDate, timeStr: formattedResponseTime } = formatRealtimeDateTime(rawResponseTimestamp);
 
   const handleOpenConfigModal = (dev: DeviceData) => {
     setConfigModalDevice(dev);
@@ -486,7 +494,7 @@ export const AdminDevices: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
                 <motion.div 
                   whileHover={{ y: -3, scale: 1.02 }}
                   transition={{ type: "spring", stiffness: 350, damping: 20 }}
@@ -541,6 +549,35 @@ export const AdminDevices: React.FC = () => {
                   </div>
                   <div className="w-12 h-12 rounded-2xl bg-[#EBFBF4] text-[#20E79A] border border-[#20E79A]/40 flex items-center justify-center shrink-0 shadow-xs">
                     <Waves className="w-6 h-6 text-[#13493B]" />
+                  </div>
+                </motion.div>
+
+                {/* Calculated Thermodynamic pH Card */}
+                <motion.div 
+                  whileHover={{ y: -3, scale: 1.02 }}
+                  transition={{ type: "spring", stiffness: 350, damping: 20 }}
+                  className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-emerald-50/80 via-white to-[#EBFBF4] border border-emerald-300 shadow-sm hover:shadow-md transition-all flex items-center justify-between relative overflow-hidden"
+                >
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="text-[10px] font-extrabold text-emerald-900 uppercase block tracking-wider">pH Level</span>
+                      {activePH && (
+                        <span className="px-1.5 py-0.5 rounded-md text-[8.5px] font-extrabold bg-emerald-100 text-emerald-900 border border-emerald-300">
+                          {activePH.status}
+                        </span>
+                      )}
+                    </div>
+                    <span className="text-2xl sm:text-3xl font-black text-emerald-950 font-mono block truncate">
+                      {activePH ? activePH.ph : '--'}
+                    </span>
+                    {activePH && (
+                      <span className="text-[10px] font-mono text-emerald-800 font-bold block mt-0.5 truncate">
+                        [H⁺]: {activePH.hydrogenIonConcentration}
+                      </span>
+                    )}
+                  </div>
+                  <div className="w-12 h-12 rounded-2xl bg-emerald-100 text-emerald-800 border border-emerald-300 flex items-center justify-center shrink-0 shadow-xs">
+                    <Sparkles className="w-6 h-6 text-emerald-700" />
                   </div>
                 </motion.div>
 

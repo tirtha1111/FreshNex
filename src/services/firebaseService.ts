@@ -5,6 +5,8 @@ import { database as defaultDatabase, db as defaultFirestore, firebaseConfig } f
 import { FoodItem, SensorData, ScanHistoryRecord } from '../types';
 import { DEFAULT_ITEMS, DEFAULT_SENSOR_DATA, DEFAULT_SCAN_HISTORY } from '../data/initialData';
 import { calculateMoisture } from '../utils/moistureCalculator';
+import { calculatePH } from '../utils/phCalculator';
+import { parseTimestamp } from '../utils/dateUtils';
 
 /**
  * Subscribe to real-time status of a device in Firebase Realtime Database
@@ -149,6 +151,7 @@ export function subscribeToSensorData(
 
   if (isMeat) {
     const meatMoisture = calculateMoisture(3.5, 68.0);
+    const meatPH = calculatePH(3.5, 68.0, meatMoisture.absoluteMoisture, { category: 'meat', gas: 980 });
     setTimeout(() => {
       callback({
         temperature: 3.5,
@@ -156,6 +159,7 @@ export function subscribeToSensorData(
         gas: 980,
         moisture: meatMoisture.absoluteMoisture,
         dewPoint: meatMoisture.dewPoint,
+        ph: meatPH.ph,
         timestamp: Date.now(),
         isReal: false,
       } as any);
@@ -185,7 +189,8 @@ export function subscribeToSensorData(
     const temperature = Number(target.temperature ?? target.temp ?? target.t ?? defaultTemp);
     const humidity = Number(target.humidity ?? target.hum ?? target.h ?? defaultHum);
     const gas = Number(target.mq135_raw ?? target.gas ?? target.gas_ppm ?? target.mq135 ?? target.mq2 ?? target.voc ?? defaultGas);
-    const timestamp = Number(target.timestamp ?? target.time ?? target.last_update ?? Date.now());
+    const rawTimestamp = target.timestamp ?? target.time ?? target.last_update ?? target.lastUpdated ?? target.last_updated ?? target.last_seen ?? target.lastSeen ?? target.updated_at ?? target.updatedAt ?? target.date ?? target.dateTime ?? target.datetime;
+    const timestamp = parseTimestamp(rawTimestamp);
 
     const finalTemp = isNaN(temperature) ? defaultTemp : +temperature.toFixed(1);
     const finalHum = isNaN(humidity) ? defaultHum : Math.round(humidity);
@@ -193,6 +198,11 @@ export function subscribeToSensorData(
 
     // Repeatedly calculate psychrometric moisture metrics from live temperature and humidity
     const moistureReading = calculateMoisture(finalTemp, finalHum);
+    // Repeatedly calculate thermodynamic pH from temperature, humidity, and moisture
+    const phReading = calculatePH(finalTemp, finalHum, moistureReading.absoluteMoisture, {
+      category: isMeat ? 'meat' : 'dairy',
+      gas: finalGas,
+    });
 
     callback({
       temperature: finalTemp,
@@ -200,14 +210,14 @@ export function subscribeToSensorData(
       gas: finalGas,
       moisture: moistureReading.absoluteMoisture,
       dewPoint: moistureReading.dewPoint,
-      timestamp: isNaN(timestamp) ? Date.now() : timestamp,
+      ph: phReading.ph,
+      timestamp,
       isReal,
     } as any);
   };
 
-  let activeCleanup: (() => void) | null = null;
+  const cleanups: (() => void)[] = [];
   const db = getDirectDatabase();
-  let unsubscribed = false;
 
   if (db) {
     try {
@@ -221,80 +231,76 @@ export function subscribeToSensorData(
         const h = isMeatItem ? 68.0 : 62.0;
         const g = isMeatItem ? 980 : 120;
         const m = calculateMoisture(t, h);
+        const p = calculatePH(t, h, m.absoluteMoisture, { category: isMeatItem ? 'meat' : 'dairy', gas: g });
         return {
           temperature: t,
           humidity: h,
           gas: g,
           moisture: m.absoluteMoisture,
           dewPoint: m.dewPoint,
+          ph: p.ph,
           timestamp: Date.now(),
         };
       };
 
-      const handleValue = (snapshot: any) => {
+      let gotRealData = false;
+
+      const handleDevVal = (snapshot: any) => {
         if (snapshot.exists()) {
+          gotRealData = true;
           processSensorPayload(snapshot.val(), true);
-        } else {
-          get(sensorRef).then(sensorSnap => {
-            if (sensorSnap.exists()) {
-              processSensorPayload(sensorSnap.val(), true);
-            } else {
-              get(defaultDeviceRef).then(defSnap => {
-                if (defSnap.exists()) {
-                  processSensorPayload(defSnap.val(), true);
-                } else {
-                  callback({ ...createDefaultSensor(isMeat), isReal: false } as any);
-                }
-              }).catch(() => {
-                callback({ ...createDefaultSensor(isMeat), isReal: false } as any);
-              });
-            }
-          }).catch(() => {
-            callback({ ...createDefaultSensor(isMeat), isReal: false } as any);
-          });
         }
       };
 
-      onValue(deviceRef, handleValue, (err) => {
+      const handleSensorVal = (snapshot: any) => {
+        if (snapshot.exists()) {
+          gotRealData = true;
+          processSensorPayload(snapshot.val(), true);
+        }
+      };
+
+      onValue(deviceRef, handleDevVal, (err) => {
         console.warn(`Realtime device listener warning for ${deviceIdToListen}:`, err);
       });
+      onValue(sensorRef, handleSensorVal, (err) => {
+        console.warn(`Realtime sensor listener warning for ${deviceIdToListen}:`, err);
+      });
 
-      activeCleanup = () => {
-        off(deviceRef, 'value', handleValue);
-      };
+      let unsubscribed = false;
+
+      // Background REST polling fallback if needed
+      const restInterval = setInterval(async () => {
+        if (unsubscribed) return;
+        try {
+          const targetUrl = firebaseConfig.databaseURL || REALTIME_DATABASE_URL;
+          const base = targetUrl.replace(/\/$/, '');
+          const path = isMeat ? 'YGS-FD-112233' : 'YGS-FD-000124';
+          
+          const res = await fetch(`${base}/devices/${path}.json`, {
+            signal: AbortSignal.timeout(2500)
+          });
+          if (res.ok) {
+            const data = await res.json();
+            if (data) {
+              processSensorPayload(data, true);
+            }
+          }
+        } catch {
+          // Non-blocking fallback
+        }
+      }, 4000);
+
+      cleanups.push(() => {
+        unsubscribed = true;
+        clearInterval(restInterval);
+      });
     } catch (e) {
       console.warn('Realtime subscription initiation error:', e);
     }
   }
 
-  // Background REST polling fallback
-  const restInterval = setInterval(async () => {
-    if (unsubscribed) return;
-    try {
-      const targetUrl = firebaseConfig.databaseURL || REALTIME_DATABASE_URL;
-      const base = targetUrl.replace(/\/$/, '');
-      const path = isMeat ? 'YGS-FD-112233' : 'YGS-FD-000124';
-      
-      const res = await fetch(`${base}/devices/${path}.json`, {
-        signal: AbortSignal.timeout(2500)
-      });
-      if (res.ok) {
-        const data = await res.json();
-        if (data) {
-          processSensorPayload(data, true);
-        }
-      }
-    } catch {
-      // Non-blocking fallback
-    }
-  }, 3000);
-
   return () => {
-    unsubscribed = true;
-    clearInterval(restInterval);
-    if (activeCleanup) {
-      activeCleanup();
-    }
+    cleanups.forEach(c => c());
   };
 }
 

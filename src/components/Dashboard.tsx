@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { motion } from 'motion/react';
 import { QrCode, ArrowRight, ShieldCheck, Cpu, Clock, ChevronRight, Activity, Sparkles } from 'lucide-react';
+import { calculateMoisture } from '../utils/moistureCalculator';
+import { calculatePH } from '../utils/phCalculator';
 
 export const Dashboard: React.FC = () => {
   const { userRecord, userScans, devicesMap } = useApp();
@@ -10,6 +12,8 @@ export const Dashboard: React.FC = () => {
 
   // Get prototype or latest device readings for summary preview
   const protoDevice = devicesMap['YGS-FD-000124'];
+  const protoMoisture = protoDevice ? calculateMoisture(protoDevice.temperature ?? 4.2, protoDevice.humidity ?? 62) : null;
+  const protoPH = protoDevice && protoMoisture ? calculatePH(protoDevice.temperature ?? 4.2, protoDevice.humidity ?? 62, protoMoisture.absoluteMoisture, { category: protoDevice.product, gas: protoDevice.mq135_raw }) : null;
 
   return (
     <div className="space-y-6">
@@ -37,7 +41,7 @@ export const Dashboard: React.FC = () => {
             <div>
               <p className="text-xs font-bold text-[#FDF8F5]">{protoDevice.product} ({protoDevice.device_id})</p>
               <p className="text-[10px] text-[#FFAA00] font-mono font-semibold">
-                {protoDevice.temperature}°C • {protoDevice.humidity}% • MQ135: {protoDevice.mq135_raw}
+                {protoDevice.temperature}°C • {protoDevice.humidity}% • pH {protoPH?.ph ?? '6.65'} • Moist: {protoMoisture?.absoluteMoisture ?? '4.0'}
               </p>
             </div>
             <ChevronRight className="w-4 h-4 text-[#B8A89E]" />
@@ -162,6 +166,8 @@ export const Dashboard: React.FC = () => {
                 last_update: scan.scanned_at
               };
 
+              const scanPH = calculatePH(deviceData.temperature ?? 4.2, deviceData.humidity ?? 62, undefined, { category: scan.product, gas: deviceData.mq135_raw });
+
               return (
                 <div
                   key={scan.id}
@@ -186,7 +192,7 @@ export const Dashboard: React.FC = () => {
                       LIVE
                     </span>
                     <p className="text-xs font-bold text-[#FDF8F5] mt-1 font-mono">
-                      {deviceData.temperature}°C | {deviceData.humidity}%
+                      {deviceData.temperature}°C | {deviceData.humidity}% | pH {scanPH.ph}
                     </p>
                   </div>
                 </div>

@@ -11,9 +11,12 @@ import {
   Activity, 
   ArrowRight,
   Waves,
-  Clock
+  Clock,
+  Sparkles
 } from 'lucide-react';
 import { calculateMoisture } from '../utils/moistureCalculator';
+import { calculatePH } from '../utils/phCalculator';
+import { formatRealtimeDateTime, parseTimestamp } from '../utils/dateUtils';
 
 export const AdminDashboard: React.FC = () => {
   const { devicesMap, allUsersList, alertsList } = useApp();
@@ -129,6 +132,7 @@ export const AdminDashboard: React.FC = () => {
                 <th className="py-2.5 px-3">Temperature</th>
                 <th className="py-2.5 px-3">Humidity</th>
                 <th className="py-2.5 px-3">Moisture</th>
+                <th className="py-2.5 px-3">pH Level</th>
                 <th className="py-2.5 px-3">MQ-135 Raw</th>
                 <th className="py-2.5 px-3">Last Response</th>
                 <th className="py-2.5 px-3">Status</th>
@@ -138,10 +142,12 @@ export const AdminDashboard: React.FC = () => {
             <tbody className="divide-y divide-[#FF6A00]/10 text-xs font-medium text-[#FDF8F5]">
               {devicesArray.map((dev) => {
                 const devMoisture = calculateMoisture(dev.temperature, dev.humidity);
-                const devTimestamp = dev.last_update || dev.lastUpdated || Date.now();
-                const d = new Date(devTimestamp);
-                const dateStr = d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
-                const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+                const devPH = calculatePH(dev.temperature, dev.humidity, devMoisture.absoluteMoisture, {
+                  category: dev.product,
+                  gas: dev.mq135_raw,
+                });
+                const devTimestamp = parseTimestamp(dev.last_update || dev.lastUpdated || (dev as any).timestamp);
+                const { dateStr, timeStr } = formatRealtimeDateTime(devTimestamp);
 
                 return (
                   <tr key={dev.device_id} className="hover:bg-[#FF6A00]/5 transition-colors">
@@ -153,6 +159,12 @@ export const AdminDashboard: React.FC = () => {
                       <span className="inline-flex items-center gap-1 font-mono">
                         <Waves className="w-3 h-3 text-[#20E79A]/80" />
                         {devMoisture.absoluteMoisture}
+                      </span>
+                    </td>
+                    <td className="py-3 px-3 font-bold">
+                      <span className="inline-flex items-center gap-1 font-mono px-2 py-0.5 rounded-md bg-emerald-500/15 text-emerald-400 border border-emerald-500/30">
+                        <Sparkles className="w-2.5 h-2.5" />
+                        {devPH.ph}
                       </span>
                     </td>
                     <td className="py-3 px-3 font-bold">{dev.mq135_raw}</td>
