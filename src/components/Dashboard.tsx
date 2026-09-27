@@ -41,7 +41,7 @@ export const Dashboard: React.FC = () => {
             <div>
               <p className="text-xs font-bold text-[#FDF8F5]">{protoDevice.product} ({protoDevice.device_id})</p>
               <p className="text-[10px] text-[#FFAA00] font-mono font-semibold">
-                {protoDevice.temperature}°C • {protoDevice.humidity}% • pH {protoPH?.ph ?? '6.65'} • Moist: {protoMoisture?.absoluteMoisture ?? '4.0'}
+                {protoDevice.temperature}°C • {protoDevice.humidity}% • pH {protoPH?.ph ?? '3.85'} • Moist: {protoMoisture?.absoluteMoisture ?? '4.0'}
               </p>
             </div>
             <ChevronRight className="w-4 h-4 text-[#B8A89E]" />

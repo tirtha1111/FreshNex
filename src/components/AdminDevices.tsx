@@ -293,7 +293,7 @@ export const AdminDevices: React.FC = () => {
 
   const handleOpenConfigModal = (dev: DeviceData) => {
     setConfigModalDevice(dev);
-    setProductName(dev.product || 'Milk');
+    setProductName(dev.product || 'Ketchup');
     
     const profile = productProfiles.find(p => p.name.toLowerCase() === (dev.product || '').toLowerCase());
     if (profile) {
@@ -382,7 +382,7 @@ export const AdminDevices: React.FC = () => {
                   <Radio className="w-3 h-3 text-emerald-600" />
                   ESP32 Monitored Node
                 </span>
-                <h2 className="text-2xl sm:text-3xl font-black text-[#07221A] tracking-tight">{activeDevice.product || 'Milk'}</h2>
+                <h2 className="text-2xl sm:text-3xl font-black text-[#07221A] tracking-tight">{activeDevice.product || 'Ketchup'}</h2>
                 <p className="text-xs font-mono font-bold text-amber-800 flex items-center gap-1.5 mt-0.5">
                   <span className="text-[#5C7F75] font-sans text-[11px]">Device ID:</span>
                   <span className="bg-amber-100/80 text-amber-900 px-2.5 py-0.5 rounded-lg border border-amber-300/80 shadow-xs font-mono font-bold">{activeDevice.device_id}</span>

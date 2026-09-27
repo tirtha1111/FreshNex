@@ -117,7 +117,7 @@ export const LoginPage: React.FC = () => {
     clearAuthError();
 
     if (!productId.trim()) {
-      setLocalError('Please enter a valid unique product tag ID (e.g. MILK or MEAT).');
+      setLocalError('Please enter a valid unique product tag ID (e.g. KETCHUP or MEAT).');
       return;
     }
 
@@ -262,7 +262,7 @@ export const LoginPage: React.FC = () => {
                       required
                       value={productId}
                       onChange={(e) => setProductId(e.target.value)}
-                      placeholder="e.g. MILK or MEAT"
+                      placeholder="e.g. KETCHUP or MEAT"
                       className="w-full px-4 py-3.5 bg-slate-50 text-sm font-bold text-slate-900 placeholder-slate-400 rounded-2xl border border-slate-200/80 focus:outline-none focus:bg-white focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 transition-all uppercase font-mono tracking-wider"
                     />
                   </div>
@@ -270,10 +270,10 @@ export const LoginPage: React.FC = () => {
                     <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Demo Tags:</span>
                     <button 
                       type="button" 
-                      onClick={() => setProductId('MILK')}
+                      onClick={() => setProductId('KETCHUP')}
                       className="px-2 py-0.5 rounded-lg bg-orange-100/70 hover:bg-orange-200 text-orange-800 text-[11px] font-mono font-bold cursor-pointer transition-colors"
                     >
-                      MILK
+                      KETCHUP
                     </button>
                     <button 
                       type="button" 

@@ -44,6 +44,27 @@ export interface FreshnessCategoryThresholds {
 }
 
 export const CATEGORY_THRESHOLDS: Record<string, FreshnessCategoryThresholds> = {
+  Condiments: {
+    categoryName: 'Condiments & Sauces',
+    tempOptimalMin: 1.0,
+    tempOptimalMax: 8.0,
+    tempWarningMax: 12.0,
+    tempCriticalMax: 20.0,
+    tempFreezeRisk: -2.0,
+    humidityOptimalMin: 40.0,
+    humidityOptimalMax: 70.0,
+    humidityWarningMin: 30.0,
+    humidityWarningMax: 85.0,
+    gasOptimalMax: 150.0,
+    gasWarningMax: 250.0,
+    gasCriticalMax: 380.0,
+    gasAdcBaseline: 1100,
+    gasAdcWarning: 1400,
+    gasAdcCritical: 1800,
+    weights: { temp: 0.35, humidity: 0.25, gas: 0.40 },
+    scientificReference: 'FDA Food Safety Standards & Acidified Foods Guidelines (§114)',
+    rationale: 'Acidified tomato products maintain microbial stability, but elevated temperatures trigger Maillard browning, sensory off-flavors, and packaging gas expansion.'
+  },
   Dairy: {
     categoryName: 'Dairy Products',
     tempOptimalMin: 1.0,
@@ -201,6 +222,9 @@ export function resolveThresholdsForCategory(category?: string): FreshnessCatego
   if (!category) return DEFAULT_THRESHOLDS;
   const c = category.toLowerCase().trim();
 
+  if (c.includes('ketchup') || c.includes('sauce') || c.includes('condiment')) {
+    return CATEGORY_THRESHOLDS.Condiments;
+  }
   if (c.includes('dairy') || c.includes('milk') || c.includes('cheese') || c.includes('yogurt') || c.includes('butter')) {
     return CATEGORY_THRESHOLDS.Dairy;
   }

@@ -82,6 +82,8 @@ export function calculatePH(
     basePH = 6.45; // Fresh fish baseline
   } else if (cat.includes('fruit') || cat.includes('berry') || cat.includes('produce')) {
     basePH = 6.10; // Fresh produce baseline
+  } else if (cat.includes('ketchup') || cat.includes('sauce') || cat.includes('condiment') || cat.includes('tomato')) {
+    basePH = 3.85; // Tomato ketchup baseline (~3.70 - 3.95)
   } else if (cat.includes('dairy') || cat.includes('milk') || cat.includes('cheese') || cat.includes('yogurt')) {
     basePH = 6.68; // Fresh milk baseline
   }

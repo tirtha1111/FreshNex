@@ -146,7 +146,7 @@ export const AdminProducts: React.FC = () => {
                   required
                   value={name}
                   onChange={e => setName(e.target.value)}
-                  placeholder="e.g. Milk, Meat, Fish..."
+                  placeholder="e.g. Ketchup, Meat, Fish..."
                   className="w-full glass-input px-3.5 py-2.5 rounded-xl text-sm font-bold text-[#1A120D]"
                 />
               </div>

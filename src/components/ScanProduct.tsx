@@ -130,7 +130,7 @@ export const ScanProduct: React.FC = () => {
 
       if (device) {
         // Device found! Save to scan history and navigate to details
-        await addScanToHistory(device.device_id, device.product || 'Milk');
+        await addScanToHistory(device.device_id, device.product || 'Ketchup');
         navigate(`/products/${device.device_id}`);
       } else {
         setErrorMessage(`FreshNex device "${cleanId}" not found in database.`);
@@ -278,7 +278,7 @@ export const ScanProduct: React.FC = () => {
           </div>
           <div>
             <p className="text-xs font-bold text-[#FDF8F5]">Quick Test Prototype Device</p>
-            <p className="text-[10px] text-[#B8A89E] font-mono">YGS-FD-000124 (Milk Package)</p>
+            <p className="text-[10px] text-[#B8A89E] font-mono">YGS-FD-000124 (Ketchup Bottle)</p>
           </div>
         </div>
         <span className="text-xs font-bold text-[#FFAA00] hover:underline">SCAN NOW →</span>

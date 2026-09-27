@@ -30,10 +30,10 @@ export const ProductDetails: React.FC = () => {
   const deviceId = productId ? productId.toUpperCase() : 'YGS-FD-000124';
   const baseDevice = devicesMap[deviceId] || {
     device_id: deviceId,
-    product: 'Milk',
-    temperature: 27.4,
-    humidity: 61.2,
-    mq135_raw: 1320,
+    product: 'Ketchup',
+    temperature: 4.5,
+    humidity: 58.2,
+    mq135_raw: 140,
     online: true,
     last_update: Date.now()
   };
@@ -137,7 +137,7 @@ export const ProductDetails: React.FC = () => {
               Package Telemetry
             </span>
             <h1 className="text-2xl sm:text-3xl font-black text-[#FDF8F5] mt-1">
-              {device.product || 'Milk'}
+              {device.product || 'Ketchup'}
             </h1>
             <p className="text-xs font-mono font-bold text-[#B8A89E] mt-0.5">
               ID: {device.device_id}

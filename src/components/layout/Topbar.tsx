@@ -220,7 +220,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                 {userProfile?.name || (userProfile?.role === 'admin' ? 'Admin' : 'Product Access')}
               </span>
               <span className="text-[9px] text-[#5C7F75] font-semibold block uppercase tracking-wider truncate">
-                {userProfile?.role === 'admin' ? 'Administrator' : `Product User (${userProfile?.assignedProductId || 'MILK'})`}
+                {userProfile?.role === 'admin' ? 'Administrator' : `Product User (${userProfile?.assignedProductId || 'KETCHUP'})`}
               </span>
             </div>
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3 h-3 text-[#5C7F75]">

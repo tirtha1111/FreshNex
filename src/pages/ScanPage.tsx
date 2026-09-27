@@ -57,7 +57,7 @@ export const ScanPage: React.FC = () => {
       }, 800);
     } catch (err: any) {
       setErrorMessage(
-        err.message || `Tag "${clean}" not recognized. Allowed QR tags are #YGS-FD-000124 (Milk) and #YGS-FD-112233 (Meat).`
+        err.message || `Tag "${clean}" not recognized. Allowed QR tags are #YGS-FD-000124 (Ketchup) and #YGS-FD-112233 (Meat).`
       );
     }
   }, [scanItem, navigate]);
@@ -409,7 +409,7 @@ export const ScanPage: React.FC = () => {
                 }}
                 className="p-3 bg-emerald-50/60 hover:bg-emerald-100/70 border border-emerald-200/80 rounded-2xl text-left transition-all cursor-pointer group"
               >
-                <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">MILK PACKAGE</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">KETCHUP BOTTLE</div>
                 <div className="text-xs font-mono font-black text-[#07221A] group-hover:text-[#20E79A] transition-colors">
                   #YGS-FD-000124
                 </div>

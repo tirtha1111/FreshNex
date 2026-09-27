@@ -49,14 +49,14 @@ interface DiscoveredNode {
 }
 
 const DISCOVERED_NODES: DiscoveredNode[] = [
-  { id: 'YGS-FD-894120', mac: '24:6F:28:9A:C3:10', name: 'FreshNode Alpha-1', signalRssi: -42, batteryPct: 98, firmware: 'v2.4.1', suggestedProduct: 'Fresh Whole Milk' },
+  { id: 'YGS-FD-894120', mac: '24:6F:28:9A:C3:10', name: 'FreshNode Alpha-1', signalRssi: -42, batteryPct: 98, firmware: 'v2.4.1', suggestedProduct: 'Tomato Ketchup' },
   { id: 'YGS-FD-629401', mac: '30:AE:A4:7B:11:F8', name: 'ColdGuard Vault-2', signalRssi: -56, batteryPct: 91, firmware: 'v2.4.1', suggestedProduct: 'Atlantic Salmon' },
   { id: 'YGS-FD-315892', mac: 'A4:CF:12:33:9E:04', name: 'AgriSense Edge-3', signalRssi: -68, batteryPct: 84, firmware: 'v2.3.9', suggestedProduct: 'Strawberries' },
   { id: 'YGS-FD-704153', mac: 'CC:50:E3:48:D2:77', name: 'BioTrack Sensor-4', signalRssi: -72, batteryPct: 100, firmware: 'v2.4.1', suggestedProduct: 'Roma Tomatoes' }
 ];
 
 const FOOD_PRESETS = [
-  { name: 'Fresh Whole Milk', category: 'Dairy Products', tempMin: 1.5, tempMax: 4.0, humMin: 55, humMax: 68, mq: 850, icon: '🥛' },
+  { name: 'Tomato Ketchup', category: 'Condiments & Sauces', tempMin: 2.0, tempMax: 10.0, humMin: 40, humMax: 70, mq: 850, icon: '🍅' },
   { name: 'Atlantic Salmon', category: 'Seafood & Aquaculture', tempMin: 0.0, tempMax: 2.0, humMin: 70, humMax: 85, mq: 700, icon: '🐟' },
   { name: 'Roma Tomatoes', category: 'Fresh Produce', tempMin: 10.0, tempMax: 15.0, humMin: 80, humMax: 90, mq: 1100, icon: '🍅' },
   { name: 'Fresh Strawberries', category: 'Berries & Fruits', tempMin: 0.5, tempMax: 2.5, humMin: 85, humMax: 95, mq: 900, icon: '🍓' },
@@ -87,8 +87,8 @@ export const SmartDeviceRegistrationModal: React.FC<Props> = ({
   const [storageLocation, setStorageLocation] = useState('Central Cold Storage (Chamber A)');
   
   // Product details
-  const [productName, setProductName] = useState('Fresh Whole Milk');
-  const [productCategory, setProductCategory] = useState('Dairy Products');
+  const [productName, setProductName] = useState('Tomato Ketchup');
+  const [productCategory, setProductCategory] = useState('Condiments & Sauces');
   
   // AI & Thresholds
   const [tempMin, setTempMin] = useState<number>(2.0);
@@ -556,7 +556,7 @@ export const SmartDeviceRegistrationModal: React.FC<Props> = ({
                       type="text"
                       value={productName}
                       onChange={e => setProductName(e.target.value)}
-                      placeholder="e.g., Whole Milk, Atlantic Salmon, Roma Tomatoes..."
+                      placeholder="e.g., Tomato Ketchup, Atlantic Salmon, Roma Tomatoes..."
                       className="flex-1 bg-[#061A13] border border-[#20E79A]/30 px-3.5 py-2.5 rounded-2xl text-xs font-bold text-white focus:outline-none focus:border-[#20E79A]"
                     />
                     <button

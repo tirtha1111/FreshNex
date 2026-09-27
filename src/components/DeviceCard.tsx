@@ -81,7 +81,7 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
             <span className="text-[9px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100/90 px-2.5 py-0.5 rounded-full border border-emerald-300 inline-block truncate">
               Micro-Node
             </span>
-            <h3 className="text-base sm:text-lg font-black text-[#07221A] mt-1.5 truncate">{dev.product || 'Milk'}</h3>
+            <h3 className="text-base sm:text-lg font-black text-[#07221A] mt-1.5 truncate">{dev.product || 'Ketchup'}</h3>
             <p className="text-xs font-mono font-bold text-amber-900 bg-amber-100/80 px-2 py-0.5 rounded-md border border-amber-300/80 inline-block mt-0.5 truncate">{dev.device_id}</p>
           </div>
 

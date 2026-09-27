@@ -101,13 +101,13 @@ export const AnalyticsPage: React.FC = () => {
     : [{ name: 'Zero Scans', value: 1, color: '#E2E8F0' }];
 
   // Monitored categories - calculated strictly from real scan items (defaults to 0)
-  const dairyCount = scanHistory.filter(s => s.itemName?.toLowerCase().includes('milk') || s.itemName?.toLowerCase().includes('dairy') || s.itemId === 'MILK').length;
+  const condimentCount = scanHistory.filter(s => s.itemName?.toLowerCase().includes('ketchup') || s.itemName?.toLowerCase().includes('sauce') || s.itemName?.toLowerCase().includes('condiment') || s.itemName?.toLowerCase().includes('milk') || s.itemId === 'KETCHUP' || s.itemId === 'MILK').length;
   const meatCount = scanHistory.filter(s => s.itemName?.toLowerCase().includes('meat') || s.itemId === 'MEAT').length;
-  const dairyRatio = totalScans > 0 ? Math.round((dairyCount / totalScans) * 100) : 0;
+  const condimentRatio = totalScans > 0 ? Math.round((condimentCount / totalScans) * 100) : 0;
   const meatRatio = totalScans > 0 ? Math.round((meatCount / totalScans) * 100) : 0;
 
   const categoryBreakdown = [
-    { name: 'Dairy Products', count: dairyCount, ratio: dairyRatio, color: '#20E79A' },
+    { name: 'Condiments & Sauces', count: condimentCount, ratio: condimentRatio, color: '#20E79A' },
     { name: 'Meat Products', count: meatCount, ratio: meatRatio, color: '#FFAA00' },
   ];
 

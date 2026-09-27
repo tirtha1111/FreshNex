@@ -36,8 +36,8 @@ export const DashboardPage: React.FC = () => {
   const [isThresholdModalOpen, setIsThresholdModalOpen] = useState(false);
 
   const isAdmin = userProfile?.role === 'admin';
-  const assignedTag = userProfile?.assignedProductId || 'MILK';
-  const assignedName = userProfile?.assignedProductName || 'Milk Package';
+  const assignedTag = userProfile?.assignedProductId || 'KETCHUP';
+  const assignedName = userProfile?.assignedProductName || 'Ketchup Bottle';
 
   // Last scanned product telemetry (retrieved from scan history or active session)
   const lastScanned = scanHistory.length > 0 ? scanHistory[0] : (
@@ -209,8 +209,9 @@ export const DashboardPage: React.FC = () => {
             <div className="w-28 h-28 my-2 rounded-2xl overflow-hidden bg-[#F4F7F6] border border-[#13493B]/10 flex items-center justify-center relative shadow-inner">
               {lastScanned ? (
                 <img 
-                  src={lastScanned.itemImage || "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400&auto=format&fit=crop&q=80"} 
+                  src={lastScanned.itemImage || "/ketchup.jpg"} 
                   alt={lastScanned.itemName}
+                  referrerPolicy="no-referrer"
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -769,8 +770,9 @@ export const DashboardPage: React.FC = () => {
               <div className="flex items-center gap-4 neo-panel p-3.5 rounded-2xl border border-[#13493B]/10">
                 <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-[#13493B]/10 bg-white shadow-sm">
                   <img 
-                    src={lastScanned.itemImage || "https://images.unsplash.com/photo-1550583724-b2692b85b150?w=400&auto=format&fit=crop&q=80"} 
+                    src={lastScanned.itemImage || "/ketchup.jpg"} 
                     alt={lastScanned.itemName}
+                    referrerPolicy="no-referrer"
                     className="w-full h-full object-cover"
                   />
                 </div>

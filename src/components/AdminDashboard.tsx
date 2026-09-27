@@ -152,7 +152,7 @@ export const AdminDashboard: React.FC = () => {
                 return (
                   <tr key={dev.device_id} className="hover:bg-[#FF6A00]/5 transition-colors">
                     <td className="py-3 px-3 font-mono font-bold text-[#FFAA00]">{dev.device_id}</td>
-                    <td className="py-3 px-3 font-bold">{dev.product || 'Milk'}</td>
+                    <td className="py-3 px-3 font-bold">{dev.product || 'Ketchup'}</td>
                     <td className="py-3 px-3 font-bold">{dev.temperature}°C</td>
                     <td className="py-3 px-3 font-bold">{dev.humidity}%</td>
                     <td className="py-3 px-3 font-bold text-[#20E79A]">

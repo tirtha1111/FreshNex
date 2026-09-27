@@ -127,14 +127,14 @@ function parseItemRecord(id: string, val: any): FoodItem {
 export async function getItemById(itemId: string): Promise<FoodItem | null> {
   const cleanId = itemId.trim().toUpperCase().replace(/^#/, '');
 
-  if (cleanId === 'MILK' || cleanId === 'YGS-FD-000124' || cleanId.includes('000124') || cleanId.includes('MILK')) {
-    return DEFAULT_ITEMS['MILK'];
+  if (cleanId === 'KETCHUP' || cleanId === 'MILK' || cleanId === 'YGS-FD-000124' || cleanId.includes('000124') || cleanId.includes('KETCHUP') || cleanId.includes('MILK')) {
+    return DEFAULT_ITEMS['KETCHUP'] || DEFAULT_ITEMS['MILK'];
   }
   if (cleanId === 'MEAT' || cleanId === 'YGS-FD-112233' || cleanId.includes('112233') || cleanId.includes('MEAT') || cleanId.includes('UNCONFIGURED')) {
     return DEFAULT_ITEMS['MEAT'];
   }
 
-  // Only keep Milk and Meat in the catalogue as requested by the user
+  // Only keep Ketchup and Meat in the catalogue as requested by the user
   return null;
 }
 
