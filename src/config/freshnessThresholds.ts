@@ -222,7 +222,7 @@ export function resolveThresholdsForCategory(category?: string): FreshnessCatego
   if (!category) return DEFAULT_THRESHOLDS;
   const c = category.toLowerCase().trim();
 
-  if (c.includes('ketchup') || c.includes('sauce') || c.includes('condiment')) {
+  if (c.includes('ketchup') || c.includes('sauce') || c.includes('condiment') || c.includes('drink') || c.includes('beverage') || c.includes('cold')) {
     return CATEGORY_THRESHOLDS.Condiments;
   }
   if (c.includes('dairy') || c.includes('milk') || c.includes('cheese') || c.includes('yogurt') || c.includes('butter')) {

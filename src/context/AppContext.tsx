@@ -79,12 +79,12 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
 // Initial default prototype devices
-const PROTOTYPE_KETCHUP: DeviceData = {
+const PROTOTYPE_COLD_DRINKS: DeviceData = {
   device_id: 'YGS-FD-000124',
-  product: 'Ketchup',
-  temperature: 4.5,
+  product: 'Cold Drinks',
+  temperature: 3.5,
   humidity: 58.2,
-  mq135_raw: 140,
+  mq135_raw: 110,
   online: true,
   last_update: Date.now()
 };
@@ -104,10 +104,10 @@ function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
   if (!rawDevice || typeof rawDevice !== 'object') {
     return {
       device_id: deviceId,
-      product: 'Ketchup',
-      temperature: 4.2,
-      humidity: 62.0,
-      mq135_raw: 120,
+      product: 'Cold Drinks',
+      temperature: 3.5,
+      humidity: 58.0,
+      mq135_raw: 110,
       online: true,
       last_update: Date.now()
     };
@@ -124,21 +124,21 @@ function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
     }
   }
 
-  const temperature = Number(target.temperature ?? target.temp ?? target.t ?? 4.2);
-  const humidity = Number(target.humidity ?? target.hum ?? target.h ?? 62.0);
-  const mq135_raw = Number(target.mq135_raw ?? target.gas ?? target.gas_ppm ?? target.mq135 ?? target.mq2 ?? target.voc ?? 120);
+  const temperature = Number(target.temperature ?? target.temp ?? target.t ?? 3.5);
+  const humidity = Number(target.humidity ?? target.hum ?? target.h ?? 58.0);
+  const mq135_raw = Number(target.mq135_raw ?? target.gas ?? target.gas_ppm ?? target.mq135 ?? target.mq2 ?? target.voc ?? 110);
   const rawTs = target.last_update ?? target.lastUpdated ?? target.last_updated ?? target.timestamp ?? target.time ?? target.last_seen ?? target.lastSeen ?? target.updated_at ?? target.updatedAt ?? target.date ?? target.dateTime ?? target.datetime;
   const last_update = parseTimestamp(rawTs);
   const online = target.online !== undefined ? Boolean(target.online) : (target.status ? target.status.toLowerCase() === 'online' : true);
-  const product = target.product || target.name || 'Ketchup';
+  const product = target.product || target.name || 'Cold Drinks';
 
   return {
     ...rawDevice,
     device_id: rawDevice.device_id || rawDevice.id || deviceId,
     product,
-    temperature: isNaN(temperature) ? 4.2 : +temperature.toFixed(1),
-    humidity: isNaN(humidity) ? 62.0 : +humidity.toFixed(1),
-    mq135_raw: isNaN(mq135_raw) ? 120 : Math.round(mq135_raw),
+    temperature: isNaN(temperature) ? 3.5 : +temperature.toFixed(1),
+    humidity: isNaN(humidity) ? 58.0 : +humidity.toFixed(1),
+    mq135_raw: isNaN(mq135_raw) ? 110 : Math.round(mq135_raw),
     online,
     last_update
   };
@@ -147,14 +147,14 @@ function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isDemoMode, setDemoMode] = useState<boolean>(!isFirebaseConfigured);
   const [devicesMap, setDevicesMap] = useState<Record<string, DeviceData>>({
-    'YGS-FD-000124': PROTOTYPE_KETCHUP,
+    'YGS-FD-000124': PROTOTYPE_COLD_DRINKS,
     'YGS-FD-112233': PROTOTYPE_MEAT,
   });
   const [userScans, setUserScans] = useState<UserScanItem[]>([
     {
       id: 'scan_default_1',
       device_id: 'YGS-FD-000124',
-      product: 'Ketchup',
+      product: 'Cold Drinks',
       scanned_at: Date.now() - 3600000
     }
   ]);
@@ -163,7 +163,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [userRecord, setUserRecord] = useState<UserRecord | null>(null);
   const [sensorHistory, setSensorHistory] = useState<Record<string, SensorHistoryEntry[]>>({});
   const [productProfiles, setProductProfiles] = useState<ProductProfile[]>([
-    { id: 'p_ketchup', name: 'Ketchup', temperature_min: 2.0, temperature_max: 8.0, humidity_min: 40, humidity_max: 70, mq135_threshold: 1500 },
+    { id: 'p_cold_drinks', name: 'Cold Drinks', temperature_min: 1.0, temperature_max: 5.0, humidity_min: 50, humidity_max: 70, mq135_threshold: 1500 },
     { id: 'p_meat', name: 'Meat', temperature_min: -2.0, temperature_max: 4.0, humidity_min: 60, humidity_max: 80, mq135_threshold: 1200 },
   ]);
   const [alertsList, setAlertsList] = useState<SensorAlert[]>([]);
@@ -333,8 +333,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setDevicesMap(normalizedMap);
           } else {
             // Seed prototype device YGS-FD-000124 in Firebase RTDB if missing
-            dbSet(ref(database, 'devices/YGS-FD-000124'), PROTOTYPE_KETCHUP);
-            setDevicesMap({ 'YGS-FD-000124': PROTOTYPE_KETCHUP, 'YGS-FD-112233': PROTOTYPE_MEAT });
+            dbSet(ref(database, 'devices/YGS-FD-000124'), PROTOTYPE_COLD_DRINKS);
+            setDevicesMap({ 'YGS-FD-000124': PROTOTYPE_COLD_DRINKS, 'YGS-FD-112233': PROTOTYPE_MEAT });
           }
         });
 
@@ -549,8 +549,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // Prototype Device lookup guarantee
     const cleanUpper = deviceId.toUpperCase();
-    if (cleanUpper === 'YGS-FD-000124' || cleanUpper.includes('000124') || cleanUpper.includes('MILK') || cleanUpper.includes('KETCHUP')) {
-      return PROTOTYPE_KETCHUP;
+    if (cleanUpper === 'YGS-FD-000124' || cleanUpper.includes('000124' ) || cleanUpper.includes('COLD') || cleanUpper.includes('DRINK') || cleanUpper.includes('MILK') || cleanUpper.includes('KETCHUP')) {
+      return PROTOTYPE_COLD_DRINKS;
     }
     if (cleanUpper === 'YGS-FD-112233' || cleanUpper.includes('112233') || cleanUpper.includes('MEAT')) {
       return PROTOTYPE_MEAT;

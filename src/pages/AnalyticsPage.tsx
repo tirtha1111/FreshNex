@@ -101,13 +101,13 @@ export const AnalyticsPage: React.FC = () => {
     : [{ name: 'Zero Scans', value: 1, color: '#E2E8F0' }];
 
   // Monitored categories - calculated strictly from real scan items (defaults to 0)
-  const condimentCount = scanHistory.filter(s => s.itemName?.toLowerCase().includes('ketchup') || s.itemName?.toLowerCase().includes('sauce') || s.itemName?.toLowerCase().includes('condiment') || s.itemName?.toLowerCase().includes('milk') || s.itemId === 'KETCHUP' || s.itemId === 'MILK').length;
+  const beverageCount = scanHistory.filter(s => s.itemName?.toLowerCase().includes('drink') || s.itemName?.toLowerCase().includes('beverage') || s.itemName?.toLowerCase().includes('cold') || s.itemName?.toLowerCase().includes('ketchup') || s.itemName?.toLowerCase().includes('milk') || s.itemId === 'COLD_DRINKS' || s.itemId === 'KETCHUP' || s.itemId === 'MILK').length;
   const meatCount = scanHistory.filter(s => s.itemName?.toLowerCase().includes('meat') || s.itemId === 'MEAT').length;
-  const condimentRatio = totalScans > 0 ? Math.round((condimentCount / totalScans) * 100) : 0;
+  const beverageRatio = totalScans > 0 ? Math.round((beverageCount / totalScans) * 100) : 0;
   const meatRatio = totalScans > 0 ? Math.round((meatCount / totalScans) * 100) : 0;
 
   const categoryBreakdown = [
-    { name: 'Condiments & Sauces', count: condimentCount, ratio: condimentRatio, color: '#20E79A' },
+    { name: 'Beverages', count: beverageCount, ratio: beverageRatio, color: '#20E79A' },
     { name: 'Meat Products', count: meatCount, ratio: meatRatio, color: '#FFAA00' },
   ];
 

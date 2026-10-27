@@ -276,17 +276,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (!cleanTag) {
       setIsLoading(false);
-      const msg = 'Please enter a valid unique product Tag ID (e.g. KETCHUP or MEAT).';
+      const msg = 'Please enter a valid unique product Tag ID (e.g. COLD_DRINKS or MEAT).';
       setAuthError(msg);
       throw new Error(msg);
     }
 
     // Resolve product name for display
-    let productName = 'Ketchup Bottle';
+    let productName = 'Cold Drinks';
     if (cleanTag === 'MEAT' || cleanTag.includes('MEAT') || cleanTag.includes('UNCONFIGURED')) {
       productName = 'Meat Package';
-    } else if (cleanTag === 'KETCHUP' || cleanTag.includes('KETCHUP') || cleanTag === 'MILK' || cleanTag.includes('MILK') || cleanTag.includes('YGS') || cleanTag.includes('124')) {
-      productName = 'Ketchup Bottle';
+    } else if (cleanTag === 'COLD_DRINKS' || cleanTag === 'DRINKS' || cleanTag === 'KETCHUP' || cleanTag.includes('KETCHUP') || cleanTag === 'MILK' || cleanTag.includes('MILK') || cleanTag.includes('YGS') || cleanTag.includes('124')) {
+      productName = 'Cold Drinks';
     } else {
       productName = `Monitored Unit (${cleanTag})`;
     }

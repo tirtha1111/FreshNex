@@ -282,7 +282,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
                 {userProfile?.name || (isAdmin ? 'Admin' : 'Product Access')}
               </p>
               <span className="text-[9px] font-semibold text-[#20E79A] block uppercase tracking-wider truncate">
-                {isAdmin ? 'Administrator' : `Tag #${userProfile?.assignedProductId || 'KETCHUP'}`}
+                {isAdmin ? 'Administrator' : `Tag #${userProfile?.assignedProductId || 'COLD_DRINKS'}`}
               </span>
             </div>
           </div>

@@ -49,14 +49,14 @@ interface DiscoveredNode {
 }
 
 const DISCOVERED_NODES: DiscoveredNode[] = [
-  { id: 'YGS-FD-894120', mac: '24:6F:28:9A:C3:10', name: 'FreshNode Alpha-1', signalRssi: -42, batteryPct: 98, firmware: 'v2.4.1', suggestedProduct: 'Tomato Ketchup' },
+  { id: 'YGS-FD-894120', mac: '24:6F:28:9A:C3:10', name: 'FreshNode Alpha-1', signalRssi: -42, batteryPct: 98, firmware: 'v2.4.1', suggestedProduct: 'Cold Drinks' },
   { id: 'YGS-FD-629401', mac: '30:AE:A4:7B:11:F8', name: 'ColdGuard Vault-2', signalRssi: -56, batteryPct: 91, firmware: 'v2.4.1', suggestedProduct: 'Atlantic Salmon' },
   { id: 'YGS-FD-315892', mac: 'A4:CF:12:33:9E:04', name: 'AgriSense Edge-3', signalRssi: -68, batteryPct: 84, firmware: 'v2.3.9', suggestedProduct: 'Strawberries' },
   { id: 'YGS-FD-704153', mac: 'CC:50:E3:48:D2:77', name: 'BioTrack Sensor-4', signalRssi: -72, batteryPct: 100, firmware: 'v2.4.1', suggestedProduct: 'Roma Tomatoes' }
 ];
 
 const FOOD_PRESETS = [
-  { name: 'Tomato Ketchup', category: 'Condiments & Sauces', tempMin: 2.0, tempMax: 10.0, humMin: 40, humMax: 70, mq: 850, icon: '🍅' },
+  { name: 'Cold Drinks', category: 'Beverages', tempMin: 1.0, tempMax: 5.0, humMin: 50, humMax: 70, mq: 800, icon: '🥤' },
   { name: 'Atlantic Salmon', category: 'Seafood & Aquaculture', tempMin: 0.0, tempMax: 2.0, humMin: 70, humMax: 85, mq: 700, icon: '🐟' },
   { name: 'Roma Tomatoes', category: 'Fresh Produce', tempMin: 10.0, tempMax: 15.0, humMin: 80, humMax: 90, mq: 1100, icon: '🍅' },
   { name: 'Fresh Strawberries', category: 'Berries & Fruits', tempMin: 0.5, tempMax: 2.5, humMin: 85, humMax: 95, mq: 900, icon: '🍓' },
@@ -87,8 +87,8 @@ export const SmartDeviceRegistrationModal: React.FC<Props> = ({
   const [storageLocation, setStorageLocation] = useState('Central Cold Storage (Chamber A)');
   
   // Product details
-  const [productName, setProductName] = useState('Tomato Ketchup');
-  const [productCategory, setProductCategory] = useState('Condiments & Sauces');
+  const [productName, setProductName] = useState('Cold Drinks');
+  const [productCategory, setProductCategory] = useState('Beverages');
   
   // AI & Thresholds
   const [tempMin, setTempMin] = useState<number>(2.0);
