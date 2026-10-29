@@ -162,10 +162,10 @@ export const SettingsPage: React.FC = () => {
     >
       {/* Title */}
       <div>
-        <h1 className="text-2xl sm:text-3xl font-serif italic font-black text-[#07221A] tracking-tight">
+        <h1 className="text-2xl sm:text-3xl font-black text-[#FDF8F5] tracking-tight">
           Settings
         </h1>
-        <p className="text-xs font-bold text-[#5C7F75] mt-1">
+        <p className="text-sm text-[#B8A89E] mt-1">
           Configure app preferences, sensor thresholds, and notifications.
         </p>
       </div>

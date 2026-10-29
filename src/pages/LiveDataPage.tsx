@@ -177,37 +177,44 @@ export const LiveDataPage: React.FC = () => {
       className="space-y-6 select-none pb-12 font-sans"
     >
       {/* Top Back navigation & quick actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <button
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <motion.button
+          whileHover={{ x: -4 }}
           onClick={() => navigate('/dashboard')}
-          className="flex items-center gap-2 text-xs font-black text-[#5C7F75] hover:text-[#07221A] transition-colors cursor-pointer self-start"
+          className="flex items-center gap-2 text-xs font-black text-[#5C7F75] hover:text-[#07221A] transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4 text-[#20E79A]" />
           <span>Back to Dashboard</span>
-        </button>
+        </motion.button>
 
-        <div className="grid grid-cols-3 sm:flex items-center gap-2 w-full sm:w-auto">
-          <button
+        <div className="flex items-center gap-2">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={() => setIsConfigOpen(true)}
-            className="px-2.5 sm:px-4 py-2 rounded-xl bg-white border border-[#13493B]/10 text-[11px] sm:text-xs font-bold text-[#07221A] hover:bg-[#F4F7F6] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm truncate"
+            className="px-4 py-2 rounded-xl bg-white border border-[#13493B]/10 text-xs font-bold text-[#07221A] hover:bg-[#F4F7F6] transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
           >
-            <Sliders className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#20E79A] shrink-0" />
-            <span className="truncate">Thresholds</span>
-          </button>
-          <button
+            <Sliders className="w-4 h-4 text-[#20E79A]" />
+            <span>Threshold Rules</span>
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={handleShare}
-            className="px-2.5 sm:px-4 py-2 rounded-xl bg-white border border-[#13493B]/10 text-[11px] sm:text-xs font-bold text-[#07221A] hover:bg-[#F4F7F6] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm truncate"
+            className="px-4 py-2 rounded-xl bg-white border border-[#13493B]/10 text-xs font-bold text-[#07221A] hover:bg-[#F4F7F6] transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
           >
-            {copiedLink ? <CheckCircle2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#20E79A] shrink-0" /> : <Share2 className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#5C7F75] shrink-0" />}
-            <span className="truncate">{copiedLink ? 'Copied!' : 'Share'}</span>
-          </button>
-          <button
+            {copiedLink ? <CheckCircle2 className="w-4 h-4 text-[#20E79A]" /> : <Share2 className="w-4 h-4 text-[#5C7F75]" />}
+            <span>{copiedLink ? 'Link Copied!' : 'Share'}</span>
+          </motion.button>
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
             onClick={handleExportData}
-            className="px-2.5 sm:px-4 py-2 rounded-xl bg-white border border-[#13493B]/10 text-[11px] sm:text-xs font-bold text-[#07221A] hover:bg-[#F4F7F6] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm truncate"
+            className="px-4 py-2 rounded-xl bg-white border border-[#13493B]/10 text-xs font-bold text-[#07221A] hover:bg-[#F4F7F6] transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
           >
-            <Download className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-[#5C7F75] shrink-0" />
-            <span className="truncate">Export JSON</span>
-          </button>
+            <Download className="w-4 h-4 text-[#5C7F75]" />
+            <span>Export JSON</span>
+          </motion.button>
         </div>
       </div>
 
@@ -414,14 +421,14 @@ export const LiveDataPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="flex overflow-x-auto no-scrollbar max-w-full bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10 self-start sm:self-auto gap-1">
+          <div className="flex flex-wrap bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10 self-start sm:self-auto">
             {(['temp', 'humidity', 'moisture', 'ph', 'gas'] as const).map((tab) => {
               const active = activeMetricTab === tab;
               return (
                 <button
                   key={tab}
                   onClick={() => setActiveMetricTab(tab)}
-                  className="relative px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer whitespace-nowrap shrink-0"
+                  className="relative px-3.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer"
                 >
                   {active && (
                     <motion.div

@@ -332,14 +332,14 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
 
       {/* 1. Header & Controls */}
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 pb-3 border-b border-[#13493B]/10 relative z-10">
-        <div className="min-w-0">
-          <div className="flex items-start sm:items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl bg-[#20E79A]/15 border border-[#20E79A]/30 flex items-center justify-center text-[#20E79A] shrink-0">
-              <Activity className="w-5 h-5" />
+        <div>
+          <div className="flex items-center gap-2.5">
+            <div className="w-9 h-9 rounded-xl bg-[#20E79A]/15 border border-[#20E79A]/30 flex items-center justify-center text-[#20E79A]">
+              <Activity className="w-5 h-5 animate-pulse" />
             </div>
-            <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h3 className="text-sm sm:text-base font-black text-[#07221A] tracking-tight">
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base font-black text-[#07221A] tracking-tight">
                   Real-Time Environmental & Freshness Trends
                 </h3>
                 <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#EBFBF4] border border-[#20E79A]/30 text-[9px] font-bold text-[#07221A]">
@@ -351,10 +351,10 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
                 Dynamic Recharts telemetry illustrating how Temperature, Humidity & Gas fluctuations directly govern Freshness Score.
               </p>
               {/* Last Response Received with Date & 2-Hour Validity Note */}
-              <div className="flex flex-wrap items-center gap-2 mt-2">
-                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#F4F7F6] border border-[#13493B]/10 text-[10px] font-mono font-bold text-[#07221A]">
-                  <Clock className="w-3.5 h-3.5 text-[#20E79A] shrink-0" />
-                  <span className="text-[#5C7F75]">Last Response:</span>
+              <div className="flex flex-wrap items-center gap-2.5 mt-2">
+                <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-[#F4F7F6] border border-[#13493B]/10 text-[10px] font-mono font-bold text-[#07221A] shadow-2xs">
+                  <Clock className="w-3.5 h-3.5 text-[#20E79A]" />
+                  <span className="text-[#5C7F75]">Last Response Received:</span>
                   <span className="text-[#13493B] font-extrabold">{lastResponseFormatted.fullText}</span>
                 </div>
                 <div className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#13493B]">
@@ -367,12 +367,12 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
         </div>
 
         {/* Action buttons & mode switchers */}
-        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto self-start lg:self-auto">
+        <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
           {/* View mode toggle */}
-          <div className="grid grid-cols-2 sm:flex bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10 w-full sm:w-auto">
+          <div className="flex bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10">
             <button
               onClick={() => setViewMode('correlated')}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-black transition-all cursor-pointer truncate ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
                 viewMode === 'correlated' ? 'bg-white text-[#07221A] shadow-sm' : 'text-[#5C7F75] hover:text-[#07221A]'
               }`}
             >
@@ -380,7 +380,7 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
             </button>
             <button
               onClick={() => setViewMode('grid')}
-              className={`px-2.5 sm:px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-black transition-all cursor-pointer truncate ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer ${
                 viewMode === 'grid' ? 'bg-white text-[#07221A] shadow-sm' : 'text-[#5C7F75] hover:text-[#07221A]'
               }`}
             >
@@ -388,48 +388,46 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
-            {/* Pause / Resume live feed */}
-            <button
-              onClick={() => setIsLiveStreaming(!isLiveStreaming)}
-              className={`p-2 rounded-xl border cursor-pointer transition-all flex items-center gap-1 text-xs font-bold ${
-                isLiveStreaming 
-                  ? 'bg-white border-[#13493B]/10 text-[#07221A] hover:bg-[#F4F7F6]' 
-                  : 'bg-[#20E79A] text-white border-[#20E79A]'
-              }`}
-              title={isLiveStreaming ? 'Pause Real-Time Telemetry Stream' : 'Resume Real-Time Telemetry Stream'}
-            >
-              {isLiveStreaming ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
-            </button>
+          {/* Pause / Resume live feed */}
+          <button
+            onClick={() => setIsLiveStreaming(!isLiveStreaming)}
+            className={`p-2 rounded-xl border cursor-pointer transition-all flex items-center gap-1 text-xs font-bold ${
+              isLiveStreaming 
+                ? 'bg-white border-[#13493B]/10 text-[#07221A] hover:bg-[#F4F7F6]' 
+                : 'bg-[#20E79A] text-white border-[#20E79A]'
+            }`}
+            title={isLiveStreaming ? 'Pause Real-Time Telemetry Stream' : 'Resume Real-Time Telemetry Stream'}
+          >
+            {isLiveStreaming ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
+          </button>
 
-            {/* Toggle threshold lines */}
-            <button
-              onClick={() => setShowThresholdRefLines(!showThresholdRefLines)}
-              className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
-                showThresholdRefLines 
-                  ? 'bg-[#EBFBF4] border-[#20E79A]/40 text-[#07221A]' 
-                  : 'bg-white border-[#13493B]/10 text-[#5C7F75]'
-              }`}
-              title="Toggle Safety Threshold Reference Lines"
-            >
-              <Sliders className="w-3.5 h-3.5 text-[#20E79A]" />
-              <span>Threshold Rules</span>
-            </button>
-          </div>
+          {/* Toggle threshold lines */}
+          <button
+            onClick={() => setShowThresholdRefLines(!showThresholdRefLines)}
+            className={`px-2.5 py-1.5 rounded-xl border text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 ${
+              showThresholdRefLines 
+                ? 'bg-[#EBFBF4] border-[#20E79A]/40 text-[#07221A]' 
+                : 'bg-white border-[#13493B]/10 text-[#5C7F75]'
+            }`}
+            title="Toggle Safety Threshold Reference Lines"
+          >
+            <Sliders className="w-3.5 h-3.5 text-[#20E79A]" />
+            <span className="hidden sm:inline">Threshold Rules</span>
+          </button>
         </div>
       </div>
 
       {/* 2. Interactive Environmental Fluctuation Simulator & Diagnostics Strip */}
-      <div className="p-3 sm:p-3.5 rounded-2xl bg-[#FAFCFB] border border-[#13493B]/10 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 text-xs">
-        <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
-          <span className="text-[11px] font-bold text-[#5C7F75] flex items-center gap-1 w-full sm:w-auto mb-0.5 sm:mb-0">
+      <div className="p-3.5 rounded-2xl bg-[#FAFCFB] border border-[#13493B]/10 flex flex-col md:flex-row items-center justify-between gap-3 text-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-[11px] font-bold text-[#5C7F75] flex items-center gap-1">
             <Zap className="w-3.5 h-3.5 text-amber-500" />
             Simulate Fluctuation:
           </span>
 
           <button
             onClick={() => setActiveSimulation(activeSimulation === 'tempSpike' ? 'none' : 'tempSpike')}
-            className={`px-2.5 py-1.5 rounded-lg font-bold text-[10px] cursor-pointer transition-all border ${
+            className={`px-2.5 py-1 rounded-lg font-bold text-[10px] cursor-pointer transition-all border ${
               activeSimulation === 'tempSpike'
                 ? 'bg-[#FF5A67] text-white border-[#FF5A67] shadow-sm'
                 : 'bg-white border-[#13493B]/10 text-[#FF5A67] hover:bg-red-50'
@@ -440,7 +438,7 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
 
           <button
             onClick={() => setActiveSimulation(activeSimulation === 'gasSpike' ? 'none' : 'gasSpike')}
-            className={`px-2.5 py-1.5 rounded-lg font-bold text-[10px] cursor-pointer transition-all border ${
+            className={`px-2.5 py-1 rounded-lg font-bold text-[10px] cursor-pointer transition-all border ${
               activeSimulation === 'gasSpike'
                 ? 'bg-[#9333EA] text-white border-[#9333EA] shadow-sm'
                 : 'bg-white border-[#13493B]/10 text-[#9333EA] hover:bg-purple-50'
@@ -451,7 +449,7 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
 
           <button
             onClick={() => setActiveSimulation('none')}
-            className={`px-2.5 py-1.5 rounded-lg font-bold text-[10px] cursor-pointer transition-all border ${
+            className={`px-2.5 py-1 rounded-lg font-bold text-[10px] cursor-pointer transition-all border ${
               activeSimulation === 'none'
                 ? 'bg-[#20E79A] text-white border-[#20E79A]'
                 : 'bg-white border-[#13493B]/10 text-[#5C7F75] hover:text-[#07221A]'
@@ -463,7 +461,7 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
         </div>
 
         {/* Live Status callout */}
-        <div className="flex flex-wrap items-center justify-between sm:justify-start gap-2.5 sm:gap-3 text-[11px] pt-2 md:pt-0 border-t md:border-t-0 border-[#13493B]/10">
+        <div className="flex flex-wrap items-center gap-3 text-[11px]">
           <div className="flex items-center gap-1 text-[#FF5A67] font-mono font-bold" title="Ambient Temperature">
             <Thermometer className="w-3.5 h-3.5" />
             <span>{latestPoint.temperature}°C</span>
@@ -493,9 +491,9 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
       {viewMode === 'correlated' ? (
         /* CORRELATED MULTI-METRIC AREA & LINE CHART */
         <div className="space-y-3">
-          <div className="w-full h-72 sm:h-80 pt-2">
+          <div className="w-full h-80 pt-2">
             <ResponsiveContainer width="100%" height="100%">
-              <AreaChart data={telemetryHistory} margin={{ top: 10, right: 8, left: -20, bottom: 0 }}>
+              <AreaChart data={telemetryHistory} margin={{ top: 15, right: 35, left: -15, bottom: 0 }}>
                 <defs>
                   {/* Freshness Gradient */}
                   <linearGradient id="freshnessGrad" x1="0" y1="0" x2="0" y2="1">
@@ -602,10 +600,9 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
                   type="monotone" 
                   dataKey="freshnessScore" 
                   stroke="#20E79A" 
-                  strokeWidth={3} 
+                  strokeWidth={3.5} 
                   fillOpacity={1} 
                   fill="url(#freshnessGrad)" 
-                  isAnimationActive={false}
                   name="Freshness Score (%)"
                 />
 
@@ -618,7 +615,6 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
                   strokeWidth={2.5} 
                   dot={false}
                   activeDot={{ r: 5, fill: '#FF5A67' }}
-                  isAnimationActive={false}
                   name="Temperature (°C)"
                 />
 
@@ -632,7 +628,6 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
                   strokeDasharray="3 3"
                   dot={false}
                   activeDot={{ r: 4, fill: '#3B82F6' }}
-                  isAnimationActive={false}
                   name="Relative Humidity (%)"
                 />
 
@@ -646,7 +641,6 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
                   strokeDasharray="4 2"
                   dot={false}
                   activeDot={{ r: 4, fill: '#0EA5E9' }}
-                  isAnimationActive={false}
                   name="Calculated Moisture (g/m³)"
                 />
 
@@ -659,7 +653,6 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
                   strokeWidth={2.5} 
                   dot={false}
                   activeDot={{ r: 5, fill: '#9333EA' }}
-                  isAnimationActive={false}
                   name="MQ-135 Gas (ppm)"
                 />
               </AreaChart>
@@ -741,7 +734,7 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
                     {showThresholdRefLines && (
                       <ReferenceLine y={thresholdRules.tempMax} stroke="#FF5A67" strokeDasharray="2 2" />
                     )}
-                    <Area type="monotone" dataKey="temperature" stroke="#FF5A67" strokeWidth={2} fill="url(#miniTempGrad)" isAnimationActive={false} />
+                    <Area type="monotone" dataKey="temperature" stroke="#FF5A67" strokeWidth={2} fill="url(#miniTempGrad)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -777,7 +770,7 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
                     <XAxis dataKey="time" hide />
                     <YAxis domain={[30, 95]} stroke="#5C7F75" fontSize={9} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Area type="monotone" dataKey="humidity" stroke="#3B82F6" strokeWidth={2} fill="url(#miniHumGrad)" isAnimationActive={false} />
+                    <Area type="monotone" dataKey="humidity" stroke="#3B82F6" strokeWidth={2} fill="url(#miniHumGrad)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -813,7 +806,7 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
                     <XAxis dataKey="time" hide />
                     <YAxis domain={['auto', 'auto']} stroke="#5C7F75" fontSize={9} />
                     <Tooltip content={<CustomTooltip />} />
-                    <Area type="monotone" dataKey="moisture" stroke="#0EA5E9" strokeWidth={2} fill="url(#miniMoistureGrad)" isAnimationActive={false} />
+                    <Area type="monotone" dataKey="moisture" stroke="#0EA5E9" strokeWidth={2} fill="url(#miniMoistureGrad)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -852,7 +845,7 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
                     {showThresholdRefLines && (
                       <ReferenceLine y={thresholdRules.gasWarning} stroke="#9333EA" strokeDasharray="2 2" />
                     )}
-                    <Area type="monotone" dataKey="gas" stroke="#9333EA" strokeWidth={2} fill="url(#miniGasGrad)" isAnimationActive={false} />
+                    <Area type="monotone" dataKey="gas" stroke="#9333EA" strokeWidth={2} fill="url(#miniGasGrad)" />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>

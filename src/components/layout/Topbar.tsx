@@ -60,70 +60,82 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
 
   return (
     <>
-      <header className="h-14 sm:h-16 glass-nav px-3.5 sm:px-6 flex items-center justify-between gap-2.5 sm:gap-4 z-30 select-none shrink-0">
+      <header className="h-16 glass-nav px-4 sm:px-6 flex items-center justify-between gap-4 z-30 select-none">
         {/* Mobile Menu Button */}
-        <div className="flex items-center md:hidden shrink-0">
-          <button
+        <div className="flex items-center gap-3 md:hidden">
+          <motion.button
+            whileTap={{ scale: 0.92 }}
             onClick={onOpenMobileMenu}
-            className="neo-btn min-w-[40px] min-h-[40px] flex items-center justify-center rounded-xl text-[#07221A] hover:border-[#20E79A]/40 cursor-pointer"
+            className="neo-btn p-2 rounded-xl text-[#5C7F75] hover:text-[#07221A] cursor-pointer"
             aria-label="Open navigation menu"
           >
             <Menu className="w-5 h-5" />
-          </button>
+          </motion.button>
         </div>
 
         {/* Search Input Bar */}
-        <form onSubmit={handleSearchSubmit} className="flex-1 max-w-md min-w-0">
+        <form onSubmit={handleSearchSubmit} className="flex-1 max-w-md">
           <div className="relative flex items-center group">
-            <Search className="w-4 h-4 text-[#5C7F75] group-focus-within:text-[#20E79A] absolute left-3 sm:left-3.5 pointer-events-none transition-colors duration-200" />
+            <Search className="w-4 h-4 text-[#5C7F75] group-focus-within:text-[#20E79A] group-focus-within:glow-icon-emerald absolute left-3.5 pointer-events-none transition-colors duration-200" />
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search devices, products..."
-              className="w-full pl-9 sm:pl-10 pr-3 py-2 neo-input text-xs font-semibold text-[#07221A] placeholder-[#5C7F75]"
+              placeholder="Search devices, products or users..."
+              className="w-full pl-10 pr-4 py-2 neo-input text-xs font-semibold text-[#07221A] placeholder-[#5C7F75]"
             />
           </div>
         </form>
 
         {/* Right Controls */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        <div className="flex items-center gap-2 sm:gap-3">
+          {/* Subtle Theme Toggle Moon/Sun Emblem */}
+          <div className="neo-btn p-2 rounded-xl text-[#07221A] cursor-pointer hover:border-[#20E79A]/40 transition-colors flex items-center justify-center">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-4 h-4 text-[#5C7F75]">
+              <path d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707m0-11.314l.707.707m11.314 11.314l.707-.707M12 7a5 5 0 100 10 5 5 0 000-10z" />
+            </svg>
+          </div>
+
           {/* Threshold Config Quick Button */}
-          <button
+          <motion.button
+            whileHover={{ scale: 1.04, y: -1 }}
+            whileTap={{ scale: 0.96 }}
             onClick={() => setIsConfigModalOpen(true)}
             title="Configure Sensor Thresholds & Alerts"
-            className="neo-btn min-w-[38px] min-h-[38px] px-2.5 sm:px-3 py-2 rounded-xl text-[#07221A] text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm hover:border-[#20E79A]/40"
+            className="neo-btn px-3 py-2 rounded-xl text-[#07221A] text-xs font-bold hidden sm:flex items-center gap-1.5 cursor-pointer shadow-sm hover:border-[#20E79A]/40"
           >
-            <Sliders className="w-4 h-4 text-[#20E79A]" />
-            <span className="hidden sm:inline">Thresholds</span>
-          </button>
+            <Sliders className="w-4 h-4 text-[#20E79A] glow-icon-emerald" />
+            <span>Thresholds</span>
+          </motion.button>
 
           {/* Notifications Dropdown */}
           <div className="relative" ref={notifRef}>
-            <button
+            <motion.button
+              whileHover={{ scale: 1.06, y: -1 }}
+              whileTap={{ scale: 0.92 }}
               onClick={() => {
                 setIsNotifOpen(!isNotifOpen);
               }}
               aria-label="Notifications"
-              className="relative neo-btn min-w-[38px] min-h-[38px] flex items-center justify-center rounded-xl text-[#07221A] cursor-pointer shadow-sm hover:border-[#20E79A]/40"
+              className="relative neo-btn p-2.5 rounded-xl text-[#07221A] cursor-pointer shadow-sm hover:border-[#20E79A]/40"
             >
               <Bell className="w-4 h-4" />
               {unreadCount > 0 && (
-                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white border border-white shadow-sm">
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-black text-white border border-white shadow-[0_0_8px_rgba(239,68,68,0.7)] animate-pulse">
                   {unreadCount}
                 </span>
               )}
-            </button>
+            </motion.button>
 
             {/* Notifications Popover with AnimatePresence */}
             <AnimatePresence>
               {isNotifOpen && (
                 <motion.div
-                  initial={{ opacity: 0, scale: 0.96, y: 6 }}
+                  initial={{ opacity: 0, scale: 0.95, y: 10 }}
                   animate={{ opacity: 1, scale: 1, y: 0 }}
-                  exit={{ opacity: 0, scale: 0.96, y: 6 }}
-                  transition={{ duration: 0.16, ease: 'easeOut' }}
-                  className="fixed left-3 right-3 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-full sm:mt-2 sm:w-[400px] glass-modal p-4 z-50 text-[#07221A] depth-4"
+                  exit={{ opacity: 0, scale: 0.95, y: 10 }}
+                  transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+                  className="absolute right-0 mt-2 w-80 sm:w-[420px] glass-modal p-4 z-50 text-[#07221A] depth-4"
                 >
                   <div className="flex items-center justify-between pb-3 border-b border-[#13493B]/10">
                     <div className="flex items-center gap-2">
@@ -167,7 +179,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                   <div className="mt-2.5 space-y-2 max-h-60 overflow-y-auto">
                     {alerts.length === 0 ? (
                       <div className="text-center py-6">
-                        <ShieldCheck className="w-8 h-8 text-[#20E79A] mx-auto mb-2" />
+                        <ShieldCheck className="w-8 h-8 text-[#20E79A] glow-icon-emerald mx-auto mb-2" />
                         <p className="text-xs text-[#07221A] font-bold">0 Notifications</p>
                         <p className="text-[10px] text-[#5C7F75] font-semibold mt-0.5">All sensors safe. No active notifications.</p>
                       </div>
@@ -198,12 +210,9 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
             </AnimatePresence>
           </div>
 
-          {/* Quick User Badge */}
-          <div
-            onClick={() => navigate('/profile')}
-            className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-[#13493B]/10 cursor-pointer"
-          >
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#13493B] to-[#20E79A] text-white flex items-center justify-center font-bold text-xs shadow-sm border border-[#20E79A]/30 shrink-0">
+          {/* Quick User Badge matching image header */}
+          <div className="flex items-center gap-2.5 pl-3 border-l border-[#13493B]/10">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#13493B] to-[#20E79A] text-white flex items-center justify-center font-bold text-xs shadow-md border border-[#20E79A]/30 glow-emerald">
               {userProfile?.name?.charAt(0) || 'A'}
             </div>
             <div className="hidden md:block text-left">
@@ -214,6 +223,9 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                 {userProfile?.role === 'admin' ? 'Administrator' : `Product User (${userProfile?.assignedProductId || 'COLD_DRINKS'})`}
               </span>
             </div>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" className="w-3 h-3 text-[#5C7F75]">
+              <path d="M19 9l-7 7-7-7" />
+            </svg>
           </div>
         </div>
       </header>

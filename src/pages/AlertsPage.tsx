@@ -199,9 +199,9 @@ export const AlertsPage: React.FC = () => {
         </div>
 
         {/* Filters */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto text-xs min-w-0">
+        <div className="flex items-center gap-2 flex-wrap w-full md:w-auto text-xs">
           {/* Severity filter pills */}
-          <div className="flex items-center gap-1 bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10 overflow-x-auto no-scrollbar max-w-full">
+          <div className="flex items-center gap-1 bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10">
             {[
               { id: 'all', label: 'All' },
               { id: 'unread', label: `Unread (${unreadCount})` },
@@ -212,7 +212,7 @@ export const AlertsPage: React.FC = () => {
               <button
                 key={f.id}
                 onClick={() => setSeverityFilter(f.id as any)}
-                className={`px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ${
                   severityFilter === f.id
                     ? 'bg-white text-[#07221A] shadow-sm'
                     : 'text-[#5C7F75] hover:text-[#07221A]'
@@ -224,7 +224,7 @@ export const AlertsPage: React.FC = () => {
           </div>
 
           {/* Metric filter pills */}
-          <div className="flex items-center gap-1 bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10 overflow-x-auto no-scrollbar max-w-full">
+          <div className="flex items-center gap-1 bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10">
             {[
               { id: 'all', label: 'All Metrics' },
               { id: 'temperature', label: 'Temp' },
@@ -234,7 +234,7 @@ export const AlertsPage: React.FC = () => {
               <button
                 key={m.id}
                 onClick={() => setMetricFilter(m.id as any)}
-                className={`px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer whitespace-nowrap shrink-0 ${
+                className={`px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ${
                   metricFilter === m.id
                     ? 'bg-white text-[#07221A] shadow-sm'
                     : 'text-[#5C7F75] hover:text-[#07221A]'
