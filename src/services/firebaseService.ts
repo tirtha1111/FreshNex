@@ -24,11 +24,19 @@ export function subscribeToDeviceStatus(
   }
 
   let lastUpdateTime = Date.now();
+  let lastReportedStatus: 'online' | 'offline' | undefined = undefined;
   let statusInterval: any;
+
+  const reportStatus = (nextStatus: 'online' | 'offline') => {
+    if (lastReportedStatus !== nextStatus) {
+      lastReportedStatus = nextStatus;
+      callback(nextStatus);
+    }
+  };
 
   const db = getDirectDatabase();
   if (!db) {
-    callback('offline');
+    reportStatus('offline');
     return () => {};
   }
 
@@ -59,27 +67,24 @@ export function subscribeToDeviceStatus(
 
       const diff = Date.now() - lastUpdateTime;
       const isOnline = diff <= 7000 && (target.online !== false && target.status !== 'offline');
-      callback(isOnline ? 'online' : 'offline');
+      reportStatus(isOnline ? 'online' : 'offline');
     } else {
-      callback('offline');
+      reportStatus('offline');
     }
   };
 
   const unsubscribe = onValue(deviceRef, handleSnapshot, () => {
-    callback('offline');
+    reportStatus('offline');
   });
 
   statusInterval = setInterval(() => {
     const diff = Date.now() - lastUpdateTime;
-    if (diff > 7000) {
-      callback('offline');
-    } else {
-      callback('online');
-    }
-  }, 1000);
+    reportStatus(diff > 7000 ? 'offline' : 'online');
+  }, 3000);
 
   return () => {
     clearInterval(statusInterval);
+    unsubscribe();
     off(deviceRef, 'value', handleSnapshot);
   };
 }
@@ -111,7 +116,7 @@ function parseItemRecord(id: string, val: any): FoodItem {
     id,
     name: val.name || val.title || id,
     category: val.category || val.type || 'Produce',
-    image: val.image || val.photoUrl || DEFAULT_ITEMS[id]?.image || 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?w=400&auto=format&fit=crop&q=80',
+    image: val.image || val.photoUrl || DEFAULT_ITEMS[id]?.image || '/colddrinks.jpg',
     batchId: val.batchId || val.batch || 'BATCH-001',
     tagId: val.tagId || `#${id}`,
     description: val.description || 'Sensor-monitored item in FreshNex Realtime Database.',
@@ -223,25 +228,7 @@ export function subscribeToSensorData(
     try {
       const deviceIdToListen = isMeat ? 'YGS-FD-112233' : cleanId;
       const deviceRef = ref(db, `devices/${deviceIdToListen}`);
-      const defaultDeviceRef = isMeat ? ref(db, `devices/YGS-FD-112233`) : ref(db, `devices/YGS-FD-000124`);
       const sensorRef = ref(db, `sensorData/${deviceIdToListen}`);
-
-      const createDefaultSensor = (isMeatItem: boolean) => {
-        const t = isMeatItem ? 3.5 : 4.2;
-        const h = isMeatItem ? 68.0 : 62.0;
-        const g = isMeatItem ? 980 : 120;
-        const m = calculateMoisture(t, h);
-        const p = calculatePH(t, h, m.absoluteMoisture, { category: isMeatItem ? 'meat' : 'dairy', gas: g });
-        return {
-          temperature: t,
-          humidity: h,
-          gas: g,
-          moisture: m.absoluteMoisture,
-          dewPoint: m.dewPoint,
-          ph: p.ph,
-          timestamp: Date.now(),
-        };
-      };
 
       let gotRealData = false;
 
@@ -259,18 +246,18 @@ export function subscribeToSensorData(
         }
       };
 
-      onValue(deviceRef, handleDevVal, (err) => {
+      const unsubDev = onValue(deviceRef, handleDevVal, (err) => {
         console.warn(`Realtime device listener warning for ${deviceIdToListen}:`, err);
       });
-      onValue(sensorRef, handleSensorVal, (err) => {
+      const unsubSensor = onValue(sensorRef, handleSensorVal, (err) => {
         console.warn(`Realtime sensor listener warning for ${deviceIdToListen}:`, err);
       });
 
       let unsubscribed = false;
 
-      // Background REST polling fallback if needed
+      // Background REST polling fallback only if WebSocket listener hasn't received data
       const restInterval = setInterval(async () => {
-        if (unsubscribed) return;
+        if (unsubscribed || gotRealData) return;
         try {
           const targetUrl = firebaseConfig.databaseURL || REALTIME_DATABASE_URL;
           const base = targetUrl.replace(/\/$/, '');
@@ -288,11 +275,15 @@ export function subscribeToSensorData(
         } catch {
           // Non-blocking fallback
         }
-      }, 4000);
+      }, 8000);
 
       cleanups.push(() => {
         unsubscribed = true;
         clearInterval(restInterval);
+        unsubDev();
+        unsubSensor();
+        off(deviceRef, 'value', handleDevVal);
+        off(sensorRef, 'value', handleSensorVal);
       });
     } catch (e) {
       console.warn('Realtime subscription initiation error:', e);

@@ -136,56 +136,56 @@ export const AlertsPage: React.FC = () => {
       </div>
 
       {/* Summary KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         {/* Total Alerts */}
-        <div className="bg-white p-5 rounded-3xl border border-[#13493B]/10 flex items-center justify-between shadow-sm">
-          <div className="space-y-1">
-            <span className="text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block">Total Alerts</span>
-            <p className="text-2xl font-black text-[#07221A]">{alerts.length}</p>
+        <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl border border-[#13493B]/10 flex items-center justify-between shadow-sm">
+          <div className="space-y-1 min-w-0">
+            <span className="text-[9px] sm:text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block truncate">Total Alerts</span>
+            <p className="text-xl sm:text-2xl font-black text-[#07221A] tabular-nums">{alerts.length}</p>
           </div>
-          <div className="w-11 h-11 rounded-full bg-[#EBF5FF] text-[#3B82F6] flex items-center justify-center">
-            <Bell className="w-5 h-5" />
+          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#EBF5FF] text-[#3B82F6] flex items-center justify-center shrink-0">
+            <Bell className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
         </div>
 
         {/* Critical Spikes */}
-        <div className="bg-white p-5 rounded-3xl border border-[#13493B]/10 flex items-center justify-between shadow-sm">
-          <div className="space-y-1">
-            <span className="text-[10px] font-bold text-red-600 uppercase tracking-wider block">Critical Spikes</span>
-            <p className="text-2xl font-black text-red-600">{criticalCount}</p>
+        <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl border border-[#13493B]/10 flex items-center justify-between shadow-sm">
+          <div className="space-y-1 min-w-0">
+            <span className="text-[9px] sm:text-[10px] font-bold text-red-600 uppercase tracking-wider block truncate">Critical Spikes</span>
+            <p className="text-xl sm:text-2xl font-black text-red-600 tabular-nums">{criticalCount}</p>
           </div>
-          <div className="w-11 h-11 rounded-full bg-[#FFECEE] text-red-600 flex items-center justify-center">
-            <AlertTriangle className="w-5 h-5" />
+          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#FFECEE] text-red-600 flex items-center justify-center shrink-0">
+            <AlertTriangle className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
         </div>
 
         {/* Warning Thresholds */}
-        <div className="bg-white p-5 rounded-3xl border border-[#13493B]/10 flex items-center justify-between shadow-sm">
-          <div className="space-y-1">
-            <span className="text-[10px] font-bold text-orange-600 uppercase tracking-wider block">Warnings</span>
-            <p className="text-2xl font-black text-orange-600">{warningCount}</p>
+        <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl border border-[#13493B]/10 flex items-center justify-between shadow-sm">
+          <div className="space-y-1 min-w-0">
+            <span className="text-[9px] sm:text-[10px] font-bold text-orange-600 uppercase tracking-wider block truncate">Warnings</span>
+            <p className="text-xl sm:text-2xl font-black text-orange-600 tabular-nums">{warningCount}</p>
           </div>
-          <div className="w-11 h-11 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center">
-            <Wind className="w-5 h-5" />
+          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-orange-50 text-orange-500 flex items-center justify-center shrink-0">
+            <Wind className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
         </div>
 
         {/* Active Threshold Config Summary */}
-        <div className="bg-white p-5 rounded-3xl border border-[#13493B]/10 flex items-center justify-between shadow-sm">
-          <div className="space-y-1 min-w-0">
-            <span className="text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block">Trigger Rules</span>
-            <p className="text-xs font-black text-[#20E79A] truncate font-mono">
+        <div className="bg-white p-3.5 sm:p-5 rounded-2xl sm:rounded-3xl border border-[#13493B]/10 flex items-center justify-between shadow-sm">
+          <div className="space-y-1 min-w-0 pr-1">
+            <span className="text-[9px] sm:text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block truncate">Trigger Rules</span>
+            <p className="text-[11px] sm:text-xs font-black text-[#20E79A] truncate font-mono tabular-nums">
               T &gt; {thresholds.tempMax}°C | G &gt; {thresholds.gasWarning}ppm
             </p>
           </div>
-          <div className="w-11 h-11 rounded-full bg-[#EBFBF4] text-[#20E79A] flex items-center justify-center">
-            <ShieldCheck className="w-5 h-5" />
+          <div className="w-9 h-9 sm:w-11 sm:h-11 rounded-full bg-[#EBFBF4] text-[#20E79A] flex items-center justify-center shrink-0">
+            <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5" />
           </div>
         </div>
       </div>
 
       {/* Interactive Controls & Filters */}
-      <div className="p-4 rounded-2xl bg-white border border-[#13493B]/10 flex flex-col md:flex-row items-center justify-between gap-3 shadow-sm">
+      <div className="p-3.5 sm:p-4 rounded-2xl bg-white border border-[#13493B]/10 flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 shadow-sm">
         {/* Search */}
         <div className="relative w-full md:w-72">
           <Search className="w-4 h-4 text-[#5C7F75] absolute left-3.5 top-1/2 -translate-y-1/2" />
@@ -194,14 +194,14 @@ export const AlertsPage: React.FC = () => {
             value={searchFilter}
             onChange={(e) => setSearchFilter(e.target.value)}
             placeholder="Search alerts (e.g. Temperature)..."
-            className="w-full pl-10 pr-3 py-2 bg-[#EBF1EF] text-xs font-semibold text-[#07221A] placeholder-[#5C7F75] rounded-xl border border-transparent focus:outline-none focus:bg-white focus:border-[#20E79A]/50 focus:ring-4 focus:ring-[#20E79A]/10 transition-all duration-200"
+            className="w-full pl-10 pr-3 py-2.5 bg-[#EBF1EF] text-xs font-semibold text-[#07221A] placeholder-[#5C7F75] rounded-xl border border-transparent focus:outline-none focus:bg-white focus:border-[#20E79A]/50 focus:ring-4 focus:ring-[#20E79A]/10 transition-all duration-200"
           />
         </div>
 
         {/* Filters */}
-        <div className="flex items-center gap-2 flex-wrap w-full md:w-auto text-xs">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full md:w-auto text-xs">
           {/* Severity filter pills */}
-          <div className="flex items-center gap-1 bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10">
+          <div className="flex items-center gap-1 bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10 overflow-x-auto max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {[
               { id: 'all', label: 'All' },
               { id: 'unread', label: `Unread (${unreadCount})` },
@@ -212,7 +212,7 @@ export const AlertsPage: React.FC = () => {
               <button
                 key={f.id}
                 onClick={() => setSeverityFilter(f.id as any)}
-                className={`px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ${
+                className={`shrink-0 px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ${
                   severityFilter === f.id
                     ? 'bg-white text-[#07221A] shadow-sm'
                     : 'text-[#5C7F75] hover:text-[#07221A]'
@@ -224,7 +224,7 @@ export const AlertsPage: React.FC = () => {
           </div>
 
           {/* Metric filter pills */}
-          <div className="flex items-center gap-1 bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10">
+          <div className="flex items-center gap-1 bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10 overflow-x-auto max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {[
               { id: 'all', label: 'All Metrics' },
               { id: 'temperature', label: 'Temp' },
@@ -234,7 +234,7 @@ export const AlertsPage: React.FC = () => {
               <button
                 key={m.id}
                 onClick={() => setMetricFilter(m.id as any)}
-                className={`px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ${
+                className={`shrink-0 px-3 py-1.5 rounded-lg font-black transition-all cursor-pointer ${
                   metricFilter === m.id
                     ? 'bg-white text-[#07221A] shadow-sm'
                     : 'text-[#5C7F75] hover:text-[#07221A]'
@@ -255,7 +255,7 @@ export const AlertsPage: React.FC = () => {
         className="space-y-3.5"
       >
          {filteredAlerts.length === 0 ? (
-          <div className="bg-white p-12 text-center space-y-4 rounded-[28px] border border-[#13493B]/10 shadow-sm">
+          <div className="bg-white p-10 sm:p-12 text-center space-y-4 rounded-[24px] sm:rounded-[28px] border border-[#13493B]/10 shadow-sm">
             <div className="w-16 h-16 rounded-[20px] bg-[#EBFBF4] text-[#20E79A] flex items-center justify-center mx-auto shadow-sm">
               <ShieldCheck className="w-8 h-8" />
             </div>
@@ -278,7 +278,7 @@ export const AlertsPage: React.FC = () => {
               <motion.div
                 key={alert.id}
                 variants={itemVariants}
-                className="bg-white p-5 rounded-3xl border border-[#13493B]/10 shadow-sm relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+                className="bg-white p-4 sm:p-5 rounded-2xl sm:rounded-3xl border border-[#13493B]/10 shadow-sm relative overflow-hidden flex flex-col sm:flex-row sm:items-center justify-between gap-4"
               >
                 {/* Left accent color indicator bar */}
                 <div 
@@ -287,11 +287,11 @@ export const AlertsPage: React.FC = () => {
                   }`}
                 />
 
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pl-2 w-full">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3.5 sm:gap-4 pl-2 w-full">
                   {/* Left info */}
-                  <div className="flex items-start gap-4 min-w-0">
+                  <div className="flex items-start gap-3 sm:gap-4 min-w-0">
                     <div 
-                      className={`w-11 h-11 rounded-full flex items-center justify-center shrink-0 ${
+                      className={`w-10 h-10 sm:w-11 sm:h-11 rounded-full flex items-center justify-center shrink-0 ${
                         isCrit
                           ? 'bg-[#FFECEE] text-red-600'
                           : isWarn
@@ -328,7 +328,7 @@ export const AlertsPage: React.FC = () => {
                           </span>
                         )}
 
-                        <span className="text-[10px] text-[#5C7F75] font-semibold font-mono">
+                        <span className="text-[10px] text-[#5C7F75] font-semibold font-mono tabular-nums">
                           {new Date(alert.timestamp).toLocaleString()}
                         </span>
                       </div>
@@ -337,7 +337,7 @@ export const AlertsPage: React.FC = () => {
                       <p className="text-xs font-semibold text-[#5C7F75] leading-relaxed">{alert.message}</p>
 
                       {alert.currentValue !== undefined && (
-                        <div className="flex items-center gap-3 pt-1 text-xs font-mono font-bold">
+                        <div className="flex items-center gap-3 flex-wrap pt-1 text-xs font-mono font-bold tabular-nums">
                           <span className="text-red-500">
                             Current: {alert.currentValue} {alert.unit}
                           </span>
@@ -350,7 +350,7 @@ export const AlertsPage: React.FC = () => {
                   </div>
 
                   {/* Right actions */}
-                  <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
+                  <div className="flex items-center justify-end gap-2 w-full sm:w-auto pt-2.5 sm:pt-0 border-t sm:border-t-0 border-[#13493B]/10 shrink-0">
                     <motion.button
                       whileHover={{ scale: 1.05 }}
                       whileTap={{ scale: 0.95 }}
@@ -361,7 +361,7 @@ export const AlertsPage: React.FC = () => {
                           navigate('/live-data');
                         }
                       }}
-                      className="px-4 py-2 rounded-full text-xs font-black text-[#07221A] bg-[#F4F7F6] hover:bg-[#EBF1EF] flex items-center gap-1.5 cursor-pointer shadow-sm"
+                      className="px-3.5 py-2 rounded-full text-xs font-black text-[#07221A] bg-[#F4F7F6] hover:bg-[#EBF1EF] flex items-center gap-1.5 cursor-pointer shadow-sm"
                     >
                       <ExternalLink className="w-3.5 h-3.5 text-[#20E79A]" />
                       <span>Telemetry</span>
@@ -372,7 +372,7 @@ export const AlertsPage: React.FC = () => {
                         whileHover={{ scale: 1.05 }}
                         whileTap={{ scale: 0.95 }}
                         onClick={() => resolveAlert(alert.id)}
-                        className="px-4 py-2 rounded-full text-xs font-black text-white bg-[#07221A] hover:bg-[#134336] flex items-center gap-1 cursor-pointer transition-colors"
+                        className="px-3.5 py-2 rounded-full text-xs font-black text-white bg-[#07221A] hover:bg-[#134336] flex items-center gap-1 cursor-pointer transition-colors"
                       >
                         <CheckCheck className="w-3.5 h-3.5" />
                         <span>Acknowledge</span>

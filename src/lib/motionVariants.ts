@@ -4,33 +4,27 @@ import { Variants } from 'motion/react';
 export const smoothEase = [0.22, 1, 0.36, 1] as const;
 export const springPhysics = { type: 'spring' as const, damping: 24, stiffness: 280 };
 
-// Page Entrance and Exit Variants
+// Page Entrance and Exit Variants (Compositor-only for zero mobile lag)
 export const pageVariants: Variants = {
   initial: {
     opacity: 0,
-    y: 18,
-    scale: 0.985,
-    filter: 'blur(4px)',
+    y: 10,
   },
   animate: {
     opacity: 1,
     y: 0,
-    scale: 1,
-    filter: 'blur(0px)',
     transition: {
-      duration: 0.45,
+      duration: 0.22,
       ease: smoothEase,
       when: 'beforeChildren',
-      staggerChildren: 0.08,
+      staggerChildren: 0.04,
     },
   },
   exit: {
     opacity: 0,
-    y: -14,
-    scale: 0.99,
-    filter: 'blur(3px)',
+    y: -8,
     transition: {
-      duration: 0.3,
+      duration: 0.15,
       ease: smoothEase,
     },
   },

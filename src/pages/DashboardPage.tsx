@@ -28,6 +28,7 @@ import { ThresholdConfigModal } from '../components/common/ThresholdConfigModal'
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
 import { formatRealtimeDateTime, parseTimestamp } from '../utils/dateUtils';
+import farmLandscapeImg from '../assets/images/freshnex_farm_landscape_1789921215887.jpg';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
@@ -94,12 +95,12 @@ export const DashboardPage: React.FC = () => {
 
   const containerVariants = {
     hidden: { opacity: 0 },
-    visible: { opacity: 1, transition: { staggerChildren: 0.05 } }
+    visible: { opacity: 1, transition: { staggerChildren: 0.04 } }
   };
 
   const itemVariants = {
-    hidden: { opacity: 0, y: 15 },
-    visible: { opacity: 1, y: 0, transition: { duration: 0.4, ease: 'easeOut' } }
+    hidden: { opacity: 0, y: 12 },
+    visible: { opacity: 1, y: 0, transition: { duration: 0.25, ease: 'easeOut' } }
   };
 
   return (
@@ -107,92 +108,77 @@ export const DashboardPage: React.FC = () => {
       variants={containerVariants}
       initial="hidden"
       animate="visible"
-      className="space-y-6 select-none font-sans"
+      className="space-y-4 sm:space-y-6 select-none font-sans"
     >
       {/* 1. TOP BANNER HERO CARD */}
       <motion.div 
         variants={itemVariants}
-        className="relative glass-card p-6 sm:p-10 overflow-hidden depth-3 flex flex-col lg:flex-row justify-between items-center gap-8"
+        className="relative glass-card p-4 sm:p-7 lg:p-10 overflow-hidden depth-3 flex flex-col lg:flex-row justify-between items-center gap-6 lg:gap-8"
       >
-        {/* Ambient glow backdrop inside hero */}
-        <div className="absolute -top-16 -right-16 w-64 h-64 bg-[#20E79A]/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-[#13493B]/10 rounded-full blur-3xl pointer-events-none" />
-
-        {/* Floating background natural leaf assets */}
-        <div className="absolute top-4 left-1/4 w-8 h-8 opacity-20 pointer-events-none rotate-12">
-          <svg viewBox="0 0 24 24" fill="currentColor" className="text-[#13493B] w-full h-full">
-            <path d="M12 2C12 2 8 5 6 9C4 13 6 17 9 18C10 16 11 13 12 10C13 13 14 16 15 18C18 17 20 13 18 9C16 5 12 2 12 2Z" />
-          </svg>
-        </div>
-        <div className="absolute bottom-6 left-1/2 w-10 h-10 opacity-15 pointer-events-none -rotate-45">
-          <svg viewBox="0 0 24 24" fill="currentColor" className="text-[#13493B] w-full h-full">
-            <path d="M12 2C12 2 8 5 6 9C4 13 6 17 9 18C10 16 11 13 12 10C13 13 14 16 15 18C18 17 20 13 18 9C16 5 12 2 12 2Z" />
-          </svg>
-        </div>
+        {/* Ambient glow backdrop inside hero (desktop only) */}
+        <div className="hidden md:block absolute -top-16 -right-16 w-64 h-64 bg-[#20E79A]/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="hidden md:block absolute -bottom-16 -left-16 w-64 h-64 bg-[#13493B]/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Left Side Info */}
-        <div className="flex-1 space-y-4 text-center lg:text-left z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full neo-btn shadow-sm">
-            <span className={`w-2.5 h-2.5 rounded-full ${isAdmin ? 'bg-[#20E79A] shadow-[0_0_8px_#20E79A]' : 'bg-[#FF6A00] shadow-[0_0_8px_#FF6A00]'} animate-pulse`} />
-            <span className="text-[10px] font-black text-[#07221A] uppercase tracking-wider">
+        <div className="flex-1 w-full space-y-3.5 sm:space-y-4 text-center lg:text-left z-10">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full neo-btn shadow-sm max-w-full">
+            <span className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full shrink-0 ${isAdmin ? 'bg-[#20E79A] shadow-[0_0_8px_#20E79A]' : 'bg-[#FF6A00] shadow-[0_0_8px_#FF6A00]'} animate-pulse`} />
+            <span className="text-[9.5px] sm:text-[10px] font-black text-[#07221A] uppercase tracking-wider truncate">
               {isAdmin ? 'Admin Hub • Monitored Products' : `User Portal • Product ID: ${assignedTag}`}
             </span>
           </div>
-          <div className="space-y-1">
-            <h1 className="text-3xl sm:text-4xl font-serif italic font-black text-[#07221A] leading-none tracking-tight">
+          <div className="space-y-0.5 sm:space-y-1">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif italic font-black text-[#07221A] leading-tight tracking-tight">
               {lastScanned ? lastScanned.itemName.toUpperCase() : (isAdmin ? 'FRESH FOOD' : assignedName.toUpperCase())}
             </h1>
-            <h1 className="text-3xl sm:text-4xl font-serif italic font-black text-[#07221A] leading-none tracking-tight">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-serif italic font-black text-[#07221A] leading-tight tracking-tight">
               {lastScanned ? `${lastScanned.freshnessScore}% FRESHNESS` : 'MONITORING'}
-            </h1>
-            <h1 className="text-3xl sm:text-4xl font-serif italic font-black text-[#07221A] leading-none tracking-tight">
+            </h2>
+            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-serif italic font-black text-[#07221A] leading-tight tracking-tight">
               {lastScanned ? `STATUS: ${lastScanned.status.toUpperCase()}` : 'PORTAL'}
-            </h1>
+            </h3>
           </div>
-          <p className="text-xs text-[#5C7F75] font-semibold max-w-md leading-relaxed">
+          <p className="text-xs text-[#5C7F75] font-semibold max-w-md mx-auto lg:mx-0 leading-relaxed">
             {lastScanned 
               ? (freshnessReport?.message || `Inspection telemetry: ${lastScanned.temperature}°C, ${lastScanned.humidity}% humidity, ${lastScanned.gas} ppm MQ-135 gas. ${lastScanned.status === 'Fresh' ? 'Optimal preservation bounds confirmed.' : 'Monitor cold-chain retention.'}`)
               : 'IoT telemetry from physical RFID and QR scanned products. Ready for next product tag inspection.'}
           </p>
 
-          <div className="pt-2 flex flex-wrap items-center justify-center lg:justify-start gap-3.5">
-            <motion.button
-              whileHover={{ scale: 1.04, y: -2 }}
-              whileTap={{ scale: 0.96 }}
+          <div className="pt-1 sm:pt-2 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center lg:justify-start gap-2.5 sm:gap-3">
+            <button
+              type="button"
               onClick={() => navigate('/scan')}
-              className="neo-btn-primary px-6 py-3.5 rounded-full text-xs font-black flex items-center gap-2 cursor-pointer glow-emerald shadow-lg"
+              className="neo-btn-primary px-5 py-3 min-h-[44px] rounded-full text-xs font-black flex items-center justify-center gap-2 cursor-pointer glow-emerald shadow-md active:scale-97 transition-transform"
             >
-              <Scan className="w-4 h-4 text-[#20E79A] glow-icon-emerald" />
+              <Scan className="w-4 h-4 text-[#20E79A] glow-icon-emerald shrink-0" />
               <span>Scan Product Tag</span>
-            </motion.button>
+            </button>
 
             {lastScanned && (
-              <motion.button
-                whileHover={{ scale: 1.04, y: -2 }}
-                whileTap={{ scale: 0.96 }}
+              <button
+                type="button"
                 onClick={() => navigate(`/live-data/${lastScanned.itemId}`)}
-                className="neo-btn px-6 py-3.5 rounded-full text-xs font-black text-[#07221A] flex items-center gap-2 cursor-pointer shadow-sm hover:border-[#20E79A]/40"
+                className="neo-btn px-5 py-3 min-h-[44px] rounded-full text-xs font-black text-[#07221A] flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:border-[#20E79A]/40 active:scale-97 transition-transform"
               >
-                <Activity className="w-4 h-4 text-[#20E79A] glow-icon-emerald" />
+                <Activity className="w-4 h-4 text-[#20E79A] glow-icon-emerald shrink-0" />
                 <span>View Full Telemetry</span>
-              </motion.button>
+              </button>
             )}
 
-            <motion.button
-              whileHover={{ scale: 1.04, y: -2 }}
-              whileTap={{ scale: 0.96 }}
+            <button
+              type="button"
               onClick={() => navigate('/analytics')}
-              className="neo-btn px-6 py-3.5 rounded-full text-xs font-black text-[#07221A] flex items-center gap-2 cursor-pointer shadow-sm hover:border-[#20E79A]/40"
+              className="neo-btn px-5 py-3 min-h-[44px] rounded-full text-xs font-black text-[#07221A] flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:border-[#20E79A]/40 active:scale-97 transition-transform"
             >
-              <BarChart3 className="w-4 h-4 text-[#20E79A] glow-icon-emerald" />
+              <BarChart3 className="w-4 h-4 text-[#20E79A] glow-icon-emerald shrink-0" />
               <span>Telemetry Analytics</span>
-            </motion.button>
+            </button>
           </div>
         </div>
 
         {/* Middle Floating Product Display */}
-        <div className="flex flex-col items-center justify-center relative py-4 lg:py-0 z-10 shrink-0">
-          <div className="relative w-44 aspect-[3/5] glass-modal rounded-[28px] p-3.5 depth-4 flex flex-col items-center justify-between text-center overflow-hidden">
+        <div className="flex flex-col items-center justify-center relative py-2 lg:py-0 z-10 shrink-0">
+          <div className="relative w-40 sm:w-44 aspect-[3/5] glass-modal rounded-[28px] p-3.5 depth-4 flex flex-col items-center justify-between text-center overflow-hidden">
             {/* Glossy Reflection overlay */}
             <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-white/25 to-transparent skew-x-12 pointer-events-none" />
 
@@ -206,7 +192,7 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             {/* Product Photo or QR Target */}
-            <div className="w-28 h-28 my-2 rounded-2xl overflow-hidden bg-[#F4F7F6] border border-[#13493B]/10 flex items-center justify-center relative shadow-inner">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 my-1.5 rounded-2xl overflow-hidden bg-[#F4F7F6] border border-[#13493B]/10 flex items-center justify-center relative shadow-inner">
               {lastScanned ? (
                 <img 
                   src={lastScanned.itemImage || "/colddrinks.jpg"} 
@@ -224,49 +210,49 @@ export const DashboardPage: React.FC = () => {
 
             {/* QR Scan Target Overlay */}
             <div className="flex flex-col items-center gap-1 neo-btn p-2 rounded-xl w-full">
-              <QrCode className="w-5 h-5 text-[#07221A]" />
-              <span className="text-[9px] font-bold text-[#5C7F75] tracking-tight font-mono">
+              <QrCode className="w-4 h-4 sm:w-5 sm:h-5 text-[#07221A]" />
+              <span className="text-[9px] font-bold text-[#5C7F75] tracking-tight font-mono truncate max-w-full">
                 {lastScanned ? lastScanned.tagId : 'AWAITING SCAN'}
               </span>
             </div>
           </div>
-          {/* Slogan label floating beside the card */}
-          <div className="absolute -left-10 top-10 -rotate-12 glass-panel px-3.5 py-2 rounded-2xl depth-2 shadow-lg">
-            <span className="font-serif italic text-xs font-black text-[#07221A] block">Scan</span>
-            <span className="font-serif italic text-xs font-black text-[#20E79A] glow-icon-emerald block">Track</span>
-            <span className="font-serif italic text-xs font-black text-[#07221A] block">Stay Fresh</span>
+          {/* Slogan label floating beside the card - tucked cleanly so it never overflows mobile */}
+          <div className="absolute -left-4 sm:-left-9 top-6 -rotate-12 glass-panel px-3 py-1.5 rounded-2xl depth-2 shadow-md">
+            <span className="font-serif italic text-[11px] sm:text-xs font-black text-[#07221A] block">Scan</span>
+            <span className="font-serif italic text-[11px] sm:text-xs font-black text-[#20E79A] glow-icon-emerald block">Track</span>
+            <span className="font-serif italic text-[11px] sm:text-xs font-black text-[#07221A] block">Stay Fresh</span>
           </div>
         </div>
 
         {/* Right Side Bullet Checklist */}
-        <div className="space-y-4 shrink-0 lg:border-l lg:border-[#13493B]/10 lg:pl-8 py-2 w-full lg:w-auto">
-          <div className="flex items-center gap-3.5">
-            <div className="neo-icon-box w-10 h-10 rounded-2xl flex items-center justify-center text-[#20E79A]">
-              <ShieldCheck className="w-5 h-5 glow-icon-emerald" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:grid-cols-1 gap-3 sm:gap-4 shrink-0 border-t lg:border-t-0 lg:border-l border-[#13493B]/10 pt-4 lg:pt-0 lg:pl-8 w-full lg:w-auto">
+          <div className="flex items-center gap-3 p-2.5 lg:p-0 rounded-2xl bg-[#F4F7F6]/70 lg:bg-transparent border border-[#13493B]/8 lg:border-0">
+            <div className="neo-icon-box w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-[#20E79A] shrink-0">
+              <ShieldCheck className="w-4 h-4 sm:w-5 sm:h-5 glow-icon-emerald" />
             </div>
-            <div>
-              <span className="block text-[11px] font-black text-[#07221A] uppercase tracking-wide">Safer Food</span>
-              <span className="block text-[9px] text-[#5C7F75] font-semibold">Continuous Bio-Sensors</span>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-3.5">
-            <div className="neo-icon-box w-10 h-10 rounded-2xl flex items-center justify-center text-[#20E79A]">
-              <Heart className="w-5 h-5 glow-icon-emerald" />
-            </div>
-            <div>
-              <span className="block text-[11px] font-black text-[#07221A] uppercase tracking-wide">Healthier People</span>
-              <span className="block text-[9px] text-[#5C7F75] font-semibold">Prevention & Warnings</span>
+            <div className="min-w-0 text-left">
+              <span className="block text-[11px] font-black text-[#07221A] uppercase tracking-wide truncate">Safer Food</span>
+              <span className="block text-[9.5px] text-[#5C7F75] font-semibold truncate">Continuous Bio-Sensors</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3.5">
-            <div className="neo-icon-box w-10 h-10 rounded-2xl flex items-center justify-center text-[#20E79A]">
-              <Globe className="w-5 h-5 glow-icon-emerald" />
+          <div className="flex items-center gap-3 p-2.5 lg:p-0 rounded-2xl bg-[#F4F7F6]/70 lg:bg-transparent border border-[#13493B]/8 lg:border-0">
+            <div className="neo-icon-box w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-[#20E79A] shrink-0">
+              <Heart className="w-4 h-4 sm:w-5 sm:h-5 glow-icon-emerald" />
             </div>
-            <div>
-              <span className="block text-[11px] font-black text-[#07221A] uppercase tracking-wide">Cleaner Planet</span>
-              <span className="block text-[9px] text-[#5C7F75] font-semibold">Zero-Waste Tracking</span>
+            <div className="min-w-0 text-left">
+              <span className="block text-[11px] font-black text-[#07221A] uppercase tracking-wide truncate">Healthier People</span>
+              <span className="block text-[9.5px] text-[#5C7F75] font-semibold truncate">Prevention & Warnings</span>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-3 p-2.5 lg:p-0 rounded-2xl bg-[#F4F7F6]/70 lg:bg-transparent border border-[#13493B]/8 lg:border-0">
+            <div className="neo-icon-box w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-[#20E79A] shrink-0">
+              <Globe className="w-4 h-4 sm:w-5 sm:h-5 glow-icon-emerald" />
+            </div>
+            <div className="min-w-0 text-left">
+              <span className="block text-[11px] font-black text-[#07221A] uppercase tracking-wide truncate">Cleaner Planet</span>
+              <span className="block text-[9.5px] text-[#5C7F75] font-semibold truncate">Zero-Waste Tracking</span>
             </div>
           </div>
         </div>
@@ -275,32 +261,27 @@ export const DashboardPage: React.FC = () => {
       {/* 2. SIX SENSOR METRICS CARDS - INCLUDES DERIVED THERMODYNAMIC pH */}
       <motion.div 
         variants={itemVariants}
-        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4"
+        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4"
       >
         {/* Metric 1: Temp */}
-        <motion.div 
-          whileHover={{ y: -3 }}
-          transition={{ duration: 0.2 }}
-          className="glass-card p-4 sm:p-5 depth-2 space-y-4 flex flex-col justify-between hover:border-red-300/40 hover:shadow-[0_8px_25px_rgba(255,90,103,0.12)] transition-all"
-        >
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block">Last Temperature</span>
-              <span className="text-xl sm:text-2xl font-black text-[#07221A] tracking-tight block">
+        <div className="glass-card p-3.5 sm:p-5 depth-2 space-y-3 flex flex-col justify-between transition-all">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-0.5 min-w-0">
+              <span className="text-[9.5px] sm:text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block truncate">Temperature</span>
+              <span className="text-lg sm:text-2xl font-black text-[#07221A] tracking-tight tabular-nums block">
                 {lastScanned ? `${lastScanned.temperature} °C` : '0 °C'}
               </span>
-              <span className={`text-[10px] font-bold flex items-center gap-0.5 ${
+              <span className={`text-[9.5px] sm:text-[10px] font-bold block truncate ${
                 !lastScanned ? 'text-[#5C7F75]' : lastScanned.temperature > 8 ? 'text-[#FF5A67]' : 'text-[#20E79A]'
               }`}>
-                <span>{lastScanned ? (lastScanned.temperature > 8 ? 'Elevated temp' : 'Optimal range') : '0 Scans Recorded'}</span>
+                {lastScanned ? (lastScanned.temperature > 8 ? 'Elevated temp' : 'Optimal range') : '0 Scans'}
               </span>
             </div>
-            <div className="neo-icon-box w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-[#FF5A67] shadow-sm">
+            <div className="neo-icon-box w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center text-[#FF5A67] shadow-sm shrink-0">
               <Thermometer className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </div>
-          {/* Dynamic Sparkline rendering from actual historical data */}
-          <div className="w-full h-8 pt-1">
+          <div className="w-full h-7 pt-1">
             <svg viewBox="0 0 100 30" className="w-full h-full overflow-visible">
               <path 
                 d={lastScanned ? "M 0 20 Q 25 10 50 18 T 100 12" : "M 0 25 L 100 25"} 
@@ -312,31 +293,27 @@ export const DashboardPage: React.FC = () => {
               />
             </svg>
           </div>
-        </motion.div>
+        </div>
 
         {/* Metric 2: Humidity */}
-        <motion.div 
-          whileHover={{ y: -3 }}
-          transition={{ duration: 0.2 }}
-          className="glass-card p-4 sm:p-5 depth-2 space-y-4 flex flex-col justify-between hover:border-blue-300/40 hover:shadow-[0_8px_25px_rgba(59,130,246,0.12)] transition-all"
-        >
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block">Last Humidity</span>
-              <span className="text-xl sm:text-2xl font-black text-[#07221A] tracking-tight block">
+        <div className="glass-card p-3.5 sm:p-5 depth-2 space-y-3 flex flex-col justify-between transition-all">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-0.5 min-w-0">
+              <span className="text-[9.5px] sm:text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block truncate">Humidity</span>
+              <span className="text-lg sm:text-2xl font-black text-[#07221A] tracking-tight tabular-nums block">
                 {lastScanned ? `${lastScanned.humidity} %` : '0 %'}
               </span>
-              <span className={`text-[10px] font-bold flex items-center gap-0.5 ${
+              <span className={`text-[9.5px] sm:text-[10px] font-bold block truncate ${
                 !lastScanned ? 'text-[#5C7F75]' : lastScanned.humidity > 70 ? 'text-[#FFAA00]' : 'text-[#20E79A]'
               }`}>
-                <span>{lastScanned ? (lastScanned.humidity > 70 ? 'High moisture' : 'Optimal moisture') : '0 Scans Recorded'}</span>
+                {lastScanned ? (lastScanned.humidity > 70 ? 'High moisture' : 'Optimal moisture') : '0 Scans'}
               </span>
             </div>
-            <div className="neo-icon-box w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-[#3B82F6] shadow-sm">
+            <div className="neo-icon-box w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center text-[#3B82F6] shadow-sm shrink-0">
               <Droplets className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </div>
-          <div className="w-full h-8 pt-1">
+          <div className="w-full h-7 pt-1">
             <svg viewBox="0 0 100 30" className="w-full h-full overflow-visible">
               <path 
                 d={lastScanned ? "M 0 15 Q 25 22 50 12 T 100 16" : "M 0 25 L 100 25"} 
@@ -348,31 +325,27 @@ export const DashboardPage: React.FC = () => {
               />
             </svg>
           </div>
-        </motion.div>
+        </div>
 
         {/* Metric 3: Calculated Moisture (g/m³) */}
-        <motion.div 
-          whileHover={{ y: -3 }}
-          transition={{ duration: 0.2 }}
-          className="glass-card p-4 sm:p-5 depth-2 space-y-4 flex flex-col justify-between hover:border-sky-300/40 hover:shadow-[0_8px_25px_rgba(14,165,233,0.12)] transition-all"
-        >
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block">Calc. Moisture</span>
-              <span className="text-xl sm:text-2xl font-black text-[#07221A] tracking-tight block">
+        <div className="glass-card p-3.5 sm:p-5 depth-2 space-y-3 flex flex-col justify-between transition-all">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-0.5 min-w-0">
+              <span className="text-[9.5px] sm:text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block truncate">Calc. Moisture</span>
+              <span className="text-lg sm:text-2xl font-black text-[#07221A] tracking-tight tabular-nums block">
                 {liveMoisture ? `${liveMoisture.absoluteMoisture} g/m³` : '0 g/m³'}
               </span>
-              <span className={`text-[10px] font-bold flex items-center gap-0.5 ${
+              <span className={`text-[9.5px] sm:text-[10px] font-bold block truncate ${
                 !liveMoisture ? 'text-[#5C7F75]' : liveMoisture.status === 'Condensation Hazard' ? 'text-[#FF5A67]' : 'text-[#0EA5E9]'
               }`}>
-                <span>{liveMoisture ? `Dew: ${liveMoisture.dewPoint}°C • ${liveMoisture.status}` : '0 Scans Recorded'}</span>
+                {liveMoisture ? `Dew: ${liveMoisture.dewPoint}°C` : '0 Scans'}
               </span>
             </div>
-            <div className="neo-icon-box w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-[#0EA5E9] shadow-sm">
+            <div className="neo-icon-box w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center text-[#0EA5E9] shadow-sm shrink-0">
               <Droplets className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </div>
-          <div className="w-full h-8 pt-1">
+          <div className="w-full h-7 pt-1">
             <svg viewBox="0 0 100 30" className="w-full h-full overflow-visible">
               <path 
                 d={liveMoisture ? "M 0 18 Q 25 12 50 16 T 100 14" : "M 0 25 L 100 25"} 
@@ -384,31 +357,27 @@ export const DashboardPage: React.FC = () => {
               />
             </svg>
           </div>
-        </motion.div>
+        </div>
 
         {/* Metric 4: Calculated pH (Thermodynamic Acidity & Ionization) */}
-        <motion.div 
-          whileHover={{ y: -3 }}
-          transition={{ duration: 0.2 }}
-          className="glass-card p-4 sm:p-5 depth-2 space-y-4 flex flex-col justify-between hover:border-emerald-300/60 hover:shadow-[0_8px_25px_rgba(32,231,154,0.18)] transition-all bg-emerald-50/30"
-        >
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <span className="text-[10px] font-extrabold text-[#13493B] uppercase tracking-wider block">Calculated pH</span>
-              <span className="text-xl sm:text-2xl font-black text-emerald-950 font-mono tracking-tight block">
+        <div className="glass-card p-3.5 sm:p-5 depth-2 space-y-3 flex flex-col justify-between transition-all bg-emerald-50/40">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-0.5 min-w-0">
+              <span className="text-[9.5px] sm:text-[10px] font-extrabold text-[#13493B] uppercase tracking-wider block truncate">Calculated pH</span>
+              <span className="text-lg sm:text-2xl font-black text-emerald-950 font-mono tracking-tight tabular-nums block">
                 {livePH ? `pH ${livePH.ph}` : 'pH --'}
               </span>
-              <span className={`text-[10px] font-bold flex items-center gap-0.5 ${
+              <span className={`text-[9.5px] sm:text-[10px] font-bold block truncate ${
                 !livePH ? 'text-[#5C7F75]' : livePH.status === 'Acidic / Fermenting' ? 'text-red-500' : 'text-emerald-700'
               }`}>
-                <span>{livePH ? `${livePH.status} • ${livePH.acidityClassification}` : '0 Scans Recorded'}</span>
+                {livePH ? livePH.status : '0 Scans'}
               </span>
             </div>
-            <div className="neo-icon-box w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-emerald-600 bg-emerald-100/90 border border-emerald-300 shadow-sm">
+            <div className="neo-icon-box w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center text-emerald-600 bg-emerald-100/90 border border-emerald-300 shadow-sm shrink-0">
               <Activity className="w-4 h-4 sm:w-5 sm:h-5 glow-icon-emerald" />
             </div>
           </div>
-          <div className="w-full h-8 pt-1">
+          <div className="w-full h-7 pt-1">
             <svg viewBox="0 0 100 30" className="w-full h-full overflow-visible">
               <path 
                 d={livePH ? "M 0 14 Q 25 20 50 12 T 100 15" : "M 0 25 L 100 25"} 
@@ -420,31 +389,27 @@ export const DashboardPage: React.FC = () => {
               />
             </svg>
           </div>
-        </motion.div>
+        </div>
 
         {/* Metric 5: Air Quality Gas */}
-        <motion.div 
-          whileHover={{ y: -3 }}
-          transition={{ duration: 0.2 }}
-          className="glass-card p-4 sm:p-5 depth-2 space-y-4 flex flex-col justify-between hover:border-purple-300/40 hover:shadow-[0_8px_25px_rgba(147,51,234,0.12)] transition-all"
-        >
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block">Last MQ-135 Gas</span>
-              <span className="text-xl sm:text-2xl font-black text-[#07221A] tracking-tight block">
+        <div className="glass-card p-3.5 sm:p-5 depth-2 space-y-3 flex flex-col justify-between transition-all">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-0.5 min-w-0">
+              <span className="text-[9.5px] sm:text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block truncate">MQ-135 Gas</span>
+              <span className="text-lg sm:text-2xl font-black text-[#07221A] tracking-tight tabular-nums block">
                 {lastScanned ? `${lastScanned.gas}` : '0'}
               </span>
-              <span className={`text-[10px] font-bold flex items-center gap-0.5 ${
+              <span className={`text-[9.5px] sm:text-[10px] font-bold block truncate ${
                 !lastScanned ? 'text-[#5C7F75]' : lastScanned.gas > 300 ? 'text-[#FF5A67]' : 'text-purple-600'
               }`}>
-                <span>{lastScanned ? (lastScanned.gas > 300 ? 'VOC Spike Detected' : 'Normal Purity') : '0 Scans Recorded'}</span>
+                {lastScanned ? (lastScanned.gas > 300 ? 'VOC Spike' : 'Normal Purity') : '0 Scans'}
               </span>
             </div>
-            <div className="neo-icon-box w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-purple-600 shadow-sm">
+            <div className="neo-icon-box w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center text-purple-600 shadow-sm shrink-0">
               <Wind className="w-4 h-4 sm:w-5 sm:h-5" />
             </div>
           </div>
-          <div className="w-full h-8 pt-1">
+          <div className="w-full h-7 pt-1">
             <svg viewBox="0 0 100 30" className="w-full h-full overflow-visible">
               <path 
                 d={lastScanned ? "M 0 22 Q 25 14 50 20 T 100 10" : "M 0 25 L 100 25"} 
@@ -456,31 +421,27 @@ export const DashboardPage: React.FC = () => {
               />
             </svg>
           </div>
-        </motion.div>
+        </div>
 
         {/* Metric 6: Freshness Quality Score */}
-        <motion.div 
-          whileHover={{ y: -3 }}
-          transition={{ duration: 0.2 }}
-          className="glass-card p-4 sm:p-5 depth-2 space-y-4 flex flex-col justify-between hover:border-[#20E79A]/40 hover:shadow-[0_8px_25px_rgba(32,231,154,0.15)] transition-all"
-        >
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <span className="text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block">Freshness Score</span>
-              <span className="text-xl sm:text-2xl font-black text-[#07221A] tracking-tight block">
+        <div className="glass-card p-3.5 sm:p-5 depth-2 space-y-3 flex flex-col justify-between transition-all">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-0.5 min-w-0">
+              <span className="text-[9.5px] sm:text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block truncate">Freshness</span>
+              <span className="text-lg sm:text-2xl font-black text-[#07221A] tracking-tight tabular-nums block">
                 {lastScanned ? `${lastScanned.freshnessScore}%` : '0%'}
               </span>
-              <span className={`text-[10px] font-bold block ${
+              <span className={`text-[9.5px] sm:text-[10px] font-bold block truncate ${
                 !lastScanned ? 'text-[#5C7F75]' : lastScanned.status === 'Fresh' ? 'text-[#20E79A]' : 'text-[#FFAA00]'
               }`}>
-                {lastScanned ? `${lastScanned.status} • ${lastScanned.itemName}` : '0 Scans Recorded'}
+                {lastScanned ? `${lastScanned.status} • ${lastScanned.itemName}` : '0 Scans'}
               </span>
             </div>
-            <div className="neo-icon-box w-9 h-9 sm:w-10 sm:h-10 rounded-2xl flex items-center justify-center text-[#20E79A] shadow-sm">
+            <div className="neo-icon-box w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center text-[#20E79A] shadow-sm shrink-0">
               <Package className="w-4 h-4 sm:w-5 sm:h-5 glow-icon-emerald" />
             </div>
           </div>
-          <div className="w-full h-8 pt-1">
+          <div className="w-full h-7 pt-1">
             <svg viewBox="0 0 100 30" className="w-full h-full overflow-visible">
               <path 
                 d={lastScanned ? "M 0 18 Q 30 8 60 14 T 100 8" : "M 0 25 L 100 25"} 
@@ -492,41 +453,52 @@ export const DashboardPage: React.FC = () => {
               />
             </svg>
           </div>
-        </motion.div>
+        </div>
       </motion.div>
 
       {/* 3. MULTI-GRID BOTTOM PANEL */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
         {/* LEFT COLUMN: ACTIVITY & SENSOR CHART TRENDS */}
-        <div className="lg:col-span-8 space-y-6">
+        <div className="lg:col-span-8 space-y-4 sm:space-y-6">
           {/* Recent Activity Section */}
           <motion.div 
             variants={itemVariants}
-            className="glass-card p-5 sm:p-6 depth-2 space-y-4"
+            className="glass-card p-4 sm:p-6 depth-2 space-y-4"
           >
             <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-3 border-b border-[#13493B]/10 gap-3">
-              <div>
-                <h3 className="text-sm font-black text-[#07221A] flex items-center gap-2">
-                  <span>Recent Scan History</span>
-                  <span className="w-2 h-2 rounded-full bg-[#20E79A] animate-pulse" />
-                </h3>
-                <p className="text-[11px] text-[#5C7F75] font-semibold">Real-time inspection logs recorded across IoT sensors.</p>
+              <div className="flex items-center justify-between sm:block">
+                <div>
+                  <h3 className="text-sm font-black text-[#07221A] flex items-center gap-2">
+                    <span>Recent Scan History</span>
+                    <span className="w-2 h-2 rounded-full bg-[#20E79A] animate-pulse" />
+                  </h3>
+                  <p className="text-[11px] text-[#5C7F75] font-semibold">Real-time inspection logs recorded across IoT sensors.</p>
+                </div>
+                <button 
+                  type="button"
+                  onClick={() => navigate('/history')}
+                  className="sm:hidden text-xs font-bold text-[#20E79A] hover:underline flex items-center gap-1 cursor-pointer shrink-0"
+                >
+                  <span>Full Log</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </button>
               </div>
               <div className="flex flex-col sm:flex-row sm:items-center gap-2.5">
                 <div className="flex flex-col sm:items-end gap-1">
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#EBFBF4] border border-[#20E79A]/30 text-[10px] font-mono font-bold text-[#07221A] shadow-xs">
-                    <Clock className="w-3.5 h-3.5 text-[#20E79A]" />
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-[#EBFBF4] border border-[#20E79A]/30 text-[10px] font-mono font-bold text-[#07221A] shadow-xs w-fit">
+                    <Clock className="w-3.5 h-3.5 text-[#20E79A] shrink-0" />
                     <span className="text-[#5C7F75]">Last Response:</span>
                     <span className="text-[#13493B] font-extrabold">{lastResponseInfo.fullText}</span>
                   </div>
-                  <div className="flex items-center gap-1 text-[9.5px] font-semibold text-[#13493B]">
-                    <Info className="w-3 h-3 text-[#20E79A]" />
+                  <div className="flex items-start sm:items-center gap-1 text-[9.5px] font-semibold text-[#13493B]">
+                    <Info className="w-3 h-3 text-[#20E79A] shrink-0 mt-0.5 sm:mt-0" />
                     <span>Note: response valid for only 2 hours from the last response time</span>
                   </div>
                 </div>
                 <button 
+                  type="button"
                   onClick={() => navigate('/history')}
-                  className="text-xs font-bold text-[#20E79A] hover:underline flex items-center gap-1 cursor-pointer self-start sm:self-center"
+                  className="hidden sm:flex text-xs font-bold text-[#20E79A] hover:underline items-center gap-1 cursor-pointer self-center shrink-0"
                 >
                   <span>View Full Log</span>
                   <ArrowRight className="w-3.5 h-3.5" />
@@ -535,12 +507,11 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             {scanHistory.length > 0 ? (
-              <div className="space-y-3.5">
+              <div className="space-y-2.5">
                 {scanHistory.slice(0, 5).map((scan, idx) => (
-                  <motion.div 
+                  <div 
                     key={scan.id || idx}
-                    whileHover={{ x: 3 }}
-                    className="flex justify-between items-center text-xs p-2 rounded-xl hover:bg-[#EBF1EF]/50 transition-colors"
+                    className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-1.5 sm:gap-2 text-xs p-2.5 rounded-xl bg-[#F4F7F6]/60 hover:bg-[#EBF1EF]/80 transition-colors border border-[#13493B]/5"
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className={`w-2.5 h-2.5 rounded-full shrink-0 ${
@@ -550,14 +521,19 @@ export const DashboardPage: React.FC = () => {
                           ? 'bg-[#FFAA00] shadow-[0_0_6px_#FFAA00]' 
                           : 'bg-[#FF5A67] shadow-[0_0_6px_#FF5A67]'
                       }`} />
-                      <span className="font-semibold text-[#07221A] truncate">
-                        Scanned {scan.itemName} ({scan.tagId}) - {scan.temperature}°C, {scan.humidity}%, {scan.gas} ppm
+                      <span className="font-bold text-[#07221A] truncate">
+                        {scan.itemName} <span className="text-[#5C7F75] font-mono">({scan.tagId})</span>
                       </span>
                     </div>
-                    <span className="text-[10px] text-[#5C7F75] font-mono shrink-0 pl-2">
-                      {scan.timeStr || new Date(scan.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                    </span>
-                  </motion.div>
+                    <div className="flex items-center justify-between sm:justify-end gap-3 pl-5 sm:pl-0 text-[11px]">
+                      <span className="font-mono font-semibold text-[#13493B] tabular-nums">
+                        {scan.temperature}°C • {scan.humidity}% • {scan.gas} ppm
+                      </span>
+                      <span className="text-[10px] text-[#5C7F75] font-mono shrink-0">
+                        {scan.timeStr || new Date(scan.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                      </span>
+                    </div>
+                  </div>
                 ))}
               </div>
             ) : (
@@ -567,6 +543,7 @@ export const DashboardPage: React.FC = () => {
                   Inspect a food product via RFID or QR code to view live telemetry logs here.
                 </p>
                 <button
+                  type="button"
                   onClick={() => navigate('/scan')}
                   className="mt-1 px-4 py-2 neo-btn-primary text-xs font-black rounded-full cursor-pointer glow-emerald"
                 >
@@ -590,11 +567,11 @@ export const DashboardPage: React.FC = () => {
         </div>
 
         {/* RIGHT COLUMN: STATUS, ACTIONS, LAST SCANNED PRODUCT, PROMO CARD */}
-        <div className="lg:col-span-4 space-y-6">
+        <div className="lg:col-span-4 space-y-4 sm:space-y-6">
           {/* Live Device Status */}
           <motion.div 
             variants={itemVariants}
-            className="glass-card p-5 depth-2 space-y-5"
+            className="glass-card p-4 sm:p-5 depth-2 space-y-4 sm:space-y-5"
           >
             <div className="flex justify-between items-center pb-1">
               <h3 className="text-sm font-black text-[#07221A]">Live Device Status</h3>
@@ -606,12 +583,12 @@ export const DashboardPage: React.FC = () => {
 
             {/* Last Response Received Tile with Full Date & Time and 2-Hour Validity Note */}
             <div className="p-3.5 rounded-2xl bg-[#EBFBF4] border border-[#20E79A]/30 space-y-2.5 shadow-xs">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2">
                 <span className="text-[9px] font-black uppercase tracking-wider text-[#5C7F75] flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-[#20E79A]" />
+                  <Clock className="w-3.5 h-3.5 text-[#20E79A] shrink-0" />
                   Last Response Received
                 </span>
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#20E79A]/20 text-[#07221A]">
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#20E79A]/20 text-[#07221A] shrink-0">
                   Active Telemetry
                 </span>
               </div>
@@ -637,8 +614,8 @@ export const DashboardPage: React.FC = () => {
 
             {/* Radial Doughnut progress circle */}
             <div className="flex items-center justify-around gap-4 py-1">
-              <div className="relative w-24 h-24 flex items-center justify-center">
-                <svg className="w-full h-full -rotate-90 filter drop-shadow-[0_2px_8px_rgba(32,231,154,0.3)]">
+              <div className="relative w-24 h-24 flex items-center justify-center shrink-0">
+                <svg className="w-full h-full -rotate-90">
                   <circle cx="48" cy="48" r="40" stroke="#EBF1EF" strokeWidth="8" fill="transparent" />
                   <circle 
                     cx="48" 
@@ -659,104 +636,94 @@ export const DashboardPage: React.FC = () => {
               </div>
 
               {/* Status List Legends */}
-              <div className="space-y-1.5 text-xs font-semibold">
+              <div className="space-y-1.5 text-xs font-semibold min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#20E79A] shadow-[0_0_6px_#20E79A]" />
-                  <span className="text-[#07221A]">{lastScanned ? '1 Active Tag' : '0 Active Tags'}</span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#20E79A] shadow-[0_0_6px_#20E79A] shrink-0" />
+                  <span className="text-[#07221A] truncate">{lastScanned ? '1 Active Tag' : '0 Active Tags'}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-300" />
-                  <span className="text-[#07221A]">{lastScanned ? lastScanned.tagId : 'No Devices'}</span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-slate-300 shrink-0" />
+                  <span className="text-[#07221A] font-mono truncate">{lastScanned ? lastScanned.tagId : 'No Devices'}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#13493B]" />
-                  <span className="text-[#07221A]">{scanHistory.length} Recorded Scan{scanHistory.length === 1 ? '' : 's'}</span>
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#13493B] shrink-0" />
+                  <span className="text-[#07221A] truncate">{scanHistory.length} Recorded Scan{scanHistory.length === 1 ? '' : 's'}</span>
                 </div>
               </div>
             </div>
 
             <div className="text-[10px] text-[#5C7F75] font-semibold text-center border-t border-[#13493B]/10 pt-3 space-y-1">
               <p>{lastScanned ? `Last verified: ${lastScanned.itemName} (${lastScanned.tagId})` : 'Awaiting first RFID/QR scan.'}</p>
-              <div className="flex flex-col items-center justify-center gap-0.5 text-[9px] font-mono text-[#13493B] font-bold">
-                <div className="flex items-center gap-1.5">
-                  <Clock className="w-3 h-3 text-[#20E79A]" />
-                  <span>Last Response Received: {lastResponseInfo.fullText}</span>
-                </div>
-                <span className="text-[9px] font-sans text-[#5C7F75] font-normal">Note: response valid for only 2 hours from the last response time</span>
-              </div>
             </div>
           </motion.div>
 
           {/* Quick Actions Grid with Neomorphic tactile buttons */}
           <motion.div 
             variants={itemVariants}
-            className="glass-card p-5 depth-2 space-y-4"
+            className="glass-card p-4 sm:p-5 depth-2 space-y-3.5"
           >
             <h3 className="text-sm font-black text-[#07221A]">Quick Actions</h3>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
               {/* Add Device */}
-              <motion.button 
-                whileHover={{ scale: 1.03, y: -1 }}
-                whileTap={{ scale: 0.97 }}
+              <button 
+                type="button"
                 onClick={() => navigate('/admin/devices')}
-                className="neo-btn p-3 rounded-2xl flex flex-col items-center gap-2 cursor-pointer group hover:border-[#20E79A]/40"
+                className="neo-btn p-3 min-h-[72px] rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer group hover:border-[#20E79A]/40 active:scale-97 transition-transform"
               >
                 <div className="w-8 h-8 rounded-full bg-[#20E79A] text-white flex items-center justify-center glow-emerald shadow-sm">
                   <Plus className="w-4 h-4" />
                 </div>
                 <span className="text-[10px] font-black text-[#07221A]">Add Device</span>
-              </motion.button>
+              </button>
 
               {/* Manage Products */}
-              <motion.button 
-                whileHover={{ scale: 1.03, y: -1 }}
-                whileTap={{ scale: 0.97 }}
+              <button 
+                type="button"
                 onClick={() => navigate('/history')}
-                className="neo-btn p-3 rounded-2xl flex flex-col items-center gap-2 cursor-pointer group hover:border-[#3B82F6]/40"
+                className="neo-btn p-3 min-h-[72px] rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer group hover:border-[#3B82F6]/40 active:scale-97 transition-transform"
               >
                 <div className="w-8 h-8 rounded-full bg-[#3B82F6] text-white flex items-center justify-center shadow-[0_0_12px_rgba(59,130,246,0.5)]">
                   <Package className="w-4 h-4" />
                 </div>
                 <span className="text-[10px] font-black text-[#07221A]">Manage Products</span>
-              </motion.button>
+              </button>
 
               {/* View Reports */}
-              <motion.button 
-                whileHover={{ scale: 1.03, y: -1 }}
-                whileTap={{ scale: 0.97 }}
+              <button 
+                type="button"
                 onClick={() => navigate('/analytics')}
-                className="neo-btn p-3 rounded-2xl flex flex-col items-center gap-2 cursor-pointer group hover:border-[#FF5A67]/40"
+                className="neo-btn p-3 min-h-[72px] rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer group hover:border-[#FF5A67]/40 active:scale-97 transition-transform"
               >
                 <div className="w-8 h-8 rounded-full bg-[#FF5A67] text-white flex items-center justify-center shadow-[0_0_12px_rgba(255,90,103,0.5)]">
                   <BarChart3 className="w-4 h-4" />
                 </div>
                 <span className="text-[10px] font-black text-[#07221A]">View Reports</span>
-              </motion.button>
+              </button>
 
               {/* System Settings */}
-              <motion.button 
-                whileHover={{ scale: 1.03, y: -1 }}
-                whileTap={{ scale: 0.97 }}
+              <button 
+                type="button"
                 onClick={() => navigate('/settings')}
-                className="neo-btn p-3 rounded-2xl flex flex-col items-center gap-2 cursor-pointer group hover:border-[#13493B]/40"
+                className="neo-btn p-3 min-h-[72px] rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer group hover:border-[#13493B]/40 active:scale-97 transition-transform"
               >
                 <div className="w-8 h-8 rounded-full bg-[#13493B] text-white flex items-center justify-center shadow-sm">
                   <Sliders className="w-4 h-4 text-[#20E79A]" />
                 </div>
                 <span className="text-[10px] font-black text-[#07221A]">System Settings</span>
-              </motion.button>
+              </button>
             </div>
           </motion.div>
 
           {/* Last Scanned Product */}
           <motion.div 
             variants={itemVariants}
-            className="glass-card p-5 depth-2 space-y-4"
+            className="glass-card p-4 sm:p-5 depth-2 space-y-3.5"
           >
             <div className="flex justify-between items-center">
               <h3 className="text-sm font-black text-[#07221A]">Last Scanned Product</h3>
               {lastScanned && (
                 <button 
+                  type="button"
                   onClick={() => navigate(`/live-data/${lastScanned.itemId}`)}
                   className="text-xs font-bold text-[#20E79A] hover:underline flex items-center gap-0.5 cursor-pointer"
                 >
@@ -767,7 +734,7 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             {lastScanned ? (
-              <div className="flex items-center gap-4 neo-panel p-3.5 rounded-2xl border border-[#13493B]/10">
+              <div className="flex items-center gap-3.5 neo-panel p-3.5 rounded-2xl border border-[#13493B]/10">
                 <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-[#13493B]/10 bg-white shadow-sm">
                   <img 
                     src={lastScanned.itemImage || "/colddrinks.jpg"} 
@@ -779,9 +746,9 @@ export const DashboardPage: React.FC = () => {
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center gap-1.5 justify-between">
                     <span className="font-extrabold text-xs text-[#07221A] truncate">{lastScanned.itemName}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-black border ${
+                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-black border shrink-0 ${
                       lastScanned.status === 'Fresh'
-                        ? 'bg-[#20E79A]/15 text-[#07221A] border-[#20E79A]/30 shadow-[0_0_8px_rgba(32,231,154,0.3)]'
+                        ? 'bg-[#20E79A]/15 text-[#07221A] border-[#20E79A]/30'
                         : lastScanned.status === 'Warning' || lastScanned.status === 'At Risk'
                         ? 'bg-[#FFAA00]/15 text-[#FFAA00] border-[#FFAA00]/30'
                         : 'bg-[#FF5A67]/15 text-[#FF5A67] border-[#FF5A67]/30'
@@ -793,12 +760,9 @@ export const DashboardPage: React.FC = () => {
                     {lastScanned.category || (lastScanned.itemName.toLowerCase().includes('meat') ? 'Meat Products' : 'Dairy Products')}
                   </p>
                   <p className="text-[9px] text-[#07221A] font-mono leading-none pt-1">Tag: {lastScanned.tagId}</p>
-                  <p className="text-[8px] text-[#5C7F75] font-semibold leading-none">
-                    Last Update: {lastScanned.dateStr || new Date(lastScanned.timestamp).toLocaleDateString()}, {lastScanned.timeStr || new Date(lastScanned.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                  </p>
-                  <div className="flex items-center gap-1 pt-1">
-                    <span className="w-1.5 h-1.5 bg-[#20E79A] shadow-[0_0_4px_#20E79A] rounded-full" />
-                    <span className="text-[9px] font-extrabold text-[#07221A]">
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <span className="w-1.5 h-1.5 bg-[#20E79A] rounded-full shrink-0" />
+                    <span className="text-[9.5px] font-extrabold text-[#07221A] tabular-nums">
                       {lastScanned.temperature}°C • {lastScanned.humidity}% • {lastScanned.gas} ppm
                     </span>
                   </div>
@@ -812,6 +776,7 @@ export const DashboardPage: React.FC = () => {
                   Scan an RFID or QR tag to inspect freshness and populate telemetry.
                 </p>
                 <button
+                  type="button"
                   onClick={() => navigate('/scan')}
                   className="mt-2 px-4 py-2 neo-btn-primary text-xs font-bold rounded-xl cursor-pointer glow-emerald"
                 >
@@ -824,14 +789,13 @@ export const DashboardPage: React.FC = () => {
           {/* Slogan Promo Card with Dark Forest Image Underlay & Glow */}
           <motion.div 
             variants={itemVariants}
-            whileHover={{ scale: 1.02 }}
             onClick={() => navigate('/about')}
             className="relative rounded-[28px] overflow-hidden aspect-[16/10] bg-gradient-to-t from-[#041410] to-[#07221A] border border-[#20E79A]/30 flex flex-col justify-between p-5 text-left shadow-lg cursor-pointer glow-emerald"
           >
             {/* Dark evergreens background */}
             <div 
               className="absolute inset-0 bg-cover bg-center opacity-45 mix-blend-overlay pointer-events-none"
-              style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1511497584788-876760111969?w=400&q=80")' }}
+              style={{ backgroundImage: `url("${farmLandscapeImg}")` }}
             />
             {/* Subtle bottom green gradient */}
             <div className="absolute inset-0 bg-gradient-to-t from-[#041410]/90 via-transparent to-transparent pointer-events-none" />

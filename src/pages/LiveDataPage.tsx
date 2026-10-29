@@ -177,44 +177,41 @@ export const LiveDataPage: React.FC = () => {
       className="space-y-6 select-none pb-12 font-sans"
     >
       {/* Top Back navigation & quick actions */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <motion.button
-          whileHover={{ x: -4 }}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <button
+          type="button"
           onClick={() => navigate('/dashboard')}
-          className="flex items-center gap-2 text-xs font-black text-[#5C7F75] hover:text-[#07221A] transition-colors cursor-pointer"
+          className="flex items-center gap-2 text-xs font-black text-[#5C7F75] hover:text-[#07221A] transition-colors cursor-pointer self-start py-1"
         >
           <ArrowLeft className="w-4 h-4 text-[#20E79A]" />
           <span>Back to Dashboard</span>
-        </motion.button>
+        </button>
 
-        <div className="flex items-center gap-2">
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+        <div className="grid grid-cols-3 sm:flex items-center gap-2 w-full sm:w-auto">
+          <button
+            type="button"
             onClick={() => setIsConfigOpen(true)}
-            className="px-4 py-2 rounded-xl bg-white border border-[#13493B]/10 text-xs font-bold text-[#07221A] hover:bg-[#F4F7F6] transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+            className="px-3 sm:px-4 py-2 min-h-[40px] rounded-xl bg-white border border-[#13493B]/10 text-[11px] sm:text-xs font-bold text-[#07221A] hover:bg-[#F4F7F6] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
           >
-            <Sliders className="w-4 h-4 text-[#20E79A]" />
-            <span>Threshold Rules</span>
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            <Sliders className="w-3.5 h-3.5 text-[#20E79A] shrink-0" />
+            <span className="truncate">Thresholds</span>
+          </button>
+          <button
+            type="button"
             onClick={handleShare}
-            className="px-4 py-2 rounded-xl bg-white border border-[#13493B]/10 text-xs font-bold text-[#07221A] hover:bg-[#F4F7F6] transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+            className="px-3 sm:px-4 py-2 min-h-[40px] rounded-xl bg-white border border-[#13493B]/10 text-[11px] sm:text-xs font-bold text-[#07221A] hover:bg-[#F4F7F6] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
           >
-            {copiedLink ? <CheckCircle2 className="w-4 h-4 text-[#20E79A]" /> : <Share2 className="w-4 h-4 text-[#5C7F75]" />}
-            <span>{copiedLink ? 'Link Copied!' : 'Share'}</span>
-          </motion.button>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
+            {copiedLink ? <CheckCircle2 className="w-3.5 h-3.5 text-[#20E79A] shrink-0" /> : <Share2 className="w-3.5 h-3.5 text-[#5C7F75] shrink-0" />}
+            <span className="truncate">{copiedLink ? 'Copied!' : 'Share'}</span>
+          </button>
+          <button
+            type="button"
             onClick={handleExportData}
-            className="px-4 py-2 rounded-xl bg-white border border-[#13493B]/10 text-xs font-bold text-[#07221A] hover:bg-[#F4F7F6] transition-all flex items-center gap-1.5 cursor-pointer shadow-sm"
+            className="px-3 sm:px-4 py-2 min-h-[40px] rounded-xl bg-white border border-[#13493B]/10 text-[11px] sm:text-xs font-bold text-[#07221A] hover:bg-[#F4F7F6] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
           >
-            <Download className="w-4 h-4 text-[#5C7F75]" />
-            <span>Export JSON</span>
-          </motion.button>
+            <Download className="w-3.5 h-3.5 text-[#5C7F75] shrink-0" />
+            <span className="truncate">Export</span>
+          </button>
         </div>
       </div>
 
@@ -225,9 +222,9 @@ export const LiveDataPage: React.FC = () => {
             initial={{ opacity: 0, height: 0, y: -10 }}
             animate={{ opacity: 1, height: 'auto', y: 0 }}
             exit={{ opacity: 0, height: 0, y: -10 }}
-            className="p-4 rounded-2xl bg-red-50 border border-red-200 text-[#07221A] shadow-sm flex items-center justify-between gap-4"
+            className="p-4 rounded-2xl bg-red-50 border border-red-200 text-[#07221A] shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3"
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-start sm:items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0 border border-red-200">
                 <AlertTriangle className="w-5 h-5" />
               </div>
@@ -242,15 +239,14 @@ export const LiveDataPage: React.FC = () => {
                 </p>
               </div>
             </div>
-            <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+            <button
+              type="button"
               onClick={() => navigate('/alerts')}
-              className="px-3.5 py-1.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold cursor-pointer shrink-0 transition-colors shadow-sm flex items-center gap-1.5"
+              className="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold cursor-pointer shrink-0 transition-colors shadow-sm flex items-center justify-center gap-1.5 self-end sm:self-center"
             >
               <Bell className="w-3.5 h-3.5" />
               <span>View Alerts</span>
-            </motion.button>
+            </button>
           </motion.div>
         )}
       </AnimatePresence>
@@ -264,7 +260,7 @@ export const LiveDataPage: React.FC = () => {
             exit={{ opacity: 0, height: 0, y: -10 }}
             className="p-4 rounded-2xl bg-[#FFF9E6] border border-[#FFAA00]/20 text-[#07221A] shadow-sm flex items-center justify-between gap-4"
           >
-            <div className="flex items-center gap-3">
+            <div className="flex items-start sm:items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-[#FFAA00]/10 text-[#FFAA00] flex items-center justify-center shrink-0 border border-[#FFAA00]/20 animate-pulse">
                 <AlertTriangle className="w-5 h-5" />
               </div>
@@ -282,14 +278,11 @@ export const LiveDataPage: React.FC = () => {
       </AnimatePresence>
 
       {/* PRODUCT INFORMATION CARD */}
-      <div className="bg-white border border-[#13493B]/10 rounded-[32px] p-6 sm:p-8 relative overflow-hidden shadow-sm">
+      <div className="bg-white border border-[#13493B]/10 rounded-[28px] sm:rounded-[32px] p-5 sm:p-8 relative overflow-hidden shadow-sm">
         <div className="flex flex-col md:flex-row items-center justify-between gap-6">
           {/* Left: Product Media & Meta */}
-          <div className="flex flex-col sm:flex-row items-center gap-5 text-center sm:text-left">
-            <motion.div 
-              whileHover={{ scale: 1.05 }}
-              className="relative w-28 h-28 sm:w-32 sm:h-32 rounded-[24px] overflow-hidden border border-[#13493B]/10 bg-[#F4F7F6] shrink-0 shadow-sm"
-            >
+          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 text-center sm:text-left w-full md:w-auto">
+            <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-[24px] overflow-hidden border border-[#13493B]/10 bg-[#F4F7F6] shrink-0 shadow-sm">
               <img
                 src={currentProduct.image}
                 alt={currentProduct.name}
@@ -300,35 +293,36 @@ export const LiveDataPage: React.FC = () => {
                   {currentProduct.tagId}
                 </span>
               </div>
-            </motion.div>
+            </div>
  
-            <div className="space-y-1.5">
+            <div className="space-y-1.5 min-w-0">
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
                 <h2 className="text-xl font-black text-[#07221A] tracking-tight">{currentProduct.name}</h2>
                 <StatusBadge status={((currentProduct as any)?.isUnconfigured) ? 'Warning' : (freshnessReport?.status || 'Fresh')} size="md" />
               </div>
               <p className="text-xs font-semibold text-[#5C7F75]">{currentProduct.category} • FreshNex IoT Node</p>
               
-              <div className="pt-1 flex flex-wrap items-center justify-center sm:justify-start gap-x-3.5 gap-y-1.5 text-[11px] font-bold text-[#5C7F75]">
+              <div className="pt-1 flex flex-wrap items-center justify-center sm:justify-start gap-x-3 gap-y-1.5 text-[11px] font-bold text-[#5C7F75]">
                 <div className="flex items-center gap-1">
                   <span className={`w-2 h-2 rounded-full ${((currentProduct as any)?.isUnconfigured) ? 'bg-[#FFAA00]' : 'bg-[#20E79A]'}`} />
                   <span>{((currentProduct as any)?.isUnconfigured) ? 'Awaiting Device Sync' : 'Bio-Sensor Linked'}</span>
                 </div>
-                <span>•</span>
+                <span className="hidden sm:inline">•</span>
                 <span>ID: {currentProduct.id}</span>
-                <span>•</span>
+                <span className="hidden sm:inline">•</span>
                 <div className="flex items-center gap-1 text-[#07221A] font-mono">
-                  <Clock className="w-3.5 h-3.5 text-[#20E79A]" />
+                  <Clock className="w-3.5 h-3.5 text-[#20E79A] shrink-0" />
                   <span>Last Response: {lastResponseFormatted}</span>
                 </div>
-                <span>•</span>
-                <span className="text-[#13493B] font-sans font-semibold">Note: response valid for only 2 hours from the last response time</span>
               </div>
+              <p className="text-[10.5px] text-[#13493B] font-semibold">
+                Note: response valid for only 2 hours from the last response time
+              </p>
             </div>
           </div>
  
           {/* Right: Freshness Index Gauge */}
-          <div className="flex flex-col items-center justify-center shrink-0 border-t md:border-t-0 md:border-l border-[#13493B]/10 pt-4 md:pt-0 md:pl-10">
+          <div className="flex flex-col items-center justify-center shrink-0 border-t md:border-t-0 md:border-l border-[#13493B]/10 pt-4 md:pt-0 md:pl-10 w-full md:w-auto">
             <span className="text-[10px] font-black text-[#5C7F75] uppercase tracking-wider mb-2">Live Freshness Score</span>
             <div className="relative flex items-center justify-center">
               <FreshnessGauge score={((currentProduct as any)?.isUnconfigured) ? 0 : (freshnessReport?.score || 100)} size="md" />
@@ -338,7 +332,7 @@ export const LiveDataPage: React.FC = () => {
       </div>
  
       {/* FIVE LIVE METRIC TILES */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4">
         <SensorCard
           title="Ambient Temperature"
           value={((currentProduct as any)?.isUnconfigured) ? '--' : (sensorData?.temperature || 4.2)}
@@ -405,8 +399,8 @@ export const LiveDataPage: React.FC = () => {
       />
 
       {/* TREND GRAPH CARD */}
-      <div className="bg-white border border-[#13493B]/10 rounded-[28px] p-5 sm:p-6 shadow-sm space-y-4">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-[#F4F7F6]">
+      <div className="bg-white border border-[#13493B]/10 rounded-[28px] p-4 sm:p-6 shadow-sm space-y-4">
+        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3.5 pb-2 border-b border-[#F4F7F6]">
           <div className="space-y-0.5">
             <h3 className="text-sm font-black text-[#07221A]">Live Bio-Telemetry Trends</h3>
             <p className="text-[11px] text-[#5C7F75] font-semibold">Continuous sensor telemetry feed synced via Bluetooth/RFID.</p>
@@ -416,19 +410,20 @@ export const LiveDataPage: React.FC = () => {
                 <span>Last Response Received:</span>
                 <strong className="text-[#07221A] font-bold">{lastResponseFormatted}</strong>
               </div>
-              <span>•</span>
+              <span className="hidden sm:inline">•</span>
               <span className="text-[#13493B] font-sans font-semibold">Note: response valid for only 2 hours from the last response time</span>
             </div>
           </div>
 
-          <div className="flex flex-wrap bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10 self-start sm:self-auto">
+          <div className="flex overflow-x-auto max-w-full bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10 [scrollbar-width:none]">
             {(['temp', 'humidity', 'moisture', 'ph', 'gas'] as const).map((tab) => {
               const active = activeMetricTab === tab;
               return (
                 <button
+                  type="button"
                   key={tab}
                   onClick={() => setActiveMetricTab(tab)}
-                  className="relative px-3.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer"
+                  className="relative px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-black transition-all cursor-pointer shrink-0"
                 >
                   {active && (
                     <motion.div
@@ -438,7 +433,7 @@ export const LiveDataPage: React.FC = () => {
                     />
                   )}
                   <span className={`relative z-10 ${active ? 'text-[#07221A]' : 'text-[#5C7F75] hover:text-[#07221A]'}`}>
-                    {tab === 'temp' ? 'Temperature (°C)' : tab === 'humidity' ? 'Humidity (%)' : tab === 'moisture' ? 'Moisture (g/m³)' : tab === 'ph' ? 'pH Level' : 'Gas Level (ppm)'}
+                    {tab === 'temp' ? 'Temp (°C)' : tab === 'humidity' ? 'Humidity (%)' : tab === 'moisture' ? 'Moisture' : tab === 'ph' ? 'pH Level' : 'Gas (ppm)'}
                   </span>
                 </button>
               );
@@ -447,7 +442,7 @@ export const LiveDataPage: React.FC = () => {
         </div>
 
         {/* Recharts Chart Area */}
-        <div className="h-72 w-full relative">
+        <div className="h-64 sm:h-72 w-full relative">
           {((currentProduct as any)?.isUnconfigured) && (
             <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center text-center p-6 rounded-[20px]">
               <AlertTriangle className="w-8 h-8 text-[#FFAA00] mb-2 animate-bounce" />
@@ -475,7 +470,7 @@ export const LiveDataPage: React.FC = () => {
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="#F4F7F6" vertical={false} />
               <XAxis dataKey="time" stroke="#5C7F75" fontSize={10} fontWeight={700} tickLine={false} axisLine={false} />
-              <YAxis stroke="#5C7F75" fontSize={10} fontWeight={700} tickLine={false} axisLine={false} />
+              <YAxis stroke="#5C7F75" fontSize={10} fontWeight={700} tickLine={false} axisLine={false} width={34} />
               <Tooltip
                 contentStyle={{
                   backgroundColor: '#FFFFFF',
@@ -503,7 +498,7 @@ export const LiveDataPage: React.FC = () => {
                 strokeWidth={3}
                 fillOpacity={1}
                 fill="url(#chartGradientLive)"
-                animationDuration={800}
+                isAnimationActive={false}
               />
             </AreaChart>
           </ResponsiveContainer>
@@ -511,25 +506,23 @@ export const LiveDataPage: React.FC = () => {
       </div>
 
       {/* Action Footer */}
-      <div className="flex flex-wrap items-center justify-between gap-4 pt-2">
-        <motion.button
-          whileHover={{ scale: 1.04 }}
-          whileTap={{ scale: 0.96 }}
+      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
+        <button
+          type="button"
           onClick={() => navigate('/scan')}
-          className="px-5 py-3 rounded-full text-xs font-black text-[#07221A] bg-white hover:bg-[#F4F7F6] border border-[#13493B]/10 flex items-center gap-2 transition-colors cursor-pointer shadow-sm"
+          className="px-5 py-3 min-h-[44px] rounded-full text-xs font-black text-[#07221A] bg-white hover:bg-[#F4F7F6] border border-[#13493B]/10 flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm"
         >
           <RotateCcw className="w-4 h-4 text-[#20E79A]" />
           <span>Rescan or Switch Item</span>
-        </motion.button>
+        </button>
 
-        <motion.button
-          whileHover={{ scale: 1.04 }}
-          whileTap={{ scale: 0.96 }}
+        <button
+          type="button"
           onClick={() => navigate('/history')}
-          className="px-6 py-3 rounded-full text-xs font-black text-white bg-[#07221A] hover:bg-[#134336] flex items-center gap-2 cursor-pointer shadow-md"
+          className="px-6 py-3 min-h-[44px] rounded-full text-xs font-black text-white bg-[#07221A] hover:bg-[#134336] flex items-center justify-center gap-2 cursor-pointer shadow-md"
         >
           <span>View in Audit History →</span>
-        </motion.button>
+        </button>
       </div>
 
       {/* Threshold Rules Configuration Modal */}

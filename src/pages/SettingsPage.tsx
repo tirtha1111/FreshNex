@@ -157,16 +157,16 @@ export const SettingsPage: React.FC = () => {
     <motion.div 
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.4 }}
-      className="max-w-4xl mx-auto space-y-6 select-none pb-12"
+      transition={{ duration: 0.3 }}
+      className="max-w-4xl mx-auto space-y-5 sm:space-y-6 select-none pb-12 font-sans"
     >
       {/* Title */}
       <div>
-        <h1 className="text-2xl sm:text-3xl font-black text-[#FDF8F5] tracking-tight">
-          Settings
+        <h1 className="text-2xl sm:text-3xl font-serif italic font-black text-[#07221A] tracking-tight">
+          Settings & Cloud Configuration
         </h1>
-        <p className="text-sm text-[#B8A89E] mt-1">
-          Configure app preferences, sensor thresholds, and notifications.
+        <p className="text-xs sm:text-sm font-semibold text-[#5C7F75] mt-1">
+          Configure app preferences, sensor thresholds, and real-time notifications.
         </p>
       </div>
 
@@ -176,43 +176,43 @@ export const SettingsPage: React.FC = () => {
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
-            className="p-3.5 rounded-xl bg-[#20E79A]/15 border border-[#20E79A]/30 flex items-center gap-2.5 text-[#20E79A] text-xs font-bold"
+            className="p-3.5 rounded-2xl bg-[#EBFBF4] border border-[#20E79A]/30 flex items-center gap-2.5 text-[#07221A] text-xs font-bold shadow-sm"
           >
-            <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <CheckCircle2 className="w-4 h-4 text-[#20E79A] shrink-0" />
             <span>Preferences successfully saved.</span>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <form onSubmit={handleSave} className="space-y-6">
+      <form onSubmit={handleSave} className="space-y-5 sm:space-y-6">
         {/* Notifications Section */}
-        <div className="card-solid p-6 sm:p-8 space-y-5 shadow-2xl border border-[#FF6A00]/25">
-          <div className="flex items-center gap-3 pb-3 border-b border-[#3D261A]">
-            <div className="w-8 h-8 rounded-xl bg-[#FF6A00]/10 text-[#FF6A00] flex items-center justify-center">
+        <div className="bg-white rounded-[24px] sm:rounded-[28px] p-5 sm:p-7 space-y-5 shadow-sm border border-[#13493B]/10">
+          <div className="flex items-center gap-3 pb-3.5 border-b border-[#13493B]/10">
+            <div className="w-9 h-9 rounded-xl bg-[#EBFBF4] text-[#20E79A] flex items-center justify-center shrink-0">
               <Bell className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[#FDF8F5]">Notifications</h3>
-              <p className="text-xs text-[#8C7A70]">Choose how you receive alerts and telemetry events.</p>
+              <h3 className="text-sm font-black text-[#07221A]">Notifications</h3>
+              <p className="text-xs font-medium text-[#5C7F75]">Choose how you receive alerts and telemetry events.</p>
             </div>
           </div>
 
           <div className="space-y-4">
             {/* Email Notifications */}
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-[#FDF8F5]">Email Notifications</p>
-                <p className="text-[11px] text-[#8C7A70]">Receive daily freshness summaries and batch reports.</p>
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-xs font-black text-[#07221A]">Email Notifications</p>
+                <p className="text-[11px] font-medium text-[#5C7F75]">Receive daily freshness summaries and batch reports.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setEmailNotifs(!emailNotifs)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
-                  emailNotifs ? 'bg-[#FF6A00]' : 'bg-[#1E140E] border border-[#3D261A]'
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
+                  emailNotifs ? 'bg-[#20E79A]' : 'bg-[#EBF1EF] border border-[#13493B]/15'
                 }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-[#140C08] transition-transform ${
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
                     emailNotifs ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
@@ -220,20 +220,20 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             {/* Scan Alerts */}
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-[#FDF8F5]">Scan Alerts</p>
-                <p className="text-[11px] text-[#8C7A70]">Instant push notifications when an item is At Risk or Expired.</p>
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-xs font-black text-[#07221A]">Scan Alerts</p>
+                <p className="text-[11px] font-medium text-[#5C7F75]">Instant push notifications when an item is At Risk or Expired.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setScanAlerts(!scanAlerts)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
-                  scanAlerts ? 'bg-[#FF6A00]' : 'bg-[#1E140E] border border-[#3D261A]'
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
+                  scanAlerts ? 'bg-[#20E79A]' : 'bg-[#EBF1EF] border border-[#13493B]/15'
                 }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-[#140C08] transition-transform ${
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
                     scanAlerts ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
@@ -241,20 +241,20 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             {/* System Updates */}
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-xs font-bold text-[#FDF8F5]">System Updates</p>
-                <p className="text-[11px] text-[#8C7A70]">Receive firmware and algorithm updates for the ESP32 IoT node.</p>
+            <div className="flex items-center justify-between gap-4">
+              <div className="min-w-0">
+                <p className="text-xs font-black text-[#07221A]">System Updates</p>
+                <p className="text-[11px] font-medium text-[#5C7F75]">Receive firmware and algorithm updates for the ESP32 IoT node.</p>
               </div>
               <button
                 type="button"
                 onClick={() => setSystemUpdates(!systemUpdates)}
-                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors cursor-pointer ${
-                  systemUpdates ? 'bg-[#FF6A00]' : 'bg-[#1E140E] border border-[#3D261A]'
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors cursor-pointer ${
+                  systemUpdates ? 'bg-[#20E79A]' : 'bg-[#EBF1EF] border border-[#13493B]/15'
                 }`}
               >
                 <span
-                  className={`inline-block h-4 w-4 transform rounded-full bg-[#140C08] transition-transform ${
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white shadow-sm transition-transform ${
                     systemUpdates ? 'translate-x-6' : 'translate-x-1'
                   }`}
                 />
@@ -264,20 +264,20 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         {/* Preferences Section */}
-        <div className="card-solid p-6 sm:p-8 space-y-5 shadow-2xl border border-[#FF6A00]/25">
-          <div className="flex items-center gap-3 pb-3 border-b border-[#3D261A]">
-            <div className="w-8 h-8 rounded-xl bg-[#20E79A]/10 text-[#20E79A] flex items-center justify-center">
+        <div className="bg-white rounded-[24px] sm:rounded-[28px] p-5 sm:p-7 space-y-5 shadow-sm border border-[#13493B]/10">
+          <div className="flex items-center gap-3 pb-3.5 border-b border-[#13493B]/10">
+            <div className="w-9 h-9 rounded-xl bg-[#EBFBF4] text-[#20E79A] flex items-center justify-center shrink-0">
               <Globe className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[#FDF8F5]">Preferences</h3>
-              <p className="text-xs text-[#8C7A70]">Display theme and localization options.</p>
+              <h3 className="text-sm font-black text-[#07221A]">Preferences</h3>
+              <p className="text-xs font-medium text-[#5C7F75]">Display theme and localization options.</p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#B8A89E] block">
+              <label className="text-xs font-black text-[#07221A] block">
                 Dashboard Theme
               </label>
               <div className="grid grid-cols-2 gap-2">
@@ -286,20 +286,20 @@ export const SettingsPage: React.FC = () => {
                   onClick={() => setTheme('Dark')}
                   className={`p-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-2 cursor-pointer ${
                     theme === 'Dark'
-                      ? 'bg-[#FF6A00]/20 border-[#FF6A00] text-[#FFAA00]'
-                      : 'bg-[#1E140E] border-[#3D261A] text-[#B8A89E]'
+                      ? 'bg-[#07221A] border-[#07221A] text-white shadow-sm'
+                      : 'bg-[#F4F7F6] border-[#13493B]/10 text-[#5C7F75] hover:text-[#07221A]'
                   }`}
                 >
-                  <Moon className="w-3.5 h-3.5" />
-                  <span>Warm Dark (Default)</span>
+                  <Moon className="w-3.5 h-3.5 text-[#20E79A]" />
+                  <span>Fresh Emerald</span>
                 </button>
                 <button
                   type="button"
                   onClick={() => setTheme('Light')}
                   className={`p-2.5 rounded-xl text-xs font-bold border transition-all flex items-center justify-center gap-2 cursor-pointer ${
                     theme === 'Light'
-                      ? 'bg-[#FF6A00]/20 border-[#FF6A00] text-[#FFAA00]'
-                      : 'bg-[#1E140E] border-[#3D261A] text-[#B8A89E]'
+                      ? 'bg-[#07221A] border-[#07221A] text-white shadow-sm'
+                      : 'bg-[#F4F7F6] border-[#13493B]/10 text-[#5C7F75] hover:text-[#07221A]'
                   }`}
                 >
                   <span>High Contrast</span>
@@ -308,13 +308,13 @@ export const SettingsPage: React.FC = () => {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#B8A89E] block">
+              <label className="text-xs font-black text-[#07221A] block">
                 Language
               </label>
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value as any)}
-                className="w-full px-4 py-2.5 bg-[#1E140E] text-xs text-[#FDF8F5] rounded-xl border border-[#3D261A] focus:outline-none focus:border-[#FF6A00]"
+                className="w-full px-4 py-2.5 bg-[#F4F7F6] text-xs font-bold text-[#07221A] rounded-xl border border-[#13493B]/15 focus:outline-none focus:border-[#20E79A]"
               >
                 <option value="English">English (US)</option>
                 <option value="Spanish">Español</option>
@@ -326,36 +326,36 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         {/* IoT Hardware Section */}
-        <div className="card-solid p-6 sm:p-8 space-y-4 shadow-2xl border border-[#FF6A00]/25">
-          <div className="flex items-center gap-3 pb-3 border-b border-[#3D261A]">
-            <div className="w-8 h-8 rounded-xl bg-[#FFAA00]/10 text-[#FFAA00] flex items-center justify-center">
+        <div className="bg-white rounded-[24px] sm:rounded-[28px] p-5 sm:p-7 space-y-4 shadow-sm border border-[#13493B]/10">
+          <div className="flex items-center gap-3 pb-3.5 border-b border-[#13493B]/10">
+            <div className="w-9 h-9 rounded-xl bg-[#EBFBF4] text-[#20E79A] flex items-center justify-center shrink-0">
               <Cpu className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-bold text-[#FDF8F5]">IoT Hardware & Cloud Telemetry</h3>
-              <p className="text-xs text-[#8C7A70]">Wireless sensor node communication status.</p>
+              <h3 className="text-sm font-black text-[#07221A]">IoT Hardware & Cloud Telemetry</h3>
+              <p className="text-xs font-medium text-[#5C7F75]">Wireless sensor node communication status.</p>
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-[#1E140E] border border-[#3D261A] flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="p-4 rounded-2xl bg-[#F4F7F6] border border-[#13493B]/10 flex flex-col sm:flex-row sm:items-center justify-between gap-3.5">
             <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-[#20E79A]/15 text-[#20E79A] flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-[#EBFBF4] text-[#20E79A] flex items-center justify-center shrink-0">
                 <Radio className="w-4 h-4 animate-pulse" />
               </div>
               <div>
-                <p className="text-xs font-bold text-[#FDF8F5]">ESP32_DEVICE_01</p>
-                <p className="text-[11px] text-[#20E79A]">Connected & Streaming (Sensor: DHT22 + MQ-135)</p>
+                <p className="text-xs font-black text-[#07221A]">ESP32_DEVICE_01</p>
+                <p className="text-[11px] font-bold text-[#13493B]">Connected & Streaming (Sensor: DHT22 + MQ-135)</p>
               </div>
             </div>
 
             <motion.button
-              whileHover={{ scale: 1.05 }}
-              whileTap={{ scale: 0.95 }}
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
               type="button"
               onClick={handlePingHardware}
-              className="px-3.5 py-1.5 rounded-xl bg-[#261A12] hover:bg-[#302017] border border-[#3D261A] text-xs font-bold text-[#FFAA00] transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm"
+              className="px-4 py-2 rounded-xl bg-white hover:bg-[#EBF1EF] border border-[#13493B]/15 text-xs font-black text-[#07221A] transition-colors flex items-center justify-center gap-1.5 cursor-pointer shadow-xs"
             >
-              <RefreshCw className="w-3.5 h-3.5" />
+              <RefreshCw className="w-3.5 h-3.5 text-[#20E79A]" />
               <span>Ping Device</span>
             </motion.button>
           </div>
@@ -364,7 +364,7 @@ export const SettingsPage: React.FC = () => {
             <motion.p 
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className="text-xs text-[#FFAA00] font-mono bg-[#261A12] p-2.5 rounded-xl border border-[#3D261A]"
+              className="text-xs text-[#07221A] font-mono font-bold bg-[#EBFBF4] p-3 rounded-xl border border-[#20E79A]/30"
             >
               {pingStatus}
             </motion.p>
@@ -372,52 +372,52 @@ export const SettingsPage: React.FC = () => {
         </div>
 
         {/* AI Threshold Engine Integration Section */}
-        <div className="card-solid p-6 sm:p-8 space-y-4 shadow-2xl border border-[#20E79A]/30">
-          <div className="flex items-center gap-3 pb-3 border-b border-[#3D261A]">
-            <div className="w-8 h-8 rounded-xl bg-[#20E79A]/15 text-[#20E79A] flex items-center justify-center">
+        <div className="bg-white rounded-[24px] sm:rounded-[28px] p-5 sm:p-7 space-y-4 shadow-sm border border-[#20E79A]/30">
+          <div className="flex items-center gap-3 pb-3.5 border-b border-[#13493B]/10">
+            <div className="w-9 h-9 rounded-xl bg-[#EBFBF4] text-[#20E79A] flex items-center justify-center shrink-0">
               <Sparkles className="w-4 h-4" />
             </div>
             <div>
-              <div className="flex items-center gap-2">
-                <h3 className="text-sm font-bold text-[#FDF8F5]">AI Threshold Intelligence</h3>
-                <span className="px-2 py-0.5 rounded-full bg-[#20E79A]/20 text-[#20E79A] text-[9px] font-black uppercase">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-black text-[#07221A]">AI Threshold Intelligence</h3>
+                <span className="px-2 py-0.5 rounded-full bg-[#EBFBF4] text-[#13493B] border border-[#20E79A]/30 text-[9px] font-black uppercase">
                   Connected
                 </span>
               </div>
-              <p className="text-xs text-[#8C7A70]">
+              <p className="text-xs font-medium text-[#5C7F75]">
                 Automated food science research and dynamic threshold determination powered by openai/gpt-oss-120b.
               </p>
             </div>
           </div>
 
-          <div className="p-4 rounded-xl bg-[#1E140E] border border-[#3D261A] space-y-3">
+          <div className="p-4 rounded-2xl bg-[#F4F7F6] border border-[#13493B]/10 space-y-3">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
-                <p className="text-xs font-bold text-[#FDF8F5]">AI Model: openai/gpt-oss-120b</p>
-                <p className="text-[11px] text-[#8C7A70]">
+                <p className="text-xs font-black text-[#07221A]">AI Model: openai/gpt-oss-120b</p>
+                <p className="text-[11px] font-medium text-[#5C7F75]">
                   Grounded with USDA Handbook 66 & UC Davis Postharvest standards.
                 </p>
               </div>
-              <span className="text-[10px] font-mono px-2.5 py-1 rounded-lg bg-[#261A12] text-[#20E79A] border border-[#3D261A]">
+              <span className="text-[10px] font-mono font-bold px-2.5 py-1 rounded-lg bg-white text-[#13493B] border border-[#13493B]/10 self-start sm:self-auto">
                 API Route: /api/ai/suggest-thresholds
               </span>
             </div>
-            <p className="text-[11px] text-[#8C7A70] leading-relaxed">
+            <p className="text-[11px] font-medium text-[#5C7F75] leading-relaxed">
               When registering or configuring nodes in the Devices section, FreshNex leverages AI threshold intelligence to evaluate produce biology, safe chilling bounds, transpirational humidity limits, and MQ-135 TVOC/gas spoilage thresholds automatically with research citations.
             </p>
           </div>
         </div>
 
         {/* Custom Firebase RTDB */}
-        <div className="card-solid p-6 sm:p-8 space-y-5 shadow-2xl border border-[#FF6A00]/25">
-          <div className="flex items-center justify-between pb-3 border-b border-[#3D261A]">
+        <div className="bg-white rounded-[24px] sm:rounded-[28px] p-5 sm:p-7 space-y-5 shadow-sm border border-[#13493B]/10">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3.5 border-b border-[#13493B]/10">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-xl bg-[#FF6A00]/10 text-[#FF6A00] flex items-center justify-center">
+              <div className="w-9 h-9 rounded-xl bg-[#EBFBF4] text-[#20E79A] flex items-center justify-center shrink-0">
                 <Database className="w-4 h-4" />
               </div>
               <div>
-                <h3 className="text-sm font-bold text-[#FDF8F5]">Realtime Firebase Credentials</h3>
-                <p className="text-xs text-[#8C7A70]">
+                <h3 className="text-sm font-black text-[#07221A]">Realtime Firebase Credentials</h3>
+                <p className="text-xs font-medium text-[#5C7F75]">
                   Connect FreshNex directly to your own Firebase Realtime Database.
                 </p>
               </div>
@@ -426,29 +426,29 @@ export const SettingsPage: React.FC = () => {
             <button
               type="button"
               onClick={handleResetToDefault}
-              className="px-3 py-1.5 rounded-lg bg-[#1E140E] hover:bg-[#261A12] text-[11px] text-[#B8A89E] hover:text-[#FDF8F5] border border-[#3D261A] transition-colors cursor-pointer"
+              className="self-start sm:self-auto px-3.5 py-1.5 rounded-xl bg-[#F4F7F6] hover:bg-[#EBF1EF] text-[11px] font-bold text-[#5C7F75] hover:text-[#07221A] border border-[#13493B]/10 transition-colors cursor-pointer"
             >
               Reset Default
             </button>
           </div>
 
           {firebaseSavedMsg && (
-            <div className="p-3 rounded-xl bg-[#20E79A]/15 border border-[#20E79A]/30 flex items-center gap-2.5 text-[#20E79A] text-xs font-bold">
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
+            <div className="p-3 rounded-xl bg-[#EBFBF4] border border-[#20E79A]/30 flex items-center gap-2.5 text-[#07221A] text-xs font-bold">
+              <CheckCircle2 className="w-4 h-4 text-[#20E79A] shrink-0" />
               <span>{firebaseSavedMsg}</span>
             </div>
           )}
 
           {testConnectionStatus && (
             <div
-              className={`p-3.5 rounded-xl border flex items-center gap-2.5 text-xs font-medium ${
+              className={`p-3.5 rounded-xl border flex items-center gap-2.5 text-xs font-bold ${
                 testConnectionStatus.success
-                  ? 'bg-[#20E79A]/15 border-[#20E79A]/30 text-[#20E79A]'
-                  : 'bg-red-500/15 border-red-500/30 text-red-400'
+                  ? 'bg-[#EBFBF4] border-[#20E79A]/30 text-[#07221A]'
+                  : 'bg-red-50 border-red-200 text-red-600'
               }`}
             >
               {testConnectionStatus.success ? (
-                <CheckCircle2 className="w-4 h-4 shrink-0" />
+                <CheckCircle2 className="w-4 h-4 text-[#20E79A] shrink-0" />
               ) : (
                 <AlertCircle className="w-4 h-4 shrink-0" />
               )}
@@ -458,8 +458,8 @@ export const SettingsPage: React.FC = () => {
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-1.5 md:col-span-2">
-              <label className="text-xs font-bold text-[#B8A89E] flex items-center gap-1.5">
-                <Link className="w-3.5 h-3.5 text-[#FF6A00]" />
+              <label className="text-xs font-black text-[#07221A] flex items-center gap-1.5">
+                <Link className="w-3.5 h-3.5 text-[#20E79A]" />
                 <span>Realtime Database URL *</span>
               </label>
               <input
@@ -467,13 +467,13 @@ export const SettingsPage: React.FC = () => {
                 value={customDbUrl}
                 onChange={(e) => setCustomDbUrl(e.target.value)}
                 placeholder="https://your-project-id-default-rtdb.firebaseio.com"
-                className="w-full px-4 py-2.5 bg-[#1E140E] text-xs font-mono text-[#FDF8F5] rounded-xl border border-[#3D261A] focus:outline-none focus:border-[#FF6A00]"
+                className="w-full px-4 py-2.5 bg-[#F4F7F6] text-xs font-mono font-semibold text-[#07221A] placeholder-[#5C7F75]/60 rounded-xl border border-[#13493B]/15 focus:outline-none focus:bg-white focus:border-[#20E79A]"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#B8A89E] flex items-center gap-1.5">
-                <Key className="w-3.5 h-3.5 text-[#FFAA00]" />
+              <label className="text-xs font-black text-[#07221A] flex items-center gap-1.5">
+                <Key className="w-3.5 h-3.5 text-[#20E79A]" />
                 <span>Web API Key *</span>
               </label>
               <input
@@ -481,12 +481,12 @@ export const SettingsPage: React.FC = () => {
                 value={customApiKey}
                 onChange={(e) => setCustomApiKey(e.target.value)}
                 placeholder="AIzaSy..."
-                className="w-full px-4 py-2.5 bg-[#1E140E] text-xs font-mono text-[#FDF8F5] rounded-xl border border-[#3D261A] focus:outline-none focus:border-[#FF6A00]"
+                className="w-full px-4 py-2.5 bg-[#F4F7F6] text-xs font-mono font-semibold text-[#07221A] placeholder-[#5C7F75]/60 rounded-xl border border-[#13493B]/15 focus:outline-none focus:bg-white focus:border-[#20E79A]"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-xs font-bold text-[#B8A89E] flex items-center gap-1.5">
+              <label className="text-xs font-black text-[#07221A] flex items-center gap-1.5">
                 <ShieldCheck className="w-3.5 h-3.5 text-[#20E79A]" />
                 <span>Project ID</span>
               </label>
@@ -495,32 +495,32 @@ export const SettingsPage: React.FC = () => {
                 value={customProjectId}
                 onChange={(e) => setCustomProjectId(e.target.value)}
                 placeholder="my-freshnex-iot"
-                className="w-full px-4 py-2.5 bg-[#1E140E] text-xs font-mono text-[#FDF8F5] rounded-xl border border-[#3D261A] focus:outline-none focus:border-[#FF6A00]"
+                className="w-full px-4 py-2.5 bg-[#F4F7F6] text-xs font-mono font-semibold text-[#07221A] placeholder-[#5C7F75]/60 rounded-xl border border-[#13493B]/15 focus:outline-none focus:bg-white focus:border-[#20E79A]"
               />
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#3D261A]">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-[#13493B]/10">
             <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.96 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
               type="button"
               onClick={handleTestDatabaseURL}
               disabled={isTesting}
-              className="px-4 py-2 rounded-xl bg-[#261A12] hover:bg-[#302017] border border-[#3D261A] text-xs font-bold text-[#FFAA00] transition-colors flex items-center gap-2 cursor-pointer disabled:opacity-50 shadow-md"
+              className="px-4 py-2.5 rounded-xl bg-[#F4F7F6] hover:bg-[#EBF1EF] border border-[#13493B]/15 text-xs font-black text-[#07221A] transition-colors flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50"
             >
-              <RefreshCw className={`w-3.5 h-3.5 ${isTesting ? 'animate-spin' : ''}`} />
+              <RefreshCw className={`w-3.5 h-3.5 text-[#20E79A] ${isTesting ? 'animate-spin' : ''}`} />
               <span>{isTesting ? 'Testing Endpoint...' : 'Test Connection'}</span>
             </motion.button>
 
             <motion.button
-              whileHover={{ scale: 1.04 }}
-              whileTap={{ scale: 0.96 }}
+              whileHover={{ scale: 1.02 }}
+              whileTap={{ scale: 0.97 }}
               type="button"
               onClick={handleSaveFirebaseConfig}
-              className="px-5 py-2.5 rounded-xl font-bold text-xs text-[#140C08] btn-orange flex items-center gap-2 shadow cursor-pointer"
+              className="px-5 py-2.5 rounded-xl font-black text-xs text-white bg-[#07221A] hover:bg-[#134336] flex items-center justify-center gap-2 shadow-sm cursor-pointer"
             >
-              <Save className="w-4 h-4" />
+              <Save className="w-4 h-4 text-[#20E79A]" />
               <span>Apply & Connect Realtime DB</span>
             </motion.button>
           </div>
@@ -529,10 +529,10 @@ export const SettingsPage: React.FC = () => {
         {/* Save Changes Button */}
         <div className="flex justify-end pt-2">
           <motion.button
-            whileHover={{ scale: 1.04, y: -1 }}
-            whileTap={{ scale: 0.96 }}
+            whileHover={{ scale: 1.02, y: -1 }}
+            whileTap={{ scale: 0.97 }}
             type="submit"
-            className="px-8 py-3 rounded-xl font-bold text-xs text-[#140C08] btn-orange flex items-center gap-2 shadow-md cursor-pointer"
+            className="w-full sm:w-auto justify-center px-8 py-3.5 rounded-2xl font-black text-xs text-[#07221A] bg-[#20E79A] hover:bg-[#1CE095] flex items-center gap-2 shadow-md cursor-pointer"
           >
             <Save className="w-4 h-4" />
             <span>Save Settings</span>

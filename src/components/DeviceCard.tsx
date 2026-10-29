@@ -93,27 +93,27 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
           </span>
         </div>
 
-        {/* 5-column Sensor Readout with pH */}
-        <div className="grid grid-cols-5 gap-1 sm:gap-1.5 p-2.5 sm:p-3 rounded-2xl bg-gradient-to-b from-[#F4F7F6] to-[#EAEFEB] text-center border border-[#13493B]/8 shadow-inner">
-          <div className="space-y-0.5">
+        {/* Responsive Sensor Readout with pH */}
+        <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 p-2.5 sm:p-3 rounded-2xl bg-gradient-to-b from-[#F4F7F6] to-[#EAEFEB] text-center border border-[#13493B]/8 shadow-inner">
+          <div className="space-y-0.5 p-1 rounded-lg bg-white/60 sm:bg-transparent">
             <span className="text-[8.5px] font-bold text-[#5C7F75] uppercase block truncate">Temp</span>
-            <span className="text-[11px] sm:text-xs font-black text-[#07221A]">{liveSensor.temperature}°C</span>
+            <span className="text-[11px] sm:text-xs font-black text-[#07221A] tabular-nums">{liveSensor.temperature}°C</span>
           </div>
-          <div className="space-y-0.5 border-l border-[#13493B]/10">
+          <div className="space-y-0.5 p-1 rounded-lg bg-white/60 sm:bg-transparent sm:border-l border-[#13493B]/10">
             <span className="text-[8.5px] font-bold text-[#5C7F75] uppercase block truncate">Humidity</span>
-            <span className="text-[11px] sm:text-xs font-black text-[#07221A]">{liveSensor.humidity}%</span>
+            <span className="text-[11px] sm:text-xs font-black text-[#07221A] tabular-nums">{liveSensor.humidity}%</span>
           </div>
-          <div className="space-y-0.5 border-l border-[#13493B]/10">
+          <div className="space-y-0.5 p-1 rounded-lg bg-white/60 sm:bg-transparent sm:border-l border-[#13493B]/10">
             <span className="text-[8.5px] font-bold text-[#5C7F75] uppercase block truncate">Moisture</span>
-            <span className="text-[11px] sm:text-xs font-black text-[#07221A]">{liveMoisture.absoluteMoisture}</span>
+            <span className="text-[11px] sm:text-xs font-black text-[#07221A] tabular-nums">{liveMoisture.absoluteMoisture}</span>
           </div>
-          <div className="space-y-0.5 border-l border-[#13493B]/10 bg-emerald-50/60 rounded-lg">
+          <div className="space-y-0.5 p-1 sm:border-l border-[#13493B]/10 bg-emerald-50/80 rounded-lg">
             <span className="text-[8.5px] font-extrabold text-[#13493B] uppercase block truncate">pH</span>
-            <span className="text-[11px] sm:text-xs font-black text-emerald-800 font-mono">{livePH.ph}</span>
+            <span className="text-[11px] sm:text-xs font-black text-emerald-800 font-mono tabular-nums">{livePH.ph}</span>
           </div>
-          <div className="space-y-0.5 border-l border-[#13493B]/10">
+          <div className="space-y-0.5 p-1 rounded-lg bg-white/60 sm:bg-transparent sm:border-l border-[#13493B]/10 col-span-2 sm:col-span-1">
             <span className="text-[8.5px] font-bold text-[#5C7F75] uppercase block truncate">MQ-135</span>
-            <span className="text-[11px] sm:text-xs font-black text-[#07221A]">{liveSensor.mq135_raw}</span>
+            <span className="text-[11px] sm:text-xs font-black text-[#07221A] tabular-nums">{liveSensor.mq135_raw}</span>
           </div>
         </div>
 
