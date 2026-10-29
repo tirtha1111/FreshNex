@@ -105,48 +105,53 @@ export const ScanPage: React.FC = () => {
     };
   }, [startCamera]);
 
-  // Continuous frame analysis with jsQR
+  // Continuous frame analysis with jsQR (throttled & downscaled for mobile 60fps smoothness)
   useEffect(() => {
     if (!cameraActive) return;
 
     let active = true;
     let animationFrameId: number;
+    let lastScanTime = 0;
 
-    const processFrame = () => {
+    const processFrame = (now: number) => {
       if (!active) return;
 
-      const video = videoRef.current;
-      const canvas = canvasRef.current;
+      if (now - lastScanTime >= 180) {
+        lastScanTime = now;
+        const video = videoRef.current;
+        const canvas = canvasRef.current;
 
-      if (video && video.readyState === video.HAVE_ENOUGH_DATA && canvas) {
-        const ctx = canvas.getContext('2d', { willReadFrequently: true });
-        if (ctx) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+        if (video && video.readyState === video.HAVE_ENOUGH_DATA && canvas && video.videoWidth > 0) {
+          const ctx = canvas.getContext('2d', { willReadFrequently: true });
+          if (ctx) {
+            const scale = Math.min(1, 400 / video.videoWidth);
+            canvas.width = Math.floor(video.videoWidth * scale);
+            canvas.height = Math.floor(video.videoHeight * scale);
+            ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-          try {
-            const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-            const code = jsQR(imageData.data, imageData.width, imageData.height, {
-              inversionAttempts: 'attemptBoth'
-            });
+            try {
+              const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+              const code = jsQR(imageData.data, imageData.width, imageData.height, {
+                inversionAttempts: 'dontInvert'
+              });
 
-            if (code && code.data) {
-              const text = code.data.trim();
-              if (text && text !== scannedResult && !isScanning) {
-                setScannedResult(text);
-                
-                // Identify target tag
-                let matchedTag = text;
-                if (text.includes('112233')) matchedTag = 'YGS-FD-112233';
-                else if (text.includes('000124')) matchedTag = 'YGS-FD-000124';
+              if (code && code.data) {
+                const text = code.data.trim();
+                if (text && text !== scannedResult && !isScanning) {
+                  setScannedResult(text);
+                  
+                  // Identify target tag
+                  let matchedTag = text;
+                  if (text.includes('112233')) matchedTag = 'YGS-FD-112233';
+                  else if (text.includes('000124')) matchedTag = 'YGS-FD-000124';
 
-                handlePerformScan(matchedTag);
-                return; // Stop scan loop on detection
+                  handlePerformScan(matchedTag);
+                  return; // Stop scan loop on detection
+                }
               }
+            } catch (e) {
+              console.warn('Frame processing error:', e);
             }
-          } catch (e) {
-            console.warn('Frame processing error:', e);
           }
         }
       }

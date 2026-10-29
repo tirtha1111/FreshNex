@@ -112,93 +112,75 @@ export const DashboardPage: React.FC = () => {
       {/* 1. TOP BANNER HERO CARD */}
       <motion.div 
         variants={itemVariants}
-        className="relative glass-card p-6 sm:p-10 overflow-hidden depth-3 flex flex-col lg:flex-row justify-between items-center gap-8"
+        className="relative glass-card p-4 sm:p-7 lg:p-10 overflow-hidden depth-3 flex flex-col lg:flex-row justify-between items-center gap-6 lg:gap-8"
       >
-        {/* Ambient glow backdrop inside hero */}
-        <div className="absolute -top-16 -right-16 w-64 h-64 bg-[#20E79A]/15 rounded-full blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-16 -left-16 w-64 h-64 bg-[#13493B]/10 rounded-full blur-3xl pointer-events-none" />
-
-        {/* Floating background natural leaf assets */}
-        <div className="absolute top-4 left-1/4 w-8 h-8 opacity-20 pointer-events-none rotate-12">
-          <svg viewBox="0 0 24 24" fill="currentColor" className="text-[#13493B] w-full h-full">
-            <path d="M12 2C12 2 8 5 6 9C4 13 6 17 9 18C10 16 11 13 12 10C13 13 14 16 15 18C18 17 20 13 18 9C16 5 12 2 12 2Z" />
-          </svg>
-        </div>
-        <div className="absolute bottom-6 left-1/2 w-10 h-10 opacity-15 pointer-events-none -rotate-45">
-          <svg viewBox="0 0 24 24" fill="currentColor" className="text-[#13493B] w-full h-full">
-            <path d="M12 2C12 2 8 5 6 9C4 13 6 17 9 18C10 16 11 13 12 10C13 13 14 16 15 18C18 17 20 13 18 9C16 5 12 2 12 2Z" />
-          </svg>
-        </div>
+        {/* Ambient glow backdrop inside hero (desktop only) */}
+        <div className="hidden md:block absolute -top-16 -right-16 w-64 h-64 bg-[#20E79A]/15 rounded-full blur-3xl pointer-events-none" />
+        <div className="hidden md:block absolute -bottom-16 -left-16 w-64 h-64 bg-[#13493B]/10 rounded-full blur-3xl pointer-events-none" />
 
         {/* Left Side Info */}
-        <div className="flex-1 space-y-4 text-center lg:text-left z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full neo-btn shadow-sm">
-            <span className={`w-2.5 h-2.5 rounded-full ${isAdmin ? 'bg-[#20E79A] shadow-[0_0_8px_#20E79A]' : 'bg-[#FF6A00] shadow-[0_0_8px_#FF6A00]'} animate-pulse`} />
-            <span className="text-[10px] font-black text-[#07221A] uppercase tracking-wider">
+        <div className="flex-1 w-full space-y-3.5 sm:space-y-4 text-center lg:text-left z-10 min-w-0">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full neo-btn shadow-sm max-w-full">
+            <span className={`w-2 h-2 rounded-full shrink-0 ${isAdmin ? 'bg-[#20E79A] shadow-[0_0_8px_#20E79A]' : 'bg-[#FF6A00] shadow-[0_0_8px_#FF6A00]'} animate-pulse`} />
+            <span className="text-[10px] font-black text-[#07221A] uppercase tracking-wider truncate">
               {isAdmin ? 'Admin Hub • Monitored Products' : `User Portal • Product ID: ${assignedTag}`}
             </span>
           </div>
           <div className="space-y-1">
-            <h1 className="text-3xl sm:text-4xl font-serif italic font-black text-[#07221A] leading-none tracking-tight">
+            <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif italic font-black text-[#07221A] leading-tight tracking-tight break-words">
               {lastScanned ? lastScanned.itemName.toUpperCase() : (isAdmin ? 'FRESH FOOD' : assignedName.toUpperCase())}
             </h1>
-            <h1 className="text-3xl sm:text-4xl font-serif italic font-black text-[#07221A] leading-none tracking-tight">
+            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-serif italic font-black text-[#07221A] leading-tight tracking-tight">
               {lastScanned ? `${lastScanned.freshnessScore}% FRESHNESS` : 'MONITORING'}
-            </h1>
-            <h1 className="text-3xl sm:text-4xl font-serif italic font-black text-[#07221A] leading-none tracking-tight">
+            </h2>
+            <h2 className="text-xl sm:text-3xl lg:text-4xl font-serif italic font-black text-[#13493B] leading-tight tracking-tight">
               {lastScanned ? `STATUS: ${lastScanned.status.toUpperCase()}` : 'PORTAL'}
-            </h1>
+            </h2>
           </div>
-          <p className="text-xs text-[#5C7F75] font-semibold max-w-md leading-relaxed">
+          <p className="text-xs text-[#5C7F75] font-semibold max-w-md mx-auto lg:mx-0 leading-relaxed">
             {lastScanned 
               ? (freshnessReport?.message || `Inspection telemetry: ${lastScanned.temperature}°C, ${lastScanned.humidity}% humidity, ${lastScanned.gas} ppm MQ-135 gas. ${lastScanned.status === 'Fresh' ? 'Optimal preservation bounds confirmed.' : 'Monitor cold-chain retention.'}`)
               : 'IoT telemetry from physical RFID and QR scanned products. Ready for next product tag inspection.'}
           </p>
 
-          <div className="pt-2 flex flex-wrap items-center justify-center lg:justify-start gap-3.5">
-            <motion.button
-              whileHover={{ scale: 1.04, y: -2 }}
-              whileTap={{ scale: 0.96 }}
+          <div className="pt-1 grid grid-cols-1 sm:flex sm:flex-wrap items-center justify-center lg:justify-start gap-2.5 sm:gap-3">
+            <button
               onClick={() => navigate('/scan')}
-              className="neo-btn-primary px-6 py-3.5 rounded-full text-xs font-black flex items-center gap-2 cursor-pointer glow-emerald shadow-lg"
+              className="neo-btn-primary w-full sm:w-auto min-h-[44px] px-5 py-3 rounded-full text-xs font-black flex items-center justify-center gap-2 cursor-pointer glow-emerald shadow-md"
             >
-              <Scan className="w-4 h-4 text-[#20E79A] glow-icon-emerald" />
+              <Scan className="w-4 h-4 text-[#20E79A]" />
               <span>Scan Product Tag</span>
-            </motion.button>
+            </button>
 
             {lastScanned && (
-              <motion.button
-                whileHover={{ scale: 1.04, y: -2 }}
-                whileTap={{ scale: 0.96 }}
+              <button
                 onClick={() => navigate(`/live-data/${lastScanned.itemId}`)}
-                className="neo-btn px-6 py-3.5 rounded-full text-xs font-black text-[#07221A] flex items-center gap-2 cursor-pointer shadow-sm hover:border-[#20E79A]/40"
+                className="neo-btn w-full sm:w-auto min-h-[44px] px-5 py-3 rounded-full text-xs font-black text-[#07221A] flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:border-[#20E79A]/40"
               >
-                <Activity className="w-4 h-4 text-[#20E79A] glow-icon-emerald" />
+                <Activity className="w-4 h-4 text-[#20E79A]" />
                 <span>View Full Telemetry</span>
-              </motion.button>
+              </button>
             )}
 
-            <motion.button
-              whileHover={{ scale: 1.04, y: -2 }}
-              whileTap={{ scale: 0.96 }}
+            <button
               onClick={() => navigate('/analytics')}
-              className="neo-btn px-6 py-3.5 rounded-full text-xs font-black text-[#07221A] flex items-center gap-2 cursor-pointer shadow-sm hover:border-[#20E79A]/40"
+              className="neo-btn w-full sm:w-auto min-h-[44px] px-5 py-3 rounded-full text-xs font-black text-[#07221A] flex items-center justify-center gap-2 cursor-pointer shadow-sm hover:border-[#20E79A]/40"
             >
-              <BarChart3 className="w-4 h-4 text-[#20E79A] glow-icon-emerald" />
+              <BarChart3 className="w-4 h-4 text-[#20E79A]" />
               <span>Telemetry Analytics</span>
-            </motion.button>
+            </button>
           </div>
         </div>
 
         {/* Middle Floating Product Display */}
-        <div className="flex flex-col items-center justify-center relative py-4 lg:py-0 z-10 shrink-0">
-          <div className="relative w-44 aspect-[3/5] glass-modal rounded-[28px] p-3.5 depth-4 flex flex-col items-center justify-between text-center overflow-hidden">
+        <div className="flex flex-col items-center justify-center relative py-2 lg:py-0 z-10 shrink-0">
+          <div className="relative w-40 sm:w-44 aspect-[3/5] glass-modal rounded-[28px] p-3.5 depth-4 flex flex-col items-center justify-between text-center overflow-hidden">
             {/* Glossy Reflection overlay */}
             <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-white/25 to-transparent skew-x-12 pointer-events-none" />
 
             {/* Twin leaves subtle logo badge */}
             <div className="flex items-center gap-1.5">
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-[#20E79A] glow-icon-emerald">
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-[#20E79A]">
                 <path d="M11.5 2C11.5 2 6 5.5 4.5 10C3.3 13.6 4.8 17 8 18.5C9.5 16.5 10 13.5 10.5 10C11 6.5 11.5 2 11.5 2Z" fill="currentColor" />
                 <path d="M18.5 7.5C18.5 7.5 14.5 10 13.5 13.5C12.7 16.2 13.7 19 16 20C17 18.5 17.5 16 18 13.5C18.5 11 18.5 7.5 18.5 7.5Z" fill="currentColor" fillOpacity="0.8" />
               </svg>
@@ -206,7 +188,7 @@ export const DashboardPage: React.FC = () => {
             </div>
 
             {/* Product Photo or QR Target */}
-            <div className="w-28 h-28 my-2 rounded-2xl overflow-hidden bg-[#F4F7F6] border border-[#13493B]/10 flex items-center justify-center relative shadow-inner">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 my-1.5 rounded-2xl overflow-hidden bg-[#F4F7F6] border border-[#13493B]/10 flex items-center justify-center relative shadow-inner">
               {lastScanned ? (
                 <img 
                   src={lastScanned.itemImage || "/colddrinks.jpg"} 
@@ -224,49 +206,49 @@ export const DashboardPage: React.FC = () => {
 
             {/* QR Scan Target Overlay */}
             <div className="flex flex-col items-center gap-1 neo-btn p-2 rounded-xl w-full">
-              <QrCode className="w-5 h-5 text-[#07221A]" />
-              <span className="text-[9px] font-bold text-[#5C7F75] tracking-tight font-mono">
+              <QrCode className="w-4 h-4 sm:w-5 sm:h-5 text-[#07221A]" />
+              <span className="text-[9px] font-bold text-[#5C7F75] tracking-tight font-mono truncate max-w-full">
                 {lastScanned ? lastScanned.tagId : 'AWAITING SCAN'}
               </span>
             </div>
           </div>
-          {/* Slogan label floating beside the card */}
-          <div className="absolute -left-10 top-10 -rotate-12 glass-panel px-3.5 py-2 rounded-2xl depth-2 shadow-lg">
-            <span className="font-serif italic text-xs font-black text-[#07221A] block">Scan</span>
-            <span className="font-serif italic text-xs font-black text-[#20E79A] glow-icon-emerald block">Track</span>
-            <span className="font-serif italic text-xs font-black text-[#07221A] block">Stay Fresh</span>
+          {/* Slogan label floating beside the card - positioned safely inside mobile bounds */}
+          <div className="absolute -left-3 sm:-left-8 top-6 -rotate-12 glass-panel px-3 py-1.5 rounded-2xl depth-2 shadow-md">
+            <span className="font-serif italic text-[11px] font-black text-[#07221A] block">Scan</span>
+            <span className="font-serif italic text-[11px] font-black text-[#20E79A] block">Track</span>
+            <span className="font-serif italic text-[11px] font-black text-[#07221A] block">Stay Fresh</span>
           </div>
         </div>
 
         {/* Right Side Bullet Checklist */}
-        <div className="space-y-4 shrink-0 lg:border-l lg:border-[#13493B]/10 lg:pl-8 py-2 w-full lg:w-auto">
-          <div className="flex items-center gap-3.5">
-            <div className="neo-icon-box w-10 h-10 rounded-2xl flex items-center justify-center text-[#20E79A]">
-              <ShieldCheck className="w-5 h-5 glow-icon-emerald" />
+        <div className="grid grid-cols-1 sm:grid-cols-3 lg:flex lg:flex-col gap-3.5 shrink-0 border-t lg:border-t-0 lg:border-l border-[#13493B]/10 pt-4 lg:pt-2 lg:pl-8 w-full lg:w-auto">
+          <div className="flex items-center gap-3 p-2.5 sm:p-0 rounded-2xl bg-[#F4F7F6]/60 sm:bg-transparent">
+            <div className="neo-icon-box w-10 h-10 rounded-2xl flex items-center justify-center text-[#20E79A] shrink-0">
+              <ShieldCheck className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <span className="block text-[11px] font-black text-[#07221A] uppercase tracking-wide">Safer Food</span>
-              <span className="block text-[9px] text-[#5C7F75] font-semibold">Continuous Bio-Sensors</span>
+              <span className="block text-[10px] text-[#5C7F75] font-semibold">Continuous Bio-Sensors</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3.5">
-            <div className="neo-icon-box w-10 h-10 rounded-2xl flex items-center justify-center text-[#20E79A]">
-              <Heart className="w-5 h-5 glow-icon-emerald" />
+          <div className="flex items-center gap-3 p-2.5 sm:p-0 rounded-2xl bg-[#F4F7F6]/60 sm:bg-transparent">
+            <div className="neo-icon-box w-10 h-10 rounded-2xl flex items-center justify-center text-[#20E79A] shrink-0">
+              <Heart className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <span className="block text-[11px] font-black text-[#07221A] uppercase tracking-wide">Healthier People</span>
-              <span className="block text-[9px] text-[#5C7F75] font-semibold">Prevention & Warnings</span>
+              <span className="block text-[10px] text-[#5C7F75] font-semibold">Prevention & Warnings</span>
             </div>
           </div>
 
-          <div className="flex items-center gap-3.5">
-            <div className="neo-icon-box w-10 h-10 rounded-2xl flex items-center justify-center text-[#20E79A]">
-              <Globe className="w-5 h-5 glow-icon-emerald" />
+          <div className="flex items-center gap-3 p-2.5 sm:p-0 rounded-2xl bg-[#F4F7F6]/60 sm:bg-transparent">
+            <div className="neo-icon-box w-10 h-10 rounded-2xl flex items-center justify-center text-[#20E79A] shrink-0">
+              <Globe className="w-5 h-5" />
             </div>
-            <div>
+            <div className="min-w-0">
               <span className="block text-[11px] font-black text-[#07221A] uppercase tracking-wide">Cleaner Planet</span>
-              <span className="block text-[9px] text-[#5C7F75] font-semibold">Zero-Waste Tracking</span>
+              <span className="block text-[10px] text-[#5C7F75] font-semibold">Zero-Waste Tracking</span>
             </div>
           </div>
         </div>
@@ -275,7 +257,7 @@ export const DashboardPage: React.FC = () => {
       {/* 2. SIX SENSOR METRICS CARDS - INCLUDES DERIVED THERMODYNAMIC pH */}
       <motion.div 
         variants={itemVariants}
-        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3.5 sm:gap-4"
+        className="grid grid-cols-2 sm:grid-cols-3 xl:grid-cols-6 gap-2.5 sm:gap-4"
       >
         {/* Metric 1: Temp */}
         <motion.div 
@@ -821,23 +803,16 @@ export const DashboardPage: React.FC = () => {
             )}
           </motion.div>
 
-          {/* Slogan Promo Card with Dark Forest Image Underlay & Glow */}
-          <motion.div 
-            variants={itemVariants}
-            whileHover={{ scale: 1.02 }}
+          {/* Slogan Promo Card with Pure CSS Emerald Forest Backplate */}
+          <div 
             onClick={() => navigate('/about')}
-            className="relative rounded-[28px] overflow-hidden aspect-[16/10] bg-gradient-to-t from-[#041410] to-[#07221A] border border-[#20E79A]/30 flex flex-col justify-between p-5 text-left shadow-lg cursor-pointer glow-emerald"
+            className="relative rounded-[28px] overflow-hidden aspect-[16/10] bg-gradient-to-br from-[#0D3429] via-[#07221A] to-[#041410] border border-[#20E79A]/30 flex flex-col justify-between p-5 text-left shadow-lg cursor-pointer group"
           >
-            {/* Dark evergreens background */}
-            <div 
-              className="absolute inset-0 bg-cover bg-center opacity-45 mix-blend-overlay pointer-events-none"
-              style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1511497584788-876760111969?w=400&q=80")' }}
-            />
-            {/* Subtle bottom green gradient */}
+            <div className="absolute -top-10 -right-10 w-36 h-36 rounded-full bg-[#20E79A]/15 blur-2xl pointer-events-none" />
             <div className="absolute inset-0 bg-gradient-to-t from-[#041410]/90 via-transparent to-transparent pointer-events-none" />
 
             {/* Top tiny leaf logo */}
-            <div className="relative z-10 text-[#20E79A] glow-icon-emerald">
+            <div className="relative z-10 text-[#20E79A]">
               <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
                 <path d="M12 2C12 2 8 5 6 9C4 13 6 17 9 18C10 16 11 13 12 10C13 13 14 16 15 18C18 17 20 13 18 9C16 5 12 2 12 2Z" />
               </svg>
@@ -848,15 +823,15 @@ export const DashboardPage: React.FC = () => {
               <h4 className="text-base font-serif italic text-white leading-tight">
                 Safer Food <br />
                 Healthier People <br />
-                <span className="text-[#20E79A] font-serif font-black drop-shadow-[0_0_10px_rgba(32,231,154,0.5)]">A Brighter Tomorrow</span>
+                <span className="text-[#20E79A] font-serif font-black">A Brighter Tomorrow</span>
               </h4>
             </div>
 
             {/* Arrow Button on the bottom-right */}
-            <div className="absolute bottom-4 right-4 z-10 w-9 h-9 rounded-full bg-white flex items-center justify-center text-[#07221A] shadow-md group hover:bg-[#20E79A] hover:text-white transition-all glow-emerald">
+            <div className="absolute bottom-4 right-4 z-10 w-9 h-9 rounded-full bg-white flex items-center justify-center text-[#07221A] shadow-md group-hover:bg-[#20E79A] group-hover:text-white transition-all">
               <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </div>
-          </motion.div>
+          </div>
         </div>
       </div>
 

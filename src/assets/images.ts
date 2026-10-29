@@ -1,4 +1,4 @@
-// High quality assets generated for FreshNex matching the design specification
+// Local visual assets for FreshNex platform (no external banned Unsplash URLs)
 
 const heroCrate = new URL('./images/freshnex_hero_crate_1789921168287.jpg', import.meta.url).href;
 const crateSquare = new URL('./images/freshnex_crate_square_1789921186011.jpg', import.meta.url).href;
@@ -12,12 +12,11 @@ export const ASSETS = {
   crateSquare,
   tomatoProduct,
   farmLandscape,
-  // Other product images for history / simulation
-  lettuce: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?w=400&auto=format&fit=crop&q=80',
+  mixedVegetables: crateSquare,
+  lettuce: heroCrate,
   colddrinks: '/colddrinks.jpg',
   ketchup: '/colddrinks.jpg',
   milk: '/colddrinks.jpg',
-  chicken: 'https://images.unsplash.com/photo-1604503468506-a8da13d82791?w=400&auto=format&fit=crop&q=80',
-  fish: 'https://images.unsplash.com/photo-1534939561126-855b8675edd7?w=400&auto=format&fit=crop&q=80'
+  chicken: tomatoProduct,
+  fish: crateSquare,
 };
-

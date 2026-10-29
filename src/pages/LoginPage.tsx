@@ -64,27 +64,35 @@ export const LoginPage: React.FC = () => {
     setShowScanner(false);
   };
 
-  const tickScanner = () => {
+  const lastScanTimeRef = useRef<number>(0);
+
+  const tickScanner = (now = performance.now()) => {
     if (!videoRef.current || !canvasRef.current) return;
 
-    const video = videoRef.current;
-    const canvas = canvasRef.current;
+    if (now - lastScanTimeRef.current >= 180) {
+      lastScanTimeRef.current = now;
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
 
-    if (video.readyState === video.HAVE_ENOUGH_DATA) {
-      canvas.width = video.videoWidth;
-      canvas.height = video.videoHeight;
-      const ctx = canvas.getContext('2d');
-      if (ctx) {
-        ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-        const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        const code = jsqr(imageData.data, imageData.width, imageData.height);
+      if (video.readyState === video.HAVE_ENOUGH_DATA && video.videoWidth > 0) {
+        const scale = Math.min(1, 400 / video.videoWidth);
+        canvas.width = Math.floor(video.videoWidth * scale);
+        canvas.height = Math.floor(video.videoHeight * scale);
+        const ctx = canvas.getContext('2d', { willReadFrequently: true });
+        if (ctx) {
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          const imageData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+          const code = jsqr(imageData.data, imageData.width, imageData.height, {
+            inversionAttempts: 'dontInvert'
+          });
 
-        if (code) {
-          const scannedText = code.data.trim();
-          setProductId(scannedText);
-          stopScanner();
-          handleScannedLogin(scannedText);
-          return;
+          if (code) {
+            const scannedText = code.data.trim();
+            setProductId(scannedText);
+            stopScanner();
+            handleScannedLogin(scannedText);
+            return;
+          }
         }
       }
     }

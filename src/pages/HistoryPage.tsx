@@ -111,7 +111,7 @@ export const HistoryPage: React.FC = () => {
         </div>
 
         {/* Status Filter Tabs with animated pill */}
-        <div className="inline-flex p-1 rounded-xl bg-[#F4F7F6] border border-[#13493B]/10 self-start md:self-auto">
+        <div className="grid grid-cols-4 sm:inline-flex p-1 rounded-xl bg-[#F4F7F6] border border-[#13493B]/10 w-full md:w-auto">
           {(['all', 'fresh', 'at risk', 'expired'] as const).map((st) => {
             const active = statusFilter === st;
             const labels = { all: 'All', fresh: 'Fresh', 'at risk': 'At Risk', expired: 'Expired' };
@@ -119,7 +119,7 @@ export const HistoryPage: React.FC = () => {
               <button
                 key={st}
                 onClick={() => setStatusFilter(st)}
-                className="relative px-3.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer"
+                className="relative px-2 sm:px-3.5 py-1.5 rounded-lg text-xs font-black transition-all cursor-pointer text-center"
               >
                 {active && (
                   <motion.div
@@ -140,7 +140,7 @@ export const HistoryPage: React.FC = () => {
       {/* Logs Table / Card List */}
       <div className="bg-white border border-[#13493B]/10 rounded-[28px] overflow-hidden shadow-sm">
         {filteredHistory.length === 0 ? (
-          <div className="py-20 text-center space-y-3">
+          <div className="py-20 text-center space-y-3 px-4">
             <div className="w-12 h-12 rounded-[16px] bg-[#EBF1EF] border border-[#13493B]/10 flex items-center justify-center text-[#5C7F75] mx-auto">
               <QrCode className="w-6 h-6" />
             </div>
@@ -148,97 +148,161 @@ export const HistoryPage: React.FC = () => {
             <p className="text-xs font-semibold text-[#5C7F75]">Try changing your search keywords or perform a new scan.</p>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs border-collapse">
-              <thead>
-                <tr className="border-b border-[#13493B]/10 bg-[#F4F7F6] text-[#5C7F75] uppercase font-mono text-[9px] font-black tracking-widest">
-                  <th className="p-4">Product</th>
-                  <th className="p-4">Tag ID</th>
-                  <th className="p-4">Timestamp</th>
-                  <th className="p-4">Score</th>
-                  <th className="p-4">Status</th>
-                  <th className="p-4">Readings</th>
-                  <th className="p-4 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#13493B]/10">
-                <AnimatePresence>
-                  {filteredHistory.map((item, index) => (
-                    <motion.tr
-                      key={item.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, x: -10 }}
-                      transition={{ delay: index * 0.04 }}
-                      className="hover:bg-[#F4F7F6]/50 transition-colors group"
-                    >
-                      <td className="p-4 font-black text-[#07221A]">
-                        <div className="flex items-center gap-2.5">
-                          <div className="w-8 h-8 rounded-lg bg-[#EBF1EF] border border-[#13493B]/10 flex items-center justify-center text-[#20E79A] font-bold">
-                            {item.itemName.charAt(0)}
+          <>
+            {/* Mobile Card List View */}
+            <div className="md:hidden divide-y divide-[#13493B]/10">
+              {filteredHistory.map((item) => (
+                <div key={item.id} className="p-4 space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="w-9 h-9 rounded-xl bg-[#EBF1EF] border border-[#13493B]/10 flex items-center justify-center text-[#20E79A] font-black text-xs shrink-0">
+                        {item.itemName.charAt(0)}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="font-black text-xs text-[#07221A] truncate">{item.itemName}</p>
+                        <p className="font-mono text-[10px] font-bold text-[#5C7F75] truncate">{item.tagId}</p>
+                      </div>
+                    </div>
+                    <StatusBadge status={item.status} size="sm" />
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#F4F7F6] text-[11px]">
+                    <div>
+                      <span className="text-[9px] font-bold uppercase text-[#5C7F75] block">Freshness Score</span>
+                      <span className="font-black text-xs text-[#07221A]">{item.freshnessScore}</span>
+                      <span className="text-[10px] font-bold text-[#5C7F75]">/100</span>
+                    </div>
+                    <div>
+                      <span className="text-[9px] font-bold uppercase text-[#5C7F75] block">Readings</span>
+                      <span className="font-mono font-bold text-[10px] text-[#07221A]">
+                        {item.temperature}°C • {item.humidity}% • {item.gas}ppm
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-0.5">
+                    <span className="text-[10px] font-semibold text-[#5C7F75]">
+                      {new Date(item.timestamp).toLocaleString([], {
+                        month: 'short',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleInspect(item.tagId, item.itemId)}
+                        className="px-3 py-1.5 rounded-lg bg-[#EBF1EF] hover:bg-[#20E79A]/15 border border-[#13493B]/10 text-[#07221A] text-[11px] font-bold flex items-center gap-1.5 cursor-pointer"
+                      >
+                        <ExternalLink className="w-3.5 h-3.5 text-[#20E79A]" />
+                        <span>Inspect</span>
+                      </button>
+                      <button
+                        onClick={() => deleteHistoryRecord(item.id)}
+                        aria-label="Delete log entry"
+                        className="p-1.5 rounded-lg bg-[#EBF1EF] hover:bg-red-50 border border-[#13493B]/10 text-slate-400 hover:text-red-500 cursor-pointer"
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Desktop Table View */}
+            <div className="hidden md:block overflow-x-auto">
+              <table className="w-full text-left text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-[#13493B]/10 bg-[#F4F7F6] text-[#5C7F75] uppercase font-mono text-[9px] font-black tracking-widest">
+                    <th className="p-4">Product</th>
+                    <th className="p-4">Tag ID</th>
+                    <th className="p-4">Timestamp</th>
+                    <th className="p-4">Score</th>
+                    <th className="p-4">Status</th>
+                    <th className="p-4">Readings</th>
+                    <th className="p-4 text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[#13493B]/10">
+                  <AnimatePresence>
+                    {filteredHistory.map((item, index) => (
+                      <motion.tr
+                        key={item.id}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, x: -10 }}
+                        transition={{ delay: index * 0.04 }}
+                        className="hover:bg-[#F4F7F6]/50 transition-colors group"
+                      >
+                        <td className="p-4 font-black text-[#07221A]">
+                          <div className="flex items-center gap-2.5">
+                            <div className="w-8 h-8 rounded-lg bg-[#EBF1EF] border border-[#13493B]/10 flex items-center justify-center text-[#20E79A] font-bold">
+                              {item.itemName.charAt(0)}
+                            </div>
+                            <span>{item.itemName}</span>
                           </div>
-                          <span>{item.itemName}</span>
-                        </div>
-                      </td>
+                        </td>
 
-                      <td className="p-4 font-mono text-[#07221A] font-bold">
-                        {item.tagId}
-                      </td>
+                        <td className="p-4 font-mono text-[#07221A] font-bold">
+                          {item.tagId}
+                        </td>
 
-                      <td className="p-4 text-[#5C7F75] font-semibold">
-                        {new Date(item.timestamp).toLocaleString([], {
-                          month: 'short',
-                          day: 'numeric',
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </td>
+                        <td className="p-4 text-[#5C7F75] font-semibold">
+                          {new Date(item.timestamp).toLocaleString([], {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </td>
 
-                      <td className="p-4">
-                        <span className="font-black text-[#07221A] text-sm">
-                          {item.freshnessScore}
-                        </span>
-                        <span className="text-[#5C7F75] text-[10px] font-bold">/100</span>
-                      </td>
+                        <td className="p-4">
+                          <span className="font-black text-[#07221A] text-sm">
+                            {item.freshnessScore}
+                          </span>
+                          <span className="text-[#5C7F75] text-[10px] font-bold">/100</span>
+                        </td>
 
-                      <td className="p-4">
-                        <StatusBadge status={item.status} size="sm" />
-                      </td>
+                        <td className="p-4">
+                          <StatusBadge status={item.status} size="sm" />
+                        </td>
 
-                      <td className="p-4 text-[#5C7F75] font-mono font-bold text-[11px]">
-                        <span>{item.temperature}°C</span> •{' '}
-                        <span>{item.humidity}%</span> •{' '}
-                        <span>{item.gas}ppm</span>
-                      </td>
+                        <td className="p-4 text-[#5C7F75] font-mono font-bold text-[11px]">
+                          <span>{item.temperature}°C</span> •{' '}
+                          <span>{item.humidity}%</span> •{' '}
+                          <span>{item.gas}ppm</span>
+                        </td>
 
-                      <td className="p-4 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => handleInspect(item.tagId, item.itemId)}
-                            title="Inspect live telemetry"
-                            className="p-1.5 rounded-lg bg-[#EBF1EF] hover:bg-[#20E79A]/10 border border-[#13493B]/10 text-[#07221A] transition-colors cursor-pointer"
-                          >
-                            <ExternalLink className="w-4 h-4 text-[#20E79A]" />
-                          </motion.button>
-                          <motion.button
-                            whileHover={{ scale: 1.1 }}
-                            whileTap={{ scale: 0.9 }}
-                            onClick={() => deleteHistoryRecord(item.id)}
-                            title="Delete log entry"
-                            className="p-1.5 rounded-lg bg-[#EBF1EF] hover:bg-red-50 border border-[#13493B]/10 text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
-                          >
-                            <Trash2 className="w-4 h-4" />
-                          </motion.button>
-                        </div>
-                      </td>
-                    </motion.tr>
-                  ))}
-                </AnimatePresence>
-              </tbody>
-            </table>
-          </div>
+                        <td className="p-4 text-right">
+                          <div className="flex items-center justify-end gap-2">
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => handleInspect(item.tagId, item.itemId)}
+                              title="Inspect live telemetry"
+                              className="p-1.5 rounded-lg bg-[#EBF1EF] hover:bg-[#20E79A]/10 border border-[#13493B]/10 text-[#07221A] transition-colors cursor-pointer"
+                            >
+                              <ExternalLink className="w-4 h-4 text-[#20E79A]" />
+                            </motion.button>
+                            <motion.button
+                              whileHover={{ scale: 1.1 }}
+                              whileTap={{ scale: 0.9 }}
+                              onClick={() => deleteHistoryRecord(item.id)}
+                              title="Delete log entry"
+                              className="p-1.5 rounded-lg bg-[#EBF1EF] hover:bg-red-50 border border-[#13493B]/10 text-slate-400 hover:text-red-500 transition-colors cursor-pointer"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </motion.button>
+                          </div>
+                        </td>
+                      </motion.tr>
+                    ))}
+                  </AnimatePresence>
+                </tbody>
+              </table>
+            </div>
+          </>
         )}
       </div>
     </motion.div>

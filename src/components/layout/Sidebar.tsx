@@ -11,7 +11,8 @@ import {
   Bell,
   Users, 
   Settings, 
-  LogOut
+  LogOut,
+  X
 } from 'lucide-react';
 import { Logo } from '../common/Logo';
 import { useAuth } from '../../context/AuthContext';
@@ -69,33 +70,26 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
   };
 
   return (
-    <aside className="w-64 bg-[#07221A] flex flex-col justify-between h-full select-none z-20 font-sans border-r border-[#13493B]/20 shrink-0">
+    <aside className="w-full md:w-64 bg-[#07221A] flex flex-col justify-between h-full select-none z-20 font-sans border-r border-[#13493B]/20 shrink-0">
       {/* Top Section with responsive scrollability so nothing is ever clipped */}
       <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between overflow-y-auto overflow-x-hidden min-h-0 [scrollbar-width:thin] [scrollbar-color:#13493B_transparent]">
         <div className="flex-1 flex flex-col min-h-0">
-          {/* Brand Logo with exact leaves and subtitle */}
-          <motion.div 
-            initial={{ opacity: 0, y: -8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="pb-4 sm:pb-5 mb-1 sm:mb-2 border-b border-[#13493B]/20 shrink-0"
-          >
+          {/* Brand Logo with integrated mobile close button */}
+          <div className="pb-4 mb-2 border-b border-[#13493B]/30 shrink-0 flex items-center justify-between gap-2">
             <Logo size="md" variant="dark" showTagline={true} linkTo="/dashboard" />
-          </motion.div>
+            {onCloseMobile && (
+              <button
+                onClick={onCloseMobile}
+                className="md:hidden w-9 h-9 rounded-xl bg-[#13493B]/40 hover:bg-[#13493B]/70 border border-[#20E79A]/25 text-[#8FA39E] hover:text-white flex items-center justify-center transition-colors cursor-pointer shrink-0"
+                aria-label="Close navigation menu"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            )}
+          </div>
 
-          {/* Navigation Items with full animated selection and spring physics */}
-          <motion.nav 
-            className="space-y-0.5 sm:space-y-1 pt-2 sm:pt-3"
-            initial="hidden"
-            animate="show"
-            variants={{
-              hidden: { opacity: 0 },
-              show: {
-                opacity: 1,
-                transition: { staggerChildren: 0.04 }
-              }
-            }}
-          >
+          {/* Navigation Items */}
+          <nav className="space-y-1 pt-2">
             {navItems.map((item) => {
               const Icon = item.icon;
               const isAddDeviceAction = item.path.includes('action=add');
@@ -108,173 +102,124 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
                 : location.pathname === item.path;
 
               return (
-                <motion.div
+                <NavLink
                   key={item.name}
-                  variants={{
-                    hidden: { opacity: 0, x: -10 },
-                    show: { opacity: 1, x: 0, transition: { type: 'spring', stiffness: 400, damping: 25 } }
-                  }}
+                  to={item.path}
+                  onClick={onCloseMobile}
+                  className="relative block group outline-none"
                 >
-                  <NavLink
-                    to={item.path}
-                    onClick={onCloseMobile}
-                    className="relative block group outline-none"
+                  <div
+                    className={`flex items-center gap-3 px-3.5 py-2.5 min-h-[42px] rounded-xl font-medium text-xs transition-colors duration-150 relative z-10 overflow-hidden ${
+                      isActive
+                        ? 'text-white font-bold'
+                        : 'text-[#8FA39E] hover:text-white hover:bg-[#13493B]/25'
+                    }`}
                   >
-                    <motion.div
-                      whileHover={{ x: 5 }}
-                      whileTap={{ scale: 0.96 }}
-                      transition={{ type: 'spring', stiffness: 500, damping: 25 }}
-                      className={`flex items-center gap-3 px-3 sm:px-3.5 py-2 sm:py-2.5 rounded-xl font-medium text-xs transition-colors duration-150 relative z-10 overflow-hidden ${
-                        isActive
-                          ? 'text-white font-bold'
-                          : 'text-[#8FA39E] hover:text-white'
-                      }`}
-                    >
-                      {/* Fluid Sliding Active Pill Background across selections */}
-                      {isActive && (
-                        <motion.div
-                          layoutId="activeSidebarPill"
-                          className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#13493B] via-[#104033] to-[#0D3429] border border-[#20E79A]/30 shadow-[0_4px_20px_rgba(32,231,154,0.18)]"
-                          transition={{
-                            type: 'spring',
-                            stiffness: 420,
-                            damping: 32,
-                            mass: 0.8
-                          }}
-                        />
-                      )}
-
-                      {/* Sliding Emerald Accent Indicator Bar */}
-                      {isActive && (
-                        <motion.div
-                          layoutId="activeSidebarIndicator"
-                          className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-[#20E79A] shadow-[0_0_12px_#20E79A]"
-                          transition={{
-                            type: 'spring',
-                            stiffness: 450,
-                            damping: 32,
-                          }}
-                        />
-                      )}
-
-                      {/* Interactive Animated Icon */}
+                    {/* Active Pill Background */}
+                    {isActive && (
                       <motion.div
-                        animate={{
-                          scale: isActive ? 1.15 : 1,
-                          rotate: isActive ? 4 : 0,
+                        layoutId="activeSidebarPill"
+                        className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#13493B] via-[#104033] to-[#0D3429] border border-[#20E79A]/30 shadow-[0_4px_20px_rgba(32,231,154,0.18)]"
+                        transition={{
+                          type: 'spring',
+                          stiffness: 420,
+                          damping: 32,
+                          mass: 0.8
                         }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                        className="relative z-10 flex items-center justify-center shrink-0"
-                      >
-                        <Icon
-                          className={`w-4 h-4 transition-all duration-200 ${
-                            isActive 
-                              ? 'text-[#20E79A] drop-shadow-[0_0_8px_rgba(32,231,154,0.7)]' 
-                              : 'text-[#5C7F75] group-hover:text-[#20E79A]'
-                          }`}
-                        />
-                      </motion.div>
+                      />
+                    )}
 
-                      {/* Label with slide on active */}
-                      <motion.span 
-                        animate={isActive ? { x: 2 } : { x: 0 }}
-                        transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-                        className="relative z-10 tracking-wide"
-                      >
-                        {item.name}
-                      </motion.span>
+                    {/* Sliding Emerald Accent Indicator Bar */}
+                    {isActive && (
+                      <motion.div
+                        layoutId="activeSidebarIndicator"
+                        className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-[#20E79A] shadow-[0_0_12px_#20E79A]"
+                        transition={{
+                          type: 'spring',
+                          stiffness: 450,
+                          damping: 32,
+                        }}
+                      />
+                    )}
 
-                      {/* Add Device Action Indicator Badge */}
-                      {item.isAction && (
-                        <span className="ml-auto px-1.5 py-0.5 rounded-md text-[8px] font-mono font-black bg-[#20E79A]/15 text-[#20E79A] border border-[#20E79A]/30 tracking-tight z-10">
-                          + ADD
-                        </span>
-                      )}
+                    {/* Icon */}
+                    <div className="relative z-10 flex items-center justify-center shrink-0">
+                      <Icon
+                        className={`w-4 h-4 transition-colors duration-150 ${
+                          isActive 
+                            ? 'text-[#20E79A]' 
+                            : 'text-[#5C7F75] group-hover:text-[#20E79A]'
+                        }`}
+                      />
+                    </div>
 
-                      {/* Notification Count Badge with animated pop */}
-                      {item.badge !== undefined && item.badge > 0 && (
-                        <motion.span 
-                          initial={{ scale: 0 }}
-                          animate={{ scale: 1 }}
-                          transition={{ type: 'spring', stiffness: 500, damping: 20 }}
-                          className="ml-auto px-1.5 py-0.5 rounded-full text-[9px] font-black bg-red-500 text-white relative z-10 shadow-sm"
-                        >
-                          {item.badge}
-                        </motion.span>
-                      )}
+                    {/* Label */}
+                    <span className="relative z-10 tracking-wide truncate">
+                      {item.name}
+                    </span>
 
-                      {/* Live Device Telemetry Active Ping */}
-                      {item.name === 'Devices' && activeItem && (
-                        <span className="ml-auto relative flex h-2 w-2 z-10">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#20E79A] opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-[#20E79A] shadow-[0_0_8px_#20E79A]"></span>
-                        </span>
-                      )}
-                    </motion.div>
-                  </NavLink>
-                </motion.div>
+                    {/* Add Device Action Indicator Badge */}
+                    {item.isAction && (
+                      <span className="ml-auto px-1.5 py-0.5 rounded-md text-[8px] font-mono font-black bg-[#20E79A]/15 text-[#20E79A] border border-[#20E79A]/30 tracking-tight z-10 shrink-0">
+                        + ADD
+                      </span>
+                    )}
+
+                    {/* Notification Count Badge */}
+                    {item.badge !== undefined && item.badge > 0 && (
+                      <span className="ml-auto px-1.5 py-0.5 rounded-full text-[9px] font-black bg-red-500 text-white relative z-10 shadow-sm shrink-0">
+                        {item.badge}
+                      </span>
+                    )}
+
+                    {/* Live Device Telemetry Active Ping */}
+                    {item.name === 'Devices' && activeItem && (
+                      <span className="ml-auto relative flex h-2 w-2 z-10 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#20E79A] opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-[#20E79A] shadow-[0_0_8px_#20E79A]"></span>
+                      </span>
+                    )}
+                  </div>
+                </NavLink>
               );
             })}
-          </motion.nav>
+          </nav>
         </div>
 
-        {/* Misty Pine Forest Bottom Decorative Card - Fully responsive and visible on all devices */}
-        <motion.div 
-          whileHover={{ y: -2, scale: 1.01 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-          className="mt-3 sm:mt-4 mb-1 relative rounded-2xl overflow-hidden bg-gradient-to-t from-[#041410] to-[#07221A] border border-[#13493B]/30 flex flex-col justify-end p-3 sm:p-3.5 text-center group cursor-default shrink-0 shadow-sm"
-        >
-          {/* Unsplash beautiful dark pine forest image backplate */}
-          <div 
-            className="absolute inset-0 bg-cover bg-center opacity-40 mix-blend-overlay pointer-events-none transition-transform duration-700 group-hover:scale-105"
-            style={{ backgroundImage: 'url("https://images.unsplash.com/photo-1511497584788-876760111969?w=300&q=80")' }}
-          />
-          {/* Subtle green vignette overlay */}
-          <div className="absolute inset-0 bg-gradient-to-t from-[#07221A] via-transparent to-transparent pointer-events-none" />
-
-          {/* Slogan with script handwriting style */}
-          <div className="relative z-10 space-y-1.5 sm:space-y-2">
+        {/* Bottom Decorative Brand Card - Pure CSS Emerald Forest Backplate */}
+        <div className="mt-4 mb-1 relative rounded-2xl overflow-hidden bg-gradient-to-br from-[#0D3429] via-[#07221A] to-[#041410] border border-[#20E79A]/20 flex flex-col justify-end p-3 sm:p-3.5 text-center shrink-0 shadow-sm">
+          <div className="absolute -top-8 -right-8 w-24 h-24 rounded-full bg-[#20E79A]/10 blur-xl pointer-events-none" />
+          <div className="relative z-10 space-y-1.5">
             <div className="space-y-0.5">
-              <span className="block font-serif italic text-white text-[15px] sm:text-[16px] leading-tight tracking-wide drop-shadow-md">
+              <span className="block font-serif italic text-white text-[14px] sm:text-[15px] leading-tight tracking-wide">
                 Good Food
               </span>
-              <span className="block font-serif italic text-[#20E79A] text-[18px] sm:text-[20px] leading-tight font-black tracking-wide drop-shadow-md">
+              <span className="block font-serif italic text-[#20E79A] text-[17px] sm:text-[19px] leading-tight font-black tracking-wide">
                 Brighter
               </span>
-              <span className="block font-serif italic text-white text-[15px] sm:text-[16px] leading-tight tracking-wide drop-shadow-md">
+              <span className="block font-serif italic text-white text-[14px] sm:text-[15px] leading-tight tracking-wide">
                 Futures
               </span>
             </div>
 
-            {/* Tiny leaf icon with floating pulse */}
-            <motion.div 
-              animate={{ y: [0, -2, 0], rotate: [0, 4, -4, 0] }}
-              transition={{ repeat: Infinity, duration: 4, ease: "easeInOut" }}
-              className="flex justify-center text-[#20E79A]/80 drop-shadow-[0_0_8px_rgba(32,231,154,0.4)]"
-            >
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5 sm:w-4 sm:h-4">
+            <div className="flex justify-center text-[#20E79A]/80">
+              <svg viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
                 <path d="M12 2C12 2 8 5 6 9C4 13 6 17 9 18C10 16 11 13 12 10C13 13 14 16 15 18C18 17 20 13 18 9C16 5 12 2 12 2Z" />
               </svg>
-            </motion.div>
+            </div>
 
-            {/* Quote copy from the image */}
-            <p className="text-[9px] sm:text-[10px] text-[#8FA39E] font-medium leading-relaxed max-w-[160px] mx-auto italic">
+            <p className="text-[9px] sm:text-[10px] text-[#8FA39E] font-medium leading-relaxed max-w-[170px] mx-auto italic">
               "A healthier planet starts with safer food."
             </p>
           </div>
-        </motion.div>
+        </div>
       </div>
 
       {/* Bottom User Profile Section */}
-      <div className="p-3 sm:p-4 border-t border-[#13493B]/30 bg-[#041410]/70 shrink-0">
-        <motion.div 
-          whileHover={{ scale: 1.02, y: -1 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-          className="flex items-center justify-between p-2.5 rounded-2xl bg-[#092019]/90 border border-[#20E79A]/25 shadow-[0_8px_20px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.1)]"
-        >
+      <div className="p-3 sm:p-4 border-t border-[#13493B]/30 bg-[#041410]/80 shrink-0">
+        <div className="flex items-center justify-between gap-2 p-2.5 rounded-2xl bg-[#092019] border border-[#20E79A]/25 shadow-md">
           <div className="flex items-center gap-2.5 min-w-0">
-            {/* Avatar Pill with Glow */}
-            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#13493B] via-[#20E79A] to-[#10B981] flex items-center justify-center font-black text-[#07221A] text-xs shrink-0 shadow-[0_0_12px_rgba(32,231,154,0.4)] border border-white/40">
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#13493B] via-[#20E79A] to-[#10B981] flex items-center justify-center font-black text-[#07221A] text-xs shrink-0 border border-white/40">
               {userProfile?.name?.charAt(0) || 'A'}
             </div>
             <div className="min-w-0">
@@ -287,18 +232,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
             </div>
           </div>
 
-          {/* Logout Action with Micro-interaction */}
-          <motion.button
-            whileHover={{ scale: 1.15, rotate: 6 }}
-            whileTap={{ scale: 0.9 }}
+          <button
             onClick={handleLogout}
             title="Log Out"
-            className="p-2 text-[#5C7F75] hover:text-[#FF5A67] hover:bg-[#FF5A67]/15 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-[#FF5A67]/30 shadow-sm"
+            aria-label="Log Out"
+            className="min-w-[36px] min-h-[36px] flex items-center justify-center text-[#8FA39E] hover:text-[#FF5A67] hover:bg-[#FF5A67]/15 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-[#FF5A67]/30 shrink-0"
           >
-            <LogOut className="w-3.5 h-3.5" />
-          </motion.button>
-        </motion.div>
+            <LogOut className="w-4 h-4" />
+          </button>
+        </div>
       </div>
     </aside>
   );
 };
+
