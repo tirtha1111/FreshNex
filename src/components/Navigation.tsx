@@ -44,7 +44,8 @@ export const UserBottomNav: React.FC = () => {
                     whileTap={{ scale: 0.92 }}
                     whileHover={{ scale: 1.05 }}
                     onClick={() => navigate('/scan')}
-                    className="w-14 h-14 rounded-full bg-gradient-to-tr from-[#FF6A00] to-[#FFAA00] text-[#120A05] flex items-center justify-center shadow-xl shadow-[#FF6A00]/40 ring-4 ring-[#0D0A08] border border-white/40"
+                    aria-label="Scan QR Code"
+                    className="w-14 h-14 rounded-full bg-gradient-to-tr from-[#FF6A00] to-[#FFAA00] text-[#120A05] flex items-center justify-center shadow-xl shadow-[#FF6A00]/40 ring-4 ring-[#0D0A08] border border-white/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFAA00]"
                   >
                     <QrCode className="w-7 h-7 stroke-[2.5px]" />
                   </motion.button>
@@ -83,9 +84,10 @@ export const UserHeader: React.FC = () => {
   return (
     <header className="sticky top-0 z-30 glass-nav px-4 py-3 shadow-lg">
       <div className="max-w-5xl mx-auto flex items-center justify-between">
-        <div 
+        <button
           onClick={() => navigate('/')} 
-          className="flex items-center gap-2.5 cursor-pointer group"
+          aria-label="FreshNex Home"
+          className="flex items-center gap-2.5 cursor-pointer group text-left rounded-xl p-1 -m-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00]"
         >
           <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-[#FF6A00] to-[#FFAA00] text-[#120A05] flex items-center justify-center shadow-md shadow-[#FF6A00]/30 group-hover:scale-105 transition-transform">
             <ShieldCheck className="w-5 h-5 stroke-[2.5px]" />
@@ -98,19 +100,21 @@ export const UserHeader: React.FC = () => {
               IoT Freshness Matrix
             </p>
           </div>
-        </div>
+        </button>
 
         <div className="flex items-center gap-2.5">
           <button
             onClick={() => navigate('/notifications')}
-            className="w-9 h-9 rounded-xl glass-card text-[#FFAA00] flex items-center justify-center hover:bg-[#FF6A00]/10 transition-colors relative border border-[#FF6A00]/20"
+            aria-label="Notifications"
+            className="w-9 h-9 rounded-xl glass-card text-[#FFAA00] flex items-center justify-center hover:bg-[#FF6A00]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00] transition-colors relative border border-[#FF6A00]/20"
           >
             <Bell className="w-4 h-4" />
           </button>
 
           <button
             onClick={() => navigate('/profile')}
-            className="flex items-center gap-2 pl-2 pr-3 py-1 rounded-xl glass-card hover:bg-[#FF6A00]/10 transition-colors border border-[#FF6A00]/20"
+            aria-label={userRecord?.name ? `User profile for ${userRecord.name}` : 'User profile'}
+            className="flex items-center gap-2 pl-2 pr-3 py-1 rounded-xl glass-card hover:bg-[#FF6A00]/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FF6A00] transition-colors border border-[#FF6A00]/20"
           >
             <div className="w-6 h-6 rounded-lg bg-gradient-to-tr from-[#FF6A00] to-[#FFAA00] text-[#120A05] text-xs font-black flex items-center justify-center shadow-sm">
               {userRecord?.name ? userRecord.name.charAt(0).toUpperCase() : 'U'}
@@ -198,7 +202,8 @@ export const AdminLayout: React.FC<{ children: React.ReactNode }> = ({ children 
           <button
             onClick={() => logout()}
             title="Log Out"
-            className="p-2 rounded-xl text-[#B8A89E] hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
+            aria-label="Log Out"
+            className="p-2 rounded-xl text-[#B8A89E] hover:text-rose-400 hover:bg-rose-500/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-500 transition-colors"
           >
             <LogOut className="w-4 h-4" />
           </button>
