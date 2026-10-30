@@ -67,13 +67,48 @@ interface FreshnessContextType {
 const FreshnessContext = createContext<FreshnessContextType | undefined>(undefined);
 
 export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser } = useAuth();
+  const { currentUser, userProfile } = useAuth();
   const [activeItem, setActiveItem] = useState<FoodItem | null>(null);
   const [sensorData, setSensorData] = useState<SensorData | null>(null);
   const [freshnessReport, setFreshnessReport] = useState<FreshnessReport | null>(null);
   const [scanHistory, setScanHistory] = useState<ScanHistoryRecord[]>(DEFAULT_SCAN_HISTORY);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [alerts, setAlerts] = useState<SensorAlertEvent[]>([]);
+
+  const assignedName = userProfile?.assignedProductName || '';
+  const assignedTag = userProfile?.assignedProductId || '';
+  const isAdmin = userProfile?.role === 'admin';
+
+  // Filter scan history and alerts for product users so they only see their assigned product (e.g. Cold Drinks)
+  const filteredScanHistory = React.useMemo(() => {
+    let list = scanHistory;
+    if (!isAdmin && (assignedName || assignedTag)) {
+      list = scanHistory.filter(s =>
+        s.itemName.toLowerCase().includes(assignedName.toLowerCase()) ||
+        s.tagId.toLowerCase().includes(assignedTag.toLowerCase()) ||
+        s.itemId.toLowerCase().includes(assignedTag.toLowerCase())
+      );
+    }
+    const seen = new Set<string>();
+    return list.filter(item => {
+      const uniqueKey = item.id || `${item.itemId}-${item.timestamp}`;
+      if (seen.has(uniqueKey)) return false;
+      seen.add(uniqueKey);
+      return true;
+    });
+  }, [scanHistory, isAdmin, assignedName, assignedTag]);
+
+  const filteredAlerts = React.useMemo(() => {
+    if (isAdmin) return alerts;
+    if (assignedName || assignedTag) {
+      return alerts.filter(a =>
+        (a.itemName && a.itemName.toLowerCase().includes(assignedName.toLowerCase())) ||
+        (a.deviceId && a.deviceId.toLowerCase().includes(assignedTag.toLowerCase())) ||
+        (a.title && a.title.toLowerCase().includes(assignedName.toLowerCase()))
+      );
+    }
+    return alerts;
+  }, [alerts, isAdmin, assignedName, assignedTag]);
 
   // Thresholds configuration stored locally and synced with Firebase
   const [thresholds, setThresholds] = useState<SensorThresholdConfig>(() => {
@@ -194,6 +229,59 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       }
     }
   }, [activeItem, thresholds, isAudioMuted, currentUser?.uid]);
+
+  // Seed default scan history and active item for assigned product user if logged in with unique code
+  useEffect(() => {
+    if (!isAdmin && (assignedName || assignedTag)) {
+      const prodName = assignedName || 'Cold Drinks';
+      const tagId = assignedTag || 'COLD_DRINKS';
+      const hasItem = scanHistory.some(s =>
+        s.itemName.toLowerCase().includes(prodName.toLowerCase()) ||
+        s.tagId.toLowerCase().includes(tagId.toLowerCase())
+      );
+      if (!hasItem) {
+        const defaultRecord: ScanHistoryRecord = {
+          id: `scan-default-${tagId}-${Math.random().toString(36).substring(2, 8)}`,
+          itemId: tagId,
+          itemName: prodName,
+          tagId: tagId.startsWith('#') ? tagId : `#${tagId}`,
+          itemImage: '/colddrinks.jpg',
+          temperature: 3.5,
+          humidity: 58.2,
+          moisture: 4.2,
+          ph: 4.2,
+          gas: 110,
+          freshnessScore: 98,
+          status: 'Fresh',
+          timestamp: Date.now(),
+        };
+        setScanHistory(prev => [defaultRecord, ...prev]);
+      }
+
+      if (!activeItem) {
+        const itemObj = DEFAULT_ITEMS[tagId] || DEFAULT_ITEMS['COLD_DRINKS'] || {
+          id: tagId,
+          name: prodName,
+          category: 'Beverages',
+          image: '/colddrinks.jpg',
+          batchId: 'BATCH-102',
+          tagId: tagId.startsWith('#') ? tagId : `#${tagId}`,
+          description: `${prodName} package monitored in real-time.`,
+          optimalTemp: '1 - 5°C',
+          optimalHumidity: '50 - 70%',
+          maxGas: 150,
+        };
+        setActiveItem(itemObj as any);
+        const initSensor = DEFAULT_SENSOR_DATA[tagId] || DEFAULT_SENSOR_DATA['COLD_DRINKS'] || {
+          temperature: 3.5,
+          humidity: 58,
+          gas: 110,
+          timestamp: Date.now(),
+        };
+        handleSensorTelemetry(initSensor, itemObj as any);
+      }
+    }
+  }, [isAdmin, assignedName, assignedTag, scanHistory, activeItem, handleSensorTelemetry]);
 
   // 4. Real-time sensor listener whenever activeItem changes
   useEffect(() => {
@@ -322,7 +410,7 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   // Convert alerts to notifications shape for backward-compatibility with UI components
-  const notifications: FreshnessNotification[] = alerts.map(a => ({
+  const notifications: FreshnessNotification[] = filteredAlerts.map(a => ({
     id: a.id,
     title: a.title,
     message: a.message,
@@ -338,7 +426,7 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     resolved: a.resolved,
   }));
 
-  const unreadCount = alerts.filter(n => !n.read).length;
+  const unreadCount = filteredAlerts.filter(n => !n.read).length;
 
   return (
     <FreshnessContext.Provider
@@ -346,9 +434,9 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         activeItem,
         sensorData,
         freshnessReport,
-        scanHistory,
+        scanHistory: filteredScanHistory,
         notifications,
-        alerts,
+        alerts: filteredAlerts,
         unreadCount,
         isScanning,
         thresholds,

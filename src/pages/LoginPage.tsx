@@ -47,7 +47,7 @@ export const LoginPage: React.FC = () => {
         animationFrameRef.current = requestAnimationFrame(tickScanner);
       }
     } catch (err: any) {
-      console.error('Camera access error:', err);
+      console.warn('Camera access restriction (Permission denied):', err?.message || err);
       setScannerError('Camera access denied or unavailable. Please enter Product Tag ID manually.');
     }
   };
