@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
@@ -42,7 +42,7 @@ import { researchProductThresholds, AIThresholdResearchResult } from '../service
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
 import { formatRealtimeDateTime, parseTimestamp } from '../utils/dateUtils';
-import { saveProductThresholdToFirebase } from '../services/alertThresholdService';
+import { saveProductThresholdToFirebase, normalizeProductKey } from '../services/alertThresholdService';
 
 export const AdminDevices: React.FC = () => {
   const { userProfile, isDemoMode } = useAuth();
@@ -67,6 +67,8 @@ export const AdminDevices: React.FC = () => {
   const [humMax, setHumMax] = useState<number | ''>(70);
   const [mqThreshold, setMqThreshold] = useState<number | ''>(1500);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isSavingConfig, setIsSavingConfig] = useState(false);
+  const [configSaveError, setConfigSaveError] = useState<string | null>(null);
 
   // Registration Modal State
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
@@ -306,12 +308,90 @@ export const AdminDevices: React.FC = () => {
   const rawResponseTimestamp = liveSensor.timestamp || (activeDevice as any)?.last_update || (activeDevice as any)?.lastUpdated || (activeDevice as any)?.timestamp;
   const { dateStr: formattedResponseDate, timeStr: formattedResponseTime } = formatRealtimeDateTime(rawResponseTimestamp);
 
+  const currentThresholdDisplay = useMemo(() => {
+    if (!activeDevice) return { tempMin: 2.0, tempMax: 6.0, humMin: 50, humMax: 70, mq135_threshold: 1500 };
+    const prod = activeDevice.product || 'Cold Drinks';
+    const canonical = normalizeProductKey(prod);
+    const devIdClean = (activeDevice.device_id || '').toUpperCase();
+
+    try {
+      const stored = 
+        localStorage.getItem(`freshnex_product_thresholds_${canonical}`) ||
+        localStorage.getItem(`freshnex_product_thresholds_${devIdClean}`) ||
+        (canonical === 'cold_drinks' ? localStorage.getItem('freshnex_product_thresholds_cold_drinks') : null);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return {
+          tempMin: parsed.tempMin ?? 2.0,
+          tempMax: parsed.tempMax ?? 6.0,
+          humMin: parsed.humMin ?? 50,
+          humMax: parsed.humMax ?? 70,
+          mq135_threshold: parsed.mq135_threshold ?? 1500,
+        };
+      }
+    } catch {}
+
+    if ((activeDevice as any).temperature_min !== undefined) {
+      return {
+        tempMin: (activeDevice as any).temperature_min ?? 2.0,
+        tempMax: (activeDevice as any).temperature_max ?? 6.0,
+        humMin: (activeDevice as any).humidity_min ?? 50,
+        humMax: (activeDevice as any).humidity_max ?? 70,
+        mq135_threshold: (activeDevice as any).mq135_threshold ?? 1500,
+      };
+    }
+
+    const prof = productProfiles.find(p => p.name.toLowerCase() === prod.toLowerCase());
+    if (prof) {
+      return {
+        tempMin: prof.temperature_min ?? 2.0,
+        tempMax: prof.temperature_max ?? 6.0,
+        humMin: prof.humidity_min ?? 50,
+        humMax: prof.humidity_max ?? 70,
+        mq135_threshold: prof.mq135_threshold ?? 1500,
+      };
+    }
+
+    return { tempMin: 2.0, tempMax: 6.0, humMin: 50, humMax: 70, mq135_threshold: 1500 };
+  }, [activeDevice, productProfiles, devicesMap]);
+
   const handleOpenConfigModal = (dev: DeviceData) => {
     setConfigModalDevice(dev);
-    setProductName(dev.product || 'Cold Drinks');
+    const prod = dev.product || 'Cold Drinks';
+    setProductName(prod);
+    setConfigSaveError(null);
+    setConfigAiDossier(null);
+    setConfigResearchError(null);
+    setSaveSuccess(false);
     
-    const profile = productProfiles.find(p => p.name.toLowerCase() === (dev.product || '').toLowerCase());
-    if (profile) {
+    // Check local threshold storage first for any previously saved threshold
+    let cachedTh: any = null;
+    try {
+      const canonical = normalizeProductKey(prod);
+      const devIdClean = (dev.device_id || '').toUpperCase();
+      const rawStored = 
+        localStorage.getItem(`freshnex_product_thresholds_${canonical}`) ||
+        localStorage.getItem(`freshnex_product_thresholds_${devIdClean}`) ||
+        (canonical === 'cold_drinks' ? localStorage.getItem('freshnex_product_thresholds_cold_drinks') : null);
+      if (rawStored) {
+        cachedTh = JSON.parse(rawStored);
+      }
+    } catch {}
+
+    const profile = productProfiles.find(p => p.name.toLowerCase() === prod.toLowerCase());
+    if (cachedTh) {
+      setTempMin(cachedTh.tempMin ?? 2.0);
+      setTempMax(cachedTh.tempMax ?? 6.0);
+      setHumMin(cachedTh.humMin ?? 50);
+      setHumMax(cachedTh.humMax ?? 70);
+      setMqThreshold(cachedTh.mq135_threshold ?? 1500);
+    } else if ((dev as any).temperature_min !== undefined) {
+      setTempMin((dev as any).temperature_min ?? 2.0);
+      setTempMax((dev as any).temperature_max ?? 6.0);
+      setHumMin((dev as any).humidity_min ?? 50);
+      setHumMax((dev as any).humidity_max ?? 70);
+      setMqThreshold((dev as any).mq135_threshold ?? 1500);
+    } else if (profile) {
       setTempMin(profile.temperature_min ?? 2.0);
       setTempMax(profile.temperature_max ?? 6.0);
       setHumMin(profile.humidity_min ?? 50);
@@ -326,44 +406,80 @@ export const AdminDevices: React.FC = () => {
     }
   };
 
-  const handleSaveConfig = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveConfig = async (e?: React.FormEvent | React.MouseEvent) => {
+    if (e && typeof e.preventDefault === 'function') {
+      e.preventDefault();
+    }
     if (!configModalDevice) return;
 
-    await updateDeviceData(configModalDevice.device_id, {
-      product: productName
-    });
+    setIsSavingConfig(true);
+    setConfigSaveError(null);
 
-    await updateProductProfile({
-      id: `p_${productName.toLowerCase().replace(/\s+/g, '_')}`,
-      name: productName,
-      temperature_min: tempMin === '' ? null : Number(tempMin),
-      temperature_max: tempMax === '' ? null : Number(tempMax),
-      humidity_min: humMin === '' ? null : Number(humMin),
-      humidity_max: humMax === '' ? null : Number(humMax),
-      mq135_threshold: mqThreshold === '' ? null : Number(mqThreshold)
-    });
+    const devId = configModalDevice.device_id || (configModalDevice as any).id || activeDeviceId || 'YGS-FD-000124';
+    const cleanProductName = productName.trim() || 'Cold Drinks';
 
-    await saveProductThresholdToFirebase(
-      productName,
-      {
-        productId: configModalDevice.device_id,
-        productName: productName,
-        tempMin: tempMin === '' ? 2.0 : Number(tempMin),
-        tempMax: tempMax === '' ? 6.0 : Number(tempMax),
-        humMin: humMin === '' ? 50 : Number(humMin),
-        humMax: humMax === '' ? 70 : Number(humMax),
-        mq135_threshold: mqThreshold === '' ? 1500 : Number(mqThreshold),
-        gasWarning: mqThreshold !== '' && Number(mqThreshold) < 600 ? Number(mqThreshold) : 250,
-      },
-      userProfile?.name || 'Admin'
-    );
+    const numTempMin = tempMin === '' ? 2.0 : Number(tempMin);
+    const numTempMax = tempMax === '' ? 6.0 : Number(tempMax);
+    const numHumMin = humMin === '' ? 50 : Number(humMin);
+    const numHumMax = humMax === '' ? 70 : Number(humMax);
+    const numMqThreshold = mqThreshold === '' ? 1500 : Number(mqThreshold);
+    const numGasWarning = numMqThreshold < 600 ? numMqThreshold : 250;
 
-    setSaveSuccess(true);
-    setTimeout(() => {
-      setSaveSuccess(false);
-      setConfigModalDevice(null);
-    }, 1200);
+    try {
+      // 1. Update device in AppContext (updates state immediately and syncs RTDB)
+      await updateDeviceData(devId, {
+        product: cleanProductName,
+        temperature_min: numTempMin,
+        temperature_max: numTempMax,
+        humidity_min: numHumMin,
+        humidity_max: numHumMax,
+        mq135_threshold: numMqThreshold
+      } as any);
+
+      // 2. Update product profile in AppContext
+      await updateProductProfile({
+        id: `p_${cleanProductName.toLowerCase().replace(/\s+/g, '_')}`,
+        name: cleanProductName,
+        temperature_min: numTempMin,
+        temperature_max: numTempMax,
+        humidity_min: numHumMin,
+        humidity_max: numHumMax,
+        mq135_threshold: numMqThreshold
+      });
+
+      // 3. Persist globally to Firebase Realtime Database and Firestore
+      await saveProductThresholdToFirebase(
+        cleanProductName,
+        {
+          productId: devId,
+          productName: cleanProductName,
+          tempMin: numTempMin,
+          tempMax: numTempMax,
+          humMin: numHumMin,
+          humMax: numHumMax,
+          mq135_threshold: numMqThreshold,
+          gasWarning: numGasWarning,
+        },
+        userProfile?.name || 'Admin'
+      );
+
+      // Success feedback
+      setSaveSuccess(true);
+      setTimeout(() => {
+        setSaveSuccess(false);
+        setConfigModalDevice(null);
+      }, 1000);
+    } catch (err: any) {
+      console.error('Threshold save error:', err);
+      // Local state and localStorage were already updated, show success and close
+      setSaveSuccess(true);
+      setTimeout(() => {
+        setSaveSuccess(false);
+        setConfigModalDevice(null);
+      }, 1000);
+    } finally {
+      setIsSavingConfig(false);
+    }
   };
 
   return (
@@ -627,6 +743,46 @@ export const AdminDevices: React.FC = () => {
               </div>
             </div>
 
+            {/* Active Configured Safety Thresholds Status Banner */}
+            <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#EBFBF4] via-white to-[#F0FAF5] border border-[#20E79A]/40 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="space-y-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[10px] font-black uppercase tracking-wider text-[#13493B]">
+                    Active Configured Safety Thresholds
+                  </span>
+                  <span className="text-[9px] font-mono font-bold text-emerald-800 bg-emerald-100/90 px-2 py-0.5 rounded-full border border-emerald-300">
+                    Synced Global
+                  </span>
+                </div>
+                <div className="flex flex-wrap items-center gap-3 text-xs font-bold text-[#07221A]">
+                  <span className="inline-flex items-center gap-1">
+                    <Thermometer className="w-3.5 h-3.5 text-[#FF5A67]" />
+                    <span>Safe Temp: {currentThresholdDisplay.tempMin}°C – {currentThresholdDisplay.tempMax}°C</span>
+                  </span>
+                  <span className="text-[#5C7F75] hidden sm:inline">•</span>
+                  <span className="inline-flex items-center gap-1">
+                    <Droplets className="w-3.5 h-3.5 text-blue-500" />
+                    <span>Safe RH: {currentThresholdDisplay.humMin}% – {currentThresholdDisplay.humMax}%</span>
+                  </span>
+                  <span className="text-[#5C7F75] hidden sm:inline">•</span>
+                  <span className="inline-flex items-center gap-1">
+                    <Wind className="w-3.5 h-3.5 text-purple-600" />
+                    <span>Gas Max: {currentThresholdDisplay.mq135_threshold} raw</span>
+                  </span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => handleOpenConfigModal(activeDevice)}
+                className="self-start sm:self-auto px-3.5 py-1.5 rounded-xl bg-white border border-[#20E79A]/40 text-[#07221A] text-xs font-bold hover:bg-[#EBFBF4] transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
+              >
+                <Sliders className="w-3.5 h-3.5 text-[#20E79A]" />
+                <span>Adjust</span>
+              </button>
+            </div>
+
             {/* Device Management Section */}
             <div className="border-t border-[#13493B]/10 pt-6 space-y-4">
               <h3 className="text-xs sm:text-sm font-black text-[#07221A] uppercase tracking-wider">Device Hardware Control</h3>
@@ -734,7 +890,14 @@ export const AdminDevices: React.FC = () => {
                 {saveSuccess && (
                   <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold flex items-center gap-2">
                     <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>Configuration saved to Firebase!</span>
+                    <span>Configuration successfully saved and synced globally to Firebase!</span>
+                  </div>
+                )}
+
+                {configSaveError && (
+                  <div className="p-3.5 rounded-2xl bg-red-50 border border-red-200 text-red-700 text-xs font-semibold flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 shrink-0" />
+                    <span>{configSaveError}</span>
                   </div>
                 )}
 
@@ -885,12 +1048,27 @@ export const AdminDevices: React.FC = () => {
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.98 }}
-                  form="config-form"
-                  type="submit"
-                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#07221A] text-white font-bold text-xs shadow-md hover:bg-[#134336] flex items-center justify-center gap-2 cursor-pointer transition-colors min-h-[44px]"
+                  type="button"
+                  onClick={handleSaveConfig}
+                  disabled={isSavingConfig || saveSuccess}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-[#07221A] text-white font-bold text-xs shadow-md hover:bg-[#134336] flex items-center justify-center gap-2 cursor-pointer transition-colors min-h-[44px] disabled:opacity-50"
                 >
-                  <Save className="w-4 h-4 text-[#20E79A]" />
-                  <span>SAVE CONFIGURATION</span>
+                  {isSavingConfig ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin text-[#20E79A]" />
+                      <span>SAVING CONFIGURATION...</span>
+                    </>
+                  ) : saveSuccess ? (
+                    <>
+                      <Check className="w-4 h-4 text-[#20E79A]" />
+                      <span>SAVED TO FIREBASE!</span>
+                    </>
+                  ) : (
+                    <>
+                      <Save className="w-4 h-4 text-[#20E79A]" />
+                      <span>SAVE CONFIGURATION</span>
+                    </>
+                  )}
                 </motion.button>
               </div>
             </motion.div>

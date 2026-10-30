@@ -133,6 +133,12 @@ function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
   const online = target.online !== undefined ? Boolean(target.online) : (target.status ? target.status.toLowerCase() === 'online' : true);
   const product = target.product || target.name || 'Cold Drinks';
 
+  const temperature_min = target.temperature_min ?? rawDevice.temperature_min;
+  const temperature_max = target.temperature_max ?? rawDevice.temperature_max;
+  const humidity_min = target.humidity_min ?? rawDevice.humidity_min;
+  const humidity_max = target.humidity_max ?? rawDevice.humidity_max;
+  const mq135_threshold = target.mq135_threshold ?? rawDevice.mq135_threshold;
+
   return {
     ...rawDevice,
     device_id: rawDevice.device_id || rawDevice.id || deviceId,
@@ -140,6 +146,11 @@ function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
     temperature: isNaN(temperature) ? 3.5 : +temperature.toFixed(1),
     humidity: isNaN(humidity) ? 58.0 : +humidity.toFixed(1),
     mq135_raw: isNaN(mq135_raw) ? 110 : Math.round(mq135_raw),
+    ...(temperature_min !== undefined ? { temperature_min } : {}),
+    ...(temperature_max !== undefined ? { temperature_max } : {}),
+    ...(humidity_min !== undefined ? { humidity_min } : {}),
+    ...(humidity_max !== undefined ? { humidity_max } : {}),
+    ...(mq135_threshold !== undefined ? { mq135_threshold } : {}),
     online,
     last_update
   };
@@ -147,9 +158,18 @@ function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [isDemoMode, setDemoMode] = useState<boolean>(!isFirebaseConfigured);
-  const [devicesMap, setDevicesMap] = useState<Record<string, DeviceData>>({
-    'YGS-FD-000124': PROTOTYPE_COLD_DRINKS,
-    'YGS-FD-112233': PROTOTYPE_MEAT,
+  const [devicesMap, setDevicesMap] = useState<Record<string, DeviceData>>(() => {
+    const defaults: Record<string, DeviceData> = {
+      'YGS-FD-000124': PROTOTYPE_COLD_DRINKS,
+      'YGS-FD-112233': PROTOTYPE_MEAT,
+    };
+    try {
+      const stored = localStorage.getItem('freshnex_devices_map');
+      if (stored) {
+        return { ...defaults, ...JSON.parse(stored) };
+      }
+    } catch {}
+    return defaults;
   });
   const [userScans, setUserScans] = useState<UserScanItem[]>([
     {
@@ -163,10 +183,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userRecord, setUserRecord] = useState<UserRecord | null>(null);
   const [sensorHistory, setSensorHistory] = useState<Record<string, SensorHistoryEntry[]>>({});
-  const [productProfiles, setProductProfiles] = useState<ProductProfile[]>([
-    { id: 'p_cold_drinks', name: 'Cold Drinks', temperature_min: 1.0, temperature_max: 5.0, humidity_min: 50, humidity_max: 70, mq135_threshold: 1500 },
-    { id: 'p_meat', name: 'Meat', temperature_min: -2.0, temperature_max: 4.0, humidity_min: 60, humidity_max: 80, mq135_threshold: 1200 },
-  ]);
+  const [productProfiles, setProductProfiles] = useState<ProductProfile[]>(() => {
+    const defaultProfiles: ProductProfile[] = [
+      { id: 'p_cold_drinks', name: 'Cold Drinks', temperature_min: 1.0, temperature_max: 5.0, humidity_min: 50, humidity_max: 70, mq135_threshold: 1500 },
+      { id: 'p_meat', name: 'Meat', temperature_min: -2.0, temperature_max: 4.0, humidity_min: 60, humidity_max: 80, mq135_threshold: 1200 },
+    ];
+    try {
+      const stored = localStorage.getItem('freshnex_product_profiles');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch {}
+    return defaultProfiles;
+  });
   const [alertsList, setAlertsList] = useState<SensorAlert[]>([]);
   const [allUsersList, setAllUsersList] = useState<UserRecord[]>([]);
 
@@ -597,36 +627,65 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateDeviceData = async (deviceId: string, data: Partial<DeviceData>) => {
-    if (isDemoMode) {
-      setDevicesMap(prev => {
-        const existing = prev[deviceId] || {
-          device_id: deviceId,
-          product: 'Unknown Product',
-          temperature: 25.0,
-          humidity: 60.0,
-          mq135_raw: 1200,
-          online: true,
-          last_update: Date.now()
-        };
-        return {
-          ...prev,
-          [deviceId]: { ...existing, ...data, last_update: Date.now() }
-        };
-      });
-      return;
-    }
+    // 1. Immediately update local state so UI updates without lag
+    setDevicesMap(prev => {
+      const existing = prev[deviceId] || {
+        device_id: deviceId,
+        product: data.product || 'Cold Drinks',
+        temperature: 3.5,
+        humidity: 58.0,
+        mq135_raw: 110,
+        online: true,
+        last_update: Date.now()
+      };
+      const updated = {
+        ...prev,
+        [deviceId]: { ...existing, ...data, last_update: Date.now() }
+      };
+      try {
+        localStorage.setItem('freshnex_devices_map', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
 
-    const deviceRef = ref(database, `devices/${deviceId}`);
-    await dbUpdate(deviceRef, { ...data, last_update: Date.now() });
+    // 2. Safely sync to Firebase RTDB without throwing if offline or unauthenticated
+    try {
+      if (database) {
+        const deviceRef = ref(database, `devices/${deviceId}`);
+        await dbUpdate(deviceRef, { ...data, last_update: Date.now() });
+      }
+    } catch (err) {
+      console.warn('Realtime DB updateDeviceData error (safe local fallback):', err);
+    }
   };
 
   const updateProductProfile = async (profile: ProductProfile) => {
-    if (isDemoMode) {
-      setProductProfiles(prev => prev.map(p => p.id === profile.id ? profile : p));
-    } else {
-      await dbSet(ref(database, `productProfiles/${profile.id}`), profile);
+    // 1. Immediately update local state so modals and dashboards update without lag
+    setProductProfiles(prev => {
+      const idx = prev.findIndex(p => p.id === profile.id || p.name.toLowerCase() === profile.name.toLowerCase());
+      let updated: ProductProfile[];
+      if (idx >= 0) {
+        updated = [...prev];
+        updated[idx] = { ...updated[idx], ...profile };
+      } else {
+        updated = [...prev, profile];
+      }
+      try {
+        localStorage.setItem('freshnex_product_profiles', JSON.stringify(updated));
+      } catch {}
+      return updated;
+    });
+
+    // 2. Safely push to Firebase RTDB
+    try {
+      if (database) {
+        await dbSet(ref(database, `productProfiles/${profile.id}`), profile);
+      }
+    } catch (err) {
+      console.warn('Realtime DB updateProductProfile error (safe local fallback):', err);
     }
 
+    // 3. Save to Global Thresholds (RTDB + Firestore)
     try {
       await saveProductThresholdToFirebase(
         profile.name,

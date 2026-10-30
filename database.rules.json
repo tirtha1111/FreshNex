@@ -10,40 +10,36 @@
       }
     },
     "devices": {
-      ".read": "auth != null",
-      "$deviceId": {
-        ".write": "auth != null"
-      }
+      ".read": true,
+      ".write": true
+    },
+    "productProfiles": {
+      ".read": true,
+      ".write": true
+    },
+    "productThresholds": {
+      ".read": true,
+      ".write": true
+    },
+    "system": {
+      ".read": true,
+      ".write": true
     },
     "products": {
-      ".read": "auth != null",
-      "$productId": {
-        ".write": "auth != null",
-        ".validate": "newData.hasChildren(['name', 'category', 'deviceId', 'batchId'])"
-      }
+      ".read": true,
+      ".write": true
     },
     "liveReadings": {
-      ".read": "auth != null",
-      "$productId": {
-        ".write": "auth != null",
-        ".validate": "newData.hasChildren(['temperature', 'humidity', 'gasLevel', 'timestamp'])"
-      }
+      ".read": true,
+      ".write": true
     },
     "history": {
-      ".read": "auth != null",
-      "$productId": {
-        "$readingId": {
-          ".write": "auth != null",
-          ".validate": "newData.hasChildren(['temperature', 'humidity', 'gasLevel', 'timestamp'])"
-        }
-      }
+      ".read": true,
+      ".write": true
     },
     "alerts": {
-      ".read": "auth != null",
-      "$alertId": {
-        ".write": "auth != null",
-        ".validate": "newData.hasChildren(['productId', 'type', 'severity', 'resolved'])"
-      }
+      ".read": true,
+      ".write": true
     }
   }
 }

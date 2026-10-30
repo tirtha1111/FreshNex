@@ -50,32 +50,36 @@ export const AdminProducts: React.FC = () => {
     e.preventDefault();
     if (!selectedProfile || !name.trim()) return;
 
-    await updateProductProfile({
-      id: selectedProfile.id,
-      name: name.trim(),
-      temperature_min: tempMin === '' ? null : Number(tempMin),
-      temperature_max: tempMax === '' ? null : Number(tempMax),
-      humidity_min: humMin === '' ? null : Number(humMin),
-      humidity_max: humMax === '' ? null : Number(humMax),
-      mq135_threshold: mqThreshold === '' ? null : Number(mqThreshold)
-    });
+    try {
+      await updateProductProfile({
+        id: selectedProfile.id,
+        name: name.trim(),
+        temperature_min: tempMin === '' ? null : Number(tempMin),
+        temperature_max: tempMax === '' ? null : Number(tempMax),
+        humidity_min: humMin === '' ? null : Number(humMin),
+        humidity_max: humMax === '' ? null : Number(humMax),
+        mq135_threshold: mqThreshold === '' ? null : Number(mqThreshold)
+      });
 
-    await saveProductThresholdToFirebase(
-      name.trim(),
-      {
-        productId: selectedProfile.id,
-        productName: name.trim(),
-        tempMin: tempMin === '' ? 2.0 : Number(tempMin),
-        tempMax: tempMax === '' ? 6.0 : Number(tempMax),
-        humMin: humMin === '' ? 50 : Number(humMin),
-        humMax: humMax === '' ? 70 : Number(humMax),
-        mq135_threshold: mqThreshold === '' ? 1500 : Number(mqThreshold),
-        gasWarning: mqThreshold !== '' && Number(mqThreshold) < 600 ? Number(mqThreshold) : 250,
-      },
-      userProfile?.name || 'Admin'
-    );
-
-    setSelectedProfile(null);
+      await saveProductThresholdToFirebase(
+        name.trim(),
+        {
+          productId: selectedProfile.id,
+          productName: name.trim(),
+          tempMin: tempMin === '' ? 2.0 : Number(tempMin),
+          tempMax: tempMax === '' ? 6.0 : Number(tempMax),
+          humMin: humMin === '' ? 50 : Number(humMin),
+          humMax: humMax === '' ? 70 : Number(humMax),
+          mq135_threshold: mqThreshold === '' ? 1500 : Number(mqThreshold),
+          gasWarning: mqThreshold !== '' && Number(mqThreshold) < 600 ? Number(mqThreshold) : 250,
+        },
+        userProfile?.name || 'Admin'
+      );
+    } catch (err) {
+      console.warn('Error saving product profile:', err);
+    } finally {
+      setSelectedProfile(null);
+    }
   };
 
   return (

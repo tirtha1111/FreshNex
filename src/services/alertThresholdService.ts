@@ -629,9 +629,7 @@ export function normalizeProductKey(rawKey: string): string {
     clean.includes('cold') || 
     clean.includes('drink') || 
     clean.includes('000124') || 
-    clean.includes('beverage') ||
-    clean === 'milk' ||
-    clean === 'ketchup'
+    clean.includes('beverage')
   ) {
     return 'cold_drinks';
   }
@@ -681,7 +679,7 @@ export async function saveProductThresholdToFirebase(
   const displayName = config.productName || (canonicalKey === 'cold_drinks' ? 'Cold Drinks' : productKeyOrName);
 
   const fullRecord: ProductThresholdConfig = {
-    productId: canonicalKey,
+    productId: config.productId || canonicalKey,
     productName: displayName,
     tempMin: typeof config.tempMin === 'number' ? config.tempMin : 2.0,
     tempMax: typeof config.tempMax === 'number' ? config.tempMax : 6.0,
@@ -697,10 +695,14 @@ export async function saveProductThresholdToFirebase(
 
   const sensorConfig = productThresholdToSensorConfig(fullRecord);
 
-  // 1. Cache to LocalStorage under canonical key, raw key, and uppercase tag
+  // 1. Cache to LocalStorage under canonical key, raw key, device ID, and uppercase tag
   try {
     localStorage.setItem(`freshnex_product_thresholds_${canonicalKey}`, JSON.stringify(fullRecord));
     localStorage.setItem(`freshnex_product_thresholds_${productKeyOrName.trim().toUpperCase().replace(/^#/, '')}`, JSON.stringify(fullRecord));
+    if (config.productId) {
+      localStorage.setItem(`freshnex_product_thresholds_${config.productId.trim().toUpperCase().replace(/^#/, '')}`, JSON.stringify(fullRecord));
+      localStorage.setItem(`freshnex_product_thresholds_${config.productId.trim()}`, JSON.stringify(fullRecord));
+    }
     localStorage.setItem('freshnex_sensor_thresholds', JSON.stringify(sensorConfig));
   } catch (e) {
     console.warn('Local threshold cache error:', e);
@@ -713,6 +715,8 @@ export async function saveProductThresholdToFirebase(
       const aliases = Array.from(new Set([
         canonicalKey,
         productKeyOrName.trim().toUpperCase().replace(/^#/, ''),
+        config.productId ? config.productId.trim() : '',
+        config.productId ? config.productId.trim().toUpperCase().replace(/^#/, '') : '',
         canonicalKey === 'cold_drinks' ? 'COLD_DRINKS' : '',
         canonicalKey === 'cold_drinks' ? 'YGS-FD-000124' : '',
         canonicalKey === 'meat' ? 'MEAT' : '',
@@ -739,6 +743,9 @@ export async function saveProductThresholdToFirebase(
       if (canonicalKey === 'cold_drinks') {
         await setDoc(doc(firestoreDb, 'product_thresholds', 'COLD_DRINKS'), fullRecord, { merge: true });
       }
+      if (config.productId) {
+        await setDoc(doc(firestoreDb, 'product_thresholds', config.productId.trim().toUpperCase().replace(/^#/, '')), fullRecord, { merge: true });
+      }
 
       await setDoc(doc(firestoreDb, 'system', 'thresholds'), sensorConfig, { merge: true });
     } catch (err) {
@@ -749,7 +756,7 @@ export async function saveProductThresholdToFirebase(
   // 4. Trigger in-memory window event for instant same-tab updates
   if (typeof window !== 'undefined') {
     window.dispatchEvent(new CustomEvent('freshnex_threshold_updated', {
-      detail: { productKey: canonicalKey, record: fullRecord, sensorConfig }
+      detail: { productKey: canonicalKey, productId: config.productId, record: fullRecord, sensorConfig }
     }));
   }
 }
@@ -827,7 +834,13 @@ export function subscribeToProductThreshold(
 
   // 4. In-window custom event listener
   const handleLocalUpdate = (e: any) => {
-    if (e.detail && (e.detail.productKey === canonicalKey || e.detail.productKey === 'all')) {
+    if (
+      e.detail && 
+      (e.detail.productKey === canonicalKey || 
+       e.detail.productKey === 'all' ||
+       (e.detail.productId && normalizeProductKey(e.detail.productId) === canonicalKey) ||
+       (e.detail.productId && e.detail.productId.toUpperCase() === productKeyOrName.trim().toUpperCase().replace(/^#/, '')))
+    ) {
       callback(e.detail.sensorConfig, e.detail.record);
     }
   };
