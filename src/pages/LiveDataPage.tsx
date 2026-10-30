@@ -38,7 +38,7 @@ import { FreshnessPrincipleCard } from '../components/common/FreshnessPrincipleC
 import { HistoricalReadingPoint } from '../types';
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
-import { formatRealtimeDateTime, parseTimestamp } from '../utils/dateUtils';
+import { formatRealtimeDateTime, parseTimestamp, extractLatestTimestamp } from '../utils/dateUtils';
 
 export const LiveDataPage: React.FC = () => {
   const { userProfile } = useAuth();
@@ -84,9 +84,9 @@ export const LiveDataPage: React.FC = () => {
   );
 
   const lastResponseFormatted = useMemo(() => {
-    const raw = sensorData?.timestamp || Date.now();
+    const raw = extractLatestTimestamp(sensorData, Date.now());
     return formatRealtimeDateTime(raw).fullStr;
-  }, [sensorData?.timestamp]);
+  }, [sensorData]);
 
   const chartData: HistoricalReadingPoint[] = [
     { time: '09:00', timestamp: 1, temperature: 4.0, humidity: 60, gas: 112, moisture: calculateMoisture(4.0, 60).absoluteMoisture, ph: calculatePH(4.0, 60, calculateMoisture(4.0, 60).absoluteMoisture).ph },

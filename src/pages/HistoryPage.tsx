@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 import { useFreshness } from '../context/FreshnessContext';
 import { StatusBadge } from '../components/common/StatusBadge';
+import { formatRealtimeDateTime } from '../utils/dateUtils';
 
 export const HistoryPage: React.FC = () => {
   const navigate = useNavigate();
@@ -182,12 +183,7 @@ export const HistoryPage: React.FC = () => {
 
                   <div className="flex items-center justify-between pt-1">
                     <span className="text-[10px] font-semibold text-[#5C7F75] tabular-nums">
-                      {new Date(item.timestamp).toLocaleString([], {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
+                      {formatRealtimeDateTime(item.timestamp).fullStr}
                     </span>
                     <div className="flex items-center gap-2">
                       <button
@@ -249,12 +245,7 @@ export const HistoryPage: React.FC = () => {
                         </td>
 
                         <td className="p-4 text-[#5C7F75] font-semibold tabular-nums">
-                          {new Date(item.timestamp).toLocaleString([], {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
+                          {formatRealtimeDateTime(item.timestamp).fullStr}
                         </td>
 
                         <td className="p-4 tabular-nums">

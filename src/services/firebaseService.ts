@@ -6,7 +6,7 @@ import { FoodItem, SensorData, ScanHistoryRecord } from '../types';
 import { DEFAULT_ITEMS, DEFAULT_SENSOR_DATA, DEFAULT_SCAN_HISTORY } from '../data/initialData';
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
-import { parseTimestamp } from '../utils/dateUtils';
+import { parseTimestamp, extractLatestTimestamp } from '../utils/dateUtils';
 
 /**
  * Subscribe to real-time status of a device in Firebase Realtime Database
@@ -22,6 +22,11 @@ export function subscribeToDeviceStatus(
     callback('offline');
     return () => {};
   }
+
+  const targetDevId = 
+    cleanId === 'COLD_DRINKS' || cleanId.includes('COLD') || cleanId.includes('DRINK') || cleanId.includes('000124')
+      ? 'YGS-FD-000124'
+      : cleanId;
 
   let lastUpdateTime = Date.now();
   let lastReportedStatus: 'online' | 'offline' | undefined = undefined;
@@ -40,13 +45,13 @@ export function subscribeToDeviceStatus(
     return () => {};
   }
 
-  const deviceRef = ref(db, `devices/${cleanId}`);
+  const deviceRef = ref(db, `devices/${targetDevId}`);
 
   const handleSnapshot = (snapshot: any) => {
     if (snapshot.exists()) {
       const val = snapshot.val();
       let target = val;
-      if (val && typeof val === 'object' && !('last_update' in val || 'timestamp' in val || 'time' in val || 'temperature' in val || 'temp' in val)) {
+      if (val && typeof val === 'object' && !('last_update' in val || 'timestamp' in val || 'time' in val || 'temperature' in val || 'temp' in val || 'last_seen' in val)) {
         const keys = Object.keys(val);
         if (keys.length > 0) {
           const lastKey = keys[keys.length - 1];
@@ -55,18 +60,12 @@ export function subscribeToDeviceStatus(
           }
         }
       }
-      let t = Number(target.last_update ?? target.timestamp ?? target.time ?? target.updated_at ?? 0);
-      if (t > 0) {
-        if (t < 10000000000) {
-          t = t * 1000; // Convert seconds to milliseconds
-        }
-        lastUpdateTime = Math.max(t, Date.now() - 2000); // Ensure recent update
-      } else {
-        lastUpdateTime = Date.now();
-      }
+
+      const t = extractLatestTimestamp(target, Date.now());
+      lastUpdateTime = t;
 
       const diff = Date.now() - lastUpdateTime;
-      const isOnline = diff <= 7000 && (target.online !== false && target.status !== 'offline');
+      const isOnline = diff <= 15000 && (target.online !== false && target.status !== 'offline');
       reportStatus(isOnline ? 'online' : 'offline');
     } else {
       reportStatus('offline');
@@ -79,7 +78,7 @@ export function subscribeToDeviceStatus(
 
   statusInterval = setInterval(() => {
     const diff = Date.now() - lastUpdateTime;
-    reportStatus(diff > 7000 ? 'offline' : 'online');
+    reportStatus(diff <= 15000 ? 'online' : 'offline');
   }, 3000);
 
   return () => {
@@ -194,8 +193,7 @@ export function subscribeToSensorData(
     const temperature = Number(target.temperature ?? target.temp ?? target.t ?? defaultTemp);
     const humidity = Number(target.humidity ?? target.hum ?? target.h ?? defaultHum);
     const gas = Number(target.mq135_raw ?? target.gas ?? target.gas_ppm ?? target.mq135 ?? target.mq2 ?? target.voc ?? defaultGas);
-    const rawTimestamp = target.timestamp ?? target.time ?? target.last_update ?? target.lastUpdated ?? target.last_updated ?? target.last_seen ?? target.lastSeen ?? target.updated_at ?? target.updatedAt ?? target.date ?? target.dateTime ?? target.datetime;
-    const timestamp = parseTimestamp(rawTimestamp);
+    const timestamp = extractLatestTimestamp(target);
 
     const finalTemp = isNaN(temperature) ? defaultTemp : +temperature.toFixed(1);
     const finalHum = isNaN(humidity) ? defaultHum : Math.round(humidity);
@@ -226,7 +224,10 @@ export function subscribeToSensorData(
 
   if (db) {
     try {
-      const deviceIdToListen = isMeat ? 'YGS-FD-112233' : cleanId;
+      const deviceIdToListen = 
+        cleanId === 'COLD_DRINKS' || cleanId.includes('COLD') || cleanId.includes('DRINK') || cleanId.includes('000124')
+          ? 'YGS-FD-000124'
+          : (isMeat ? 'YGS-FD-112233' : cleanId);
       const deviceRef = ref(db, `devices/${deviceIdToListen}`);
       const sensorRef = ref(db, `sensorData/${deviceIdToListen}`);
 

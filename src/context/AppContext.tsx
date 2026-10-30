@@ -11,7 +11,7 @@ import {
   UserSettings
 } from '../types';
 import { auth, database, isFirebaseConfigured } from '../firebase/firebase';
-import { parseTimestamp } from '../utils/dateUtils';
+import { parseTimestamp, extractLatestTimestamp } from '../utils/dateUtils';
 import { saveProductThresholdToFirebase } from '../services/alertThresholdService';
 
 import { 
@@ -127,9 +127,8 @@ function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
 
   const temperature = Number(target.temperature ?? target.temp ?? target.t ?? 3.5);
   const humidity = Number(target.humidity ?? target.hum ?? target.h ?? 58.0);
-  const mq135_raw = Number(target.mq135_raw ?? target.gas ?? target.gas_ppm ?? target.mq135 ?? target.mq2 ?? target.voc ?? 110);
-  const rawTs = target.last_update ?? target.lastUpdated ?? target.last_updated ?? target.timestamp ?? target.time ?? target.last_seen ?? target.lastSeen ?? target.updated_at ?? target.updatedAt ?? target.date ?? target.dateTime ?? target.datetime;
-  const last_update = parseTimestamp(rawTs);
+  const mq135_raw = Number(target.mq135_raw ?? target.gas ?? target.mq135 ?? 110);
+  const last_update = extractLatestTimestamp(target);
   const online = target.online !== undefined ? Boolean(target.online) : (target.status ? target.status.toLowerCase() === 'online' : true);
   const product = target.product || target.name || 'Cold Drinks';
 

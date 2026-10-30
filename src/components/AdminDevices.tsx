@@ -41,7 +41,7 @@ import { SmartDeviceRegistrationModal } from './SmartDeviceRegistrationModal';
 import { researchProductThresholds, AIThresholdResearchResult } from '../services/aiThresholdService';
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
-import { formatRealtimeDateTime, parseTimestamp } from '../utils/dateUtils';
+import { formatRealtimeDateTime, parseTimestamp, extractLatestTimestamp } from '../utils/dateUtils';
 import { saveProductThresholdToFirebase, normalizeProductKey } from '../services/alertThresholdService';
 
 export const AdminDevices: React.FC = () => {
@@ -238,7 +238,7 @@ export const AdminDevices: React.FC = () => {
         temperature: dev.temperature ?? 4.2,
         humidity: dev.humidity ?? 62.0,
         mq135_raw: dev.mq135_raw ?? 120,
-        timestamp: parseTimestamp(dev.last_update ?? dev.lastUpdated ?? (dev as any).timestamp)
+        timestamp: extractLatestTimestamp(dev)
       });
     }
 
@@ -248,7 +248,7 @@ export const AdminDevices: React.FC = () => {
           temperature: data.temperature ?? dev?.temperature ?? 4.2,
           humidity: data.humidity ?? dev?.humidity ?? 62.0,
           mq135_raw: (data as any).gas ?? (data as any).mq135_raw ?? dev?.mq135_raw ?? 120,
-          timestamp: parseTimestamp((data as any).timestamp)
+          timestamp: extractLatestTimestamp(data)
         });
       }
     });
@@ -305,7 +305,10 @@ export const AdminDevices: React.FC = () => {
       })
     : null;
 
-  const rawResponseTimestamp = liveSensor.timestamp || (activeDevice as any)?.last_update || (activeDevice as any)?.lastUpdated || (activeDevice as any)?.timestamp;
+  const rawResponseTimestamp = Math.max(
+    extractLatestTimestamp(liveSensor, 0),
+    extractLatestTimestamp(activeDevice, 0)
+  ) || Date.now();
   const { dateStr: formattedResponseDate, timeStr: formattedResponseTime } = formatRealtimeDateTime(rawResponseTimestamp);
 
   const currentThresholdDisplay = useMemo(() => {

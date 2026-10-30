@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
+import { useApp } from '../context/AppContext';
 import { useFreshness } from '../context/FreshnessContext';
 import { 
   QrCode, 
@@ -27,12 +28,13 @@ import { RealtimeTrendCharts } from '../components/dashboard/RealtimeTrendCharts
 import { ThresholdConfigModal } from '../components/common/ThresholdConfigModal';
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
-import { formatRealtimeDateTime, parseTimestamp } from '../utils/dateUtils';
+import { formatRealtimeDateTime, parseTimestamp, extractLatestTimestamp } from '../utils/dateUtils';
 import farmLandscapeImg from '../assets/images/freshnex_farm_landscape_1789921215887.jpg';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { userProfile } = useAuth();
+  const { devicesMap } = useApp();
   const { scanHistory, activeItem, sensorData, freshnessReport, thresholds, updateThresholds } = useFreshness();
   const [isThresholdModalOpen, setIsThresholdModalOpen] = useState(false);
 
@@ -40,7 +42,9 @@ export const DashboardPage: React.FC = () => {
   const assignedTag = userProfile?.assignedProductId || 'COLD_DRINKS';
   const assignedName = userProfile?.assignedProductName || 'Cold Drinks';
 
-  // Last scanned product telemetry (retrieved from scan history, active session, or last online fallback)
+  const targetDev = devicesMap['YGS-FD-000124'] || (assignedTag ? devicesMap[assignedTag] : null);
+
+  // Last scanned product telemetry (retrieved from scan history, active session, or live device fallback)
   const lastScanned = scanHistory.length > 0 ? scanHistory[0] : (
     activeItem && sensorData ? {
       id: 'active-scan',
@@ -56,9 +60,9 @@ export const DashboardPage: React.FC = () => {
       gas: sensorData.gas,
       freshnessScore: freshnessReport?.score ?? 98,
       status: freshnessReport?.status ?? 'Fresh',
-      timestamp: sensorData.timestamp || Date.now(),
-      dateStr: new Date(sensorData.timestamp || Date.now()).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      timeStr: new Date(sensorData.timestamp || Date.now()).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: extractLatestTimestamp(sensorData, Date.now()),
+      dateStr: formatRealtimeDateTime(extractLatestTimestamp(sensorData, Date.now())).dateStr,
+      timeStr: formatRealtimeDateTime(extractLatestTimestamp(sensorData, Date.now())).timeStr,
       category: activeItem.category,
     } : {
       id: 'fallback-last-online',
@@ -66,17 +70,17 @@ export const DashboardPage: React.FC = () => {
       itemName: assignedName || 'Cold Drinks',
       tagId: assignedTag ? (assignedTag.startsWith('#') ? assignedTag : `#${assignedTag}`) : '#YGS-FD-000124',
       itemImage: '/colddrinks.jpg',
-      temperature: 3.5,
-      humidity: 58.2,
+      temperature: targetDev?.temperature ?? 3.5,
+      humidity: targetDev?.humidity ?? 58.2,
       moisture: 4.2,
       dewPoint: -3.0,
       ph: 4.2,
-      gas: 110,
+      gas: targetDev?.mq135_raw ?? 110,
       freshnessScore: 98,
       status: 'Fresh',
-      timestamp: Date.now() - 300000,
-      dateStr: new Date(Date.now() - 300000).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }),
-      timeStr: new Date(Date.now() - 300000).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
+      timestamp: extractLatestTimestamp(targetDev, Date.now()),
+      dateStr: formatRealtimeDateTime(extractLatestTimestamp(targetDev, Date.now())).dateStr,
+      timeStr: formatRealtimeDateTime(extractLatestTimestamp(targetDev, Date.now())).timeStr,
       category: 'Beverages',
     }
   );
@@ -91,25 +95,30 @@ export const DashboardPage: React.FC = () => {
 
   // Formatted last response received timestamp with full date, time, and 2-hour validity window
   const lastResponseInfo = useMemo(() => {
-    const raw = sensorData?.timestamp || (lastScanned?.timestamp ?? Date.now());
-    const ts = parseTimestamp(raw);
-    const { dateStr, timeStr } = formatRealtimeDateTime(ts);
+    const rawTs = Math.max(
+      extractLatestTimestamp(sensorData, 0),
+      extractLatestTimestamp(targetDev, 0),
+      extractLatestTimestamp(lastScanned, 0)
+    ) || Date.now();
+
+    const { dateStr, timeStr, fullStr, relativeStr } = formatRealtimeDateTime(rawTs);
 
     const validityDurationMs = 2 * 60 * 60 * 1000;
-    const expiryTimestamp = ts + validityDurationMs;
+    const expiryTimestamp = rawTs + validityDurationMs;
     const { timeStr: expiryTimeStr } = formatRealtimeDateTime(expiryTimestamp);
 
     return {
-      timestamp: ts,
+      timestamp: rawTs,
       date: dateStr,
       time: timeStr,
-      fullText: `${dateStr}, ${timeStr}`,
+      fullText: fullStr,
       displayTag: `${dateStr} at ${timeStr}`,
+      relativeStr,
       expiryTimestamp,
       expiryTimeStr,
       validityNote: 'Response valid for only 2 hours from the last response time'
     };
-  }, [sensorData?.timestamp, lastScanned?.timestamp]);
+  }, [sensorData, targetDev, lastScanned]);
 
   const containerVariants = {
     hidden: { opacity: 0 },
@@ -586,7 +595,7 @@ export const DashboardPage: React.FC = () => {
                         {scan.temperature}°C • {scan.humidity}% • {scan.gas} ppm
                       </span>
                       <span className="text-[10px] text-[#5C7F75] font-mono shrink-0">
-                        {scan.timeStr || new Date(scan.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                        {formatRealtimeDateTime(scan.timestamp).timeStr}
                       </span>
                     </div>
                   </div>

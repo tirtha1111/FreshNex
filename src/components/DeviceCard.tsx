@@ -4,7 +4,7 @@ import { Cpu, Wifi, Clock } from 'lucide-react';
 import { FirebaseService } from '../services/firebaseService';
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
-import { formatRealtimeDateTime, parseTimestamp } from '../utils/dateUtils';
+import { formatRealtimeDateTime, parseTimestamp, extractLatestTimestamp } from '../utils/dateUtils';
 
 interface Device {
   device_id: string;
@@ -29,7 +29,7 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
     temperature: dev.temperature ?? 4.2,
     humidity: dev.humidity ?? 62.0,
     mq135_raw: dev.mq135_raw ?? 120,
-    timestamp: parseTimestamp(dev.last_update ?? dev.lastUpdated ?? (dev as any).timestamp)
+    timestamp: extractLatestTimestamp(dev)
   });
 
   useEffect(() => {
@@ -43,7 +43,7 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
           temperature: data.temperature ?? dev.temperature ?? 4.2,
           humidity: data.humidity ?? dev.humidity ?? 62.0,
           mq135_raw: (data as any).gas ?? (data as any).mq135_raw ?? dev.mq135_raw ?? 120,
-          timestamp: parseTimestamp((data as any).timestamp)
+          timestamp: extractLatestTimestamp(data)
         });
       }
     });
@@ -61,7 +61,7 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
   });
 
   const { dateStr: formattedDate, timeStr: formattedTime } = formatRealtimeDateTime(
-    liveSensor.timestamp || dev.last_update || dev.lastUpdated || (dev as any).timestamp
+    Math.max(extractLatestTimestamp(liveSensor, 0), extractLatestTimestamp(dev, 0)) || Date.now()
   );
 
   return (

@@ -243,7 +243,7 @@ export const Devices: React.FC = () => {
                     <span className="text-slate-400">Last Response:</span>
                     <span className="text-slate-700 flex items-center gap-1 font-mono text-[11px]">
                       <Clock className="w-3 h-3 text-[#20E79A]" />
-                      {formatRealtimeDateTime(dev.lastSeen || (dev as any).last_update || (dev as any).lastUpdated || (dev as any).timestamp).fullStr}
+                      {formatRealtimeDateTime(dev).fullStr}
                     </span>
                   </div>
                 </div>

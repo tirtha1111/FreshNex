@@ -40,6 +40,10 @@
     "alerts": {
       ".read": true,
       ".write": true
+    },
+    "sensorData": {
+      ".read": true,
+      ".write": true
     }
   }
 }

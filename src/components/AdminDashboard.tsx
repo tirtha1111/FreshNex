@@ -16,7 +16,7 @@ import {
 } from 'lucide-react';
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
-import { formatRealtimeDateTime, parseTimestamp } from '../utils/dateUtils';
+import { formatRealtimeDateTime, parseTimestamp, extractLatestTimestamp } from '../utils/dateUtils';
 
 export const AdminDashboard: React.FC = () => {
   const { devicesMap, allUsersList, alertsList } = useApp();
@@ -146,7 +146,7 @@ export const AdminDashboard: React.FC = () => {
                   category: dev.product,
                   gas: dev.mq135_raw,
                 });
-                const devTimestamp = parseTimestamp(dev.last_update || dev.lastUpdated || (dev as any).timestamp);
+                const devTimestamp = extractLatestTimestamp(dev);
                 const { dateStr, timeStr } = formatRealtimeDateTime(devTimestamp);
 
                 return (
