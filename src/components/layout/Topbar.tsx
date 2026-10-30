@@ -58,6 +58,8 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
     }
   };
 
+  const isAdmin = userProfile?.role === 'admin';
+
   return (
     <>
       <header className="h-14 sm:h-16 glass-nav px-3 sm:px-6 flex items-center justify-between gap-2 sm:gap-4 z-30 select-none shrink-0">
@@ -89,16 +91,18 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
 
         {/* Right Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-          {/* Threshold Config Quick Button - Icon on mobile, labeled on sm+ */}
-          <button
-            type="button"
-            onClick={() => setIsConfigModalOpen(true)}
-            title="Configure Sensor Thresholds & Alerts"
-            className="neo-btn px-2.5 sm:px-3 py-2 h-10 rounded-xl text-[#07221A] text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm hover:border-[#20E79A]/40 active:scale-95 transition-transform"
-          >
-            <Sliders className="w-4 h-4 text-[#20E79A] glow-icon-emerald shrink-0" />
-            <span className="hidden sm:inline">Thresholds</span>
-          </button>
+          {/* Threshold Config Quick Button - Admin Only (removed from user login) */}
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setIsConfigModalOpen(true)}
+              title="Configure Sensor Thresholds & Alerts"
+              className="neo-btn px-2.5 sm:px-3 py-2 h-10 rounded-xl text-[#07221A] text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm hover:border-[#20E79A]/40 active:scale-95 transition-transform"
+            >
+              <Sliders className="w-4 h-4 text-[#20E79A] glow-icon-emerald shrink-0" />
+              <span className="hidden sm:inline">Thresholds</span>
+            </button>
+          )}
 
           {/* Notifications Dropdown */}
           <div className="relative" ref={notifRef}>

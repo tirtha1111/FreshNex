@@ -18,7 +18,10 @@ import {
   deleteAlertFromFirebase,
   clearAllAlertsFromFirebase,
   saveGlobalThresholdsToFirebase,
-  subscribeToGlobalThresholds
+  subscribeToGlobalThresholds,
+  subscribeToProductThreshold,
+  saveProductThresholdToFirebase,
+  normalizeProductKey
 } from '../services/alertThresholdService';
 import { playAlertChime } from '../services/alertSound';
 import { useAuth } from './AuthContext';
@@ -139,6 +142,18 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     setThresholds(newConfig);
     saveGlobalThresholdsToFirebase(newConfig);
     
+    const targetProductKey = assignedTag || assignedName || activeItem?.id || activeItem?.name || 'COLD_DRINKS';
+    saveProductThresholdToFirebase(targetProductKey, {
+      tempMin: newConfig.tempMin,
+      tempMax: newConfig.tempMax,
+      tempCritical: newConfig.tempCritical,
+      humMin: newConfig.humidityMin,
+      humMax: newConfig.humidityMax,
+      gasWarning: newConfig.gasWarning,
+      gasCritical: newConfig.gasCritical,
+      productName: activeItem?.name || assignedName || 'Cold Drinks',
+    }, userProfile?.name || 'Admin').catch(e => console.warn(e));
+
     // Re-evaluate freshness report with updated threshold rules immediately
     if (activeItem && sensorData) {
       const report = calculateFreshness({
@@ -152,15 +167,35 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  // 0. Subscribe to Global Real-Time Thresholds (so any admin change syncs instantly for all users & admins)
+  // 0. Subscribe to Real-Time Product Thresholds (syncs admin-set product thresholds to user in real time)
   useEffect(() => {
-    const unsubscribe = subscribeToGlobalThresholds((globalConfig) => {
-      setThresholds(globalConfig);
+    const targetProductKey = assignedTag || assignedName || activeItem?.id || activeItem?.name || 'COLD_DRINKS';
+    const unsubProduct = subscribeToProductThreshold(targetProductKey, (productConfig) => {
+      setThresholds(productConfig);
+      
+      // Immediately recalculate freshness report with admin-set thresholds
+      if (sensorData) {
+        const itemToEval = activeItem || DEFAULT_ITEMS[targetProductKey] || DEFAULT_ITEMS['COLD_DRINKS'];
+        const report = calculateFreshness({
+          temperature: sensorData.temperature,
+          humidity: sensorData.humidity,
+          gas: sensorData.gas,
+          category: itemToEval?.category || 'Beverages',
+          activeThresholdRules: productConfig,
+        });
+        setFreshnessReport(report);
+      }
     });
+
+    const unsubGlobal = subscribeToGlobalThresholds((globalConfig) => {
+      setThresholds(prev => ({ ...prev, ...globalConfig }));
+    });
+
     return () => {
-      unsubscribe();
+      unsubProduct();
+      unsubGlobal();
     };
-  }, []);
+  }, [assignedTag, assignedName, activeItem?.id, activeItem?.name, sensorData?.temperature, sensorData?.humidity, sensorData?.gas]);
 
   // 1. Subscribe to Real-Time Firebase Alerts Collection
   useEffect(() => {

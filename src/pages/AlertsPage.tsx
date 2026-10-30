@@ -17,10 +17,13 @@ import {
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useFreshness } from '../context/FreshnessContext';
+import { useAuth } from '../context/AuthContext';
 import { ThresholdConfigModal } from '../components/common/ThresholdConfigModal';
 
 export const AlertsPage: React.FC = () => {
   const navigate = useNavigate();
+  const { userProfile } = useAuth();
+  const isAdmin = userProfile?.role === 'admin';
   const { 
     alerts, 
     unreadCount, 
@@ -89,15 +92,17 @@ export const AlertsPage: React.FC = () => {
 
         {/* Quick Top Actions */}
         <div className="flex items-center gap-2.5 flex-wrap">
-          <motion.button
-            whileHover={{ scale: 1.04 }}
-            whileTap={{ scale: 0.96 }}
-            onClick={() => setIsConfigModalOpen(true)}
-            className="px-4 py-2 rounded-xl text-xs font-bold text-[#07221A] bg-white hover:bg-[#F4F7F6] border border-[#13493B]/10 flex items-center gap-1.5 cursor-pointer shadow-sm"
-          >
-            <Sliders className="w-4 h-4 text-[#20E79A]" />
-            <span>Threshold Rules</span>
-          </motion.button>
+          {isAdmin && (
+            <motion.button
+              whileHover={{ scale: 1.04 }}
+              whileTap={{ scale: 0.96 }}
+              onClick={() => setIsConfigModalOpen(true)}
+              className="px-4 py-2 rounded-xl text-xs font-bold text-[#07221A] bg-white hover:bg-[#F4F7F6] border border-[#13493B]/10 flex items-center gap-1.5 cursor-pointer shadow-sm"
+            >
+              <Sliders className="w-4 h-4 text-[#20E79A]" />
+              <span>Threshold Rules</span>
+            </motion.button>
+          )}
 
           <motion.button
             whileHover={{ scale: 1.04 }}

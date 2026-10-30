@@ -99,6 +99,26 @@
           "description": "Timestamp when command was posted"
         }
       }
+    },
+    "ProductThreshold": {
+      "title": "ProductThreshold",
+      "description": "IoT sensor safety threshold limits set by administrator for a specific product.",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string" },
+        "productName": { "type": "string" },
+        "tempMin": { "type": "number" },
+        "tempMax": { "type": "number" },
+        "tempCritical": { "type": "number" },
+        "humMin": { "type": "number" },
+        "humMax": { "type": "number" },
+        "mq135_threshold": { "type": "number" },
+        "gasWarning": { "type": "number" },
+        "gasCritical": { "type": "number" },
+        "updatedAt": { "type": "number" },
+        "updatedBy": { "type": "string" }
+      },
+      "required": ["productId", "tempMin", "tempMax", "humMin", "humMax", "updatedAt"]
     }
   },
   "firestore": {
@@ -119,6 +139,12 @@
         "$ref": "#/entities/DeviceCommand"
       },
       "description": "Hardware provisioning commands for ESP32 devices"
+    },
+    "/product_thresholds/{productId}": {
+      "schema": {
+        "$ref": "#/entities/ProductThreshold"
+      },
+      "description": "Per-product safety thresholds set by admin and synced globally to user dashboard"
     }
   }
 }

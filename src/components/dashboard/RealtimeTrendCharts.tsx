@@ -40,6 +40,7 @@ import { FreshnessReport, calculateFreshness } from '../../utils/freshnessEngine
 import { calculateMoisture } from '../../utils/moistureCalculator';
 import { calculatePH } from '../../utils/phCalculator';
 import { SensorThresholdConfig, DEFAULT_THRESHOLDS } from '../../services/alertThresholdService';
+import { useAuth } from '../../context/AuthContext';
 
 export interface TelemetryPoint {
   id: string;
@@ -73,6 +74,8 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
   scanHistory = [],
   onOpenThresholdModal,
 }) => {
+  const { userProfile } = useAuth();
+  const isAdmin = userProfile?.role === 'admin';
   const [viewMode, setViewMode] = useState<'correlated' | 'grid' | 'temperature' | 'humidity' | 'gas' | 'freshness'>('correlated');
   const [isLiveStreaming, setIsLiveStreaming] = useState(true);
   const [activeSimulation, setActiveSimulation] = useState<'none' | 'tempSpike' | 'gasSpike' | 'chillingRecovery'>('none');
@@ -404,20 +407,22 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
             {isLiveStreaming ? <Pause className="w-3.5 h-3.5" /> : <Play className="w-3.5 h-3.5" />}
           </button>
 
-          {/* Toggle threshold lines */}
-          <button
-            type="button"
-            onClick={() => setShowThresholdRefLines(!showThresholdRefLines)}
-            className={`px-2.5 py-1.5 h-9 rounded-xl border text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 shrink-0 ${
-              showThresholdRefLines 
-                ? 'bg-[#EBFBF4] border-[#20E79A]/40 text-[#07221A]' 
-                : 'bg-white border-[#13493B]/10 text-[#5C7F75]'
-            }`}
-            title="Toggle Safety Threshold Reference Lines"
-          >
-            <Sliders className="w-3.5 h-3.5 text-[#20E79A]" />
-            <span className="hidden sm:inline">Threshold Rules</span>
-          </button>
+          {/* Toggle threshold lines - Admin Only */}
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setShowThresholdRefLines(!showThresholdRefLines)}
+              className={`px-2.5 py-1.5 h-9 rounded-xl border text-xs font-bold cursor-pointer transition-all flex items-center gap-1.5 shrink-0 ${
+                showThresholdRefLines 
+                  ? 'bg-[#EBFBF4] border-[#20E79A]/40 text-[#07221A]' 
+                  : 'bg-white border-[#13493B]/10 text-[#5C7F75]'
+              }`}
+              title="Toggle Safety Threshold Reference Lines"
+            >
+              <Sliders className="w-3.5 h-3.5 text-[#20E79A]" />
+              <span className="hidden sm:inline">Threshold Rules</span>
+            </button>
+          )}
         </div>
       </div>
 
@@ -893,7 +898,7 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
           </span>
         </div>
 
-        {onOpenThresholdModal && (
+        {isAdmin && onOpenThresholdModal && (
           <button
             type="button"
             onClick={onOpenThresholdModal}

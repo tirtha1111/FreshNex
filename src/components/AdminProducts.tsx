@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
+import { useAuth } from '../context/AuthContext';
 import { PackageCheck, Plus, Trash2, Edit3, Save, X, Waves } from 'lucide-react';
 import { ProductProfile } from '../types';
 import { calculateMoisture } from '../utils/moistureCalculator';
+import { saveProductThresholdToFirebase } from '../services/alertThresholdService';
 
 export const AdminProducts: React.FC = () => {
+  const { userProfile } = useAuth();
   const { productProfiles, updateProductProfile } = useApp();
   const [selectedProfile, setSelectedProfile] = useState<ProductProfile | null>(null);
 
@@ -56,6 +59,21 @@ export const AdminProducts: React.FC = () => {
       humidity_max: humMax === '' ? null : Number(humMax),
       mq135_threshold: mqThreshold === '' ? null : Number(mqThreshold)
     });
+
+    await saveProductThresholdToFirebase(
+      name.trim(),
+      {
+        productId: selectedProfile.id,
+        productName: name.trim(),
+        tempMin: tempMin === '' ? 2.0 : Number(tempMin),
+        tempMax: tempMax === '' ? 6.0 : Number(tempMax),
+        humMin: humMin === '' ? 50 : Number(humMin),
+        humMax: humMax === '' ? 70 : Number(humMax),
+        mq135_threshold: mqThreshold === '' ? 1500 : Number(mqThreshold),
+        gasWarning: mqThreshold !== '' && Number(mqThreshold) < 600 ? Number(mqThreshold) : 250,
+      },
+      userProfile?.name || 'Admin'
+    );
 
     setSelectedProfile(null);
   };

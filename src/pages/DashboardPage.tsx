@@ -150,10 +150,10 @@ export const DashboardPage: React.FC = () => {
               {lastScanned ? lastScanned.itemName.toUpperCase() : (isAdmin ? 'FRESH FOOD' : assignedName.toUpperCase())}
             </h1>
             <h2 className="text-2xl sm:text-3xl lg:text-4xl font-serif italic font-black text-[#07221A] leading-tight tracking-tight">
-              {lastScanned ? `${lastScanned.freshnessScore}% FRESHNESS` : 'MONITORING'}
+              {lastScanned ? `${freshnessReport?.score ?? lastScanned.freshnessScore}% FRESHNESS` : 'MONITORING'}
             </h2>
             <h3 className="text-2xl sm:text-3xl lg:text-4xl font-serif italic font-black text-[#07221A] leading-tight tracking-tight">
-              {lastScanned ? `STATUS: ${lastScanned.status.toUpperCase()}` : 'PORTAL'}
+              {lastScanned ? `STATUS: ${(freshnessReport?.status ?? lastScanned.status).toUpperCase()}` : 'PORTAL'}
             </h3>
           </div>
           <p className="text-xs text-[#5C7F75] font-semibold max-w-md mx-auto lg:mx-0 leading-relaxed">
@@ -163,14 +163,16 @@ export const DashboardPage: React.FC = () => {
           </p>
 
           <div className="pt-1 sm:pt-2 flex flex-col sm:flex-row flex-wrap items-stretch sm:items-center justify-center lg:justify-start gap-2.5 sm:gap-3">
-            <button
-              type="button"
-              onClick={() => navigate('/scan')}
-              className="neo-btn-primary px-5 py-3 min-h-[44px] rounded-full text-xs font-black flex items-center justify-center gap-2 cursor-pointer glow-emerald shadow-md active:scale-97 transition-transform"
-            >
-              <Scan className="w-4 h-4 text-[#20E79A] glow-icon-emerald shrink-0" />
-              <span>Scan Product Tag</span>
-            </button>
+            {isAdmin && (
+              <button
+                type="button"
+                onClick={() => navigate('/scan')}
+                className="neo-btn-primary px-5 py-3 min-h-[44px] rounded-full text-xs font-black flex items-center justify-center gap-2 cursor-pointer glow-emerald shadow-md active:scale-97 transition-transform"
+              >
+                <Scan className="w-4 h-4 text-[#20E79A] glow-icon-emerald shrink-0" />
+                <span>Scan Product Tag</span>
+              </button>
+            )}
 
             {lastScanned && (
               <button
@@ -290,9 +292,21 @@ export const DashboardPage: React.FC = () => {
                 {lastScanned ? `${lastScanned.temperature} °C` : '0 °C'}
               </span>
               <span className={`text-[9.5px] sm:text-[10px] font-bold block truncate ${
-                !lastScanned ? 'text-[#5C7F75]' : lastScanned.temperature > 8 ? 'text-[#FF5A67]' : 'text-[#20E79A]'
+                !lastScanned
+                  ? 'text-[#5C7F75]'
+                  : lastScanned.temperature > thresholds.tempMax
+                  ? 'text-[#FF5A67]'
+                  : lastScanned.temperature < thresholds.tempMin
+                  ? 'text-[#FFAA00]'
+                  : 'text-[#20E79A]'
               }`}>
-                {lastScanned ? (lastScanned.temperature > 8 ? 'Elevated temp' : 'Optimal range') : '0 Scans'}
+                {lastScanned 
+                  ? (lastScanned.temperature > thresholds.tempMax 
+                      ? `Elevated (> ${thresholds.tempMax}°C)` 
+                      : lastScanned.temperature < thresholds.tempMin 
+                      ? `Freeze risk (< ${thresholds.tempMin}°C)` 
+                      : `Safe (${thresholds.tempMin}-${thresholds.tempMax}°C)`) 
+                  : '0 Scans'}
               </span>
             </div>
             <div className="neo-icon-box w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center text-[#FF5A67] shadow-sm shrink-0">
@@ -322,9 +336,19 @@ export const DashboardPage: React.FC = () => {
                 {lastScanned ? `${lastScanned.humidity} %` : '0 %'}
               </span>
               <span className={`text-[9.5px] sm:text-[10px] font-bold block truncate ${
-                !lastScanned ? 'text-[#5C7F75]' : lastScanned.humidity > 70 ? 'text-[#FFAA00]' : 'text-[#20E79A]'
+                !lastScanned
+                  ? 'text-[#5C7F75]'
+                  : (lastScanned.humidity > thresholds.humidityMax || lastScanned.humidity < thresholds.humidityMin)
+                  ? 'text-[#FFAA00]'
+                  : 'text-[#20E79A]'
               }`}>
-                {lastScanned ? (lastScanned.humidity > 70 ? 'High moisture' : 'Optimal moisture') : '0 Scans'}
+                {lastScanned 
+                  ? (lastScanned.humidity > thresholds.humidityMax 
+                      ? `High (> ${thresholds.humidityMax}%)` 
+                      : lastScanned.humidity < thresholds.humidityMin 
+                      ? `Low (< ${thresholds.humidityMin}%)` 
+                      : `Safe (${thresholds.humidityMin}-${thresholds.humidityMax}%)`) 
+                  : '0 Scans'}
               </span>
             </div>
             <div className="neo-icon-box w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center text-[#3B82F6] shadow-sm shrink-0">
@@ -418,9 +442,17 @@ export const DashboardPage: React.FC = () => {
                 {lastScanned ? `${lastScanned.gas}` : '0'}
               </span>
               <span className={`text-[9.5px] sm:text-[10px] font-bold block truncate ${
-                !lastScanned ? 'text-[#5C7F75]' : lastScanned.gas > 300 ? 'text-[#FF5A67]' : 'text-purple-600'
+                !lastScanned 
+                  ? 'text-[#5C7F75]' 
+                  : lastScanned.gas > (thresholds.gasWarning || 250) 
+                  ? 'text-[#FF5A67]' 
+                  : 'text-purple-600'
               }`}>
-                {lastScanned ? (lastScanned.gas > 300 ? 'VOC Spike' : 'Normal Purity') : '0 Scans'}
+                {lastScanned 
+                  ? (lastScanned.gas > (thresholds.gasWarning || 250) 
+                      ? `VOC Spike (> ${thresholds.gasWarning || 250})` 
+                      : `Safe Purity (< ${thresholds.gasWarning || 250})`) 
+                  : '0 Scans'}
               </span>
             </div>
             <div className="neo-icon-box w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center text-purple-600 shadow-sm shrink-0">
@@ -447,12 +479,18 @@ export const DashboardPage: React.FC = () => {
             <div className="space-y-0.5 min-w-0">
               <span className="text-[9.5px] sm:text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block truncate">Freshness</span>
               <span className="text-lg sm:text-2xl font-black text-[#07221A] tracking-tight tabular-nums block">
-                {lastScanned ? `${lastScanned.freshnessScore}%` : '0%'}
+                {lastScanned ? `${freshnessReport?.score ?? lastScanned.freshnessScore}%` : '0%'}
               </span>
               <span className={`text-[9.5px] sm:text-[10px] font-bold block truncate ${
-                !lastScanned ? 'text-[#5C7F75]' : lastScanned.status === 'Fresh' ? 'text-[#20E79A]' : 'text-[#FFAA00]'
+                !lastScanned 
+                  ? 'text-[#5C7F75]' 
+                  : (freshnessReport?.status || lastScanned.status) === 'Fresh' 
+                  ? 'text-[#20E79A]' 
+                  : (freshnessReport?.status || lastScanned.status) === 'Good'
+                  ? 'text-emerald-600'
+                  : 'text-[#FFAA00]'
               }`}>
-                {lastScanned ? `${lastScanned.status} • ${lastScanned.itemName}` : '0 Scans'}
+                {lastScanned ? `${freshnessReport?.status || lastScanned.status} • ${lastScanned.itemName}` : '0 Scans'}
               </span>
             </div>
             <div className="neo-icon-box w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center text-[#20E79A] shadow-sm shrink-0">
@@ -560,13 +598,15 @@ export const DashboardPage: React.FC = () => {
                 <p className="text-[11px] text-[#5C7F75]">
                   Inspect a food product via RFID or QR code to view live telemetry logs here.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => navigate('/scan')}
-                  className="mt-1 px-4 py-2 neo-btn-primary text-xs font-black rounded-full cursor-pointer glow-emerald"
-                >
-                  Scan a Product Now
-                </button>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => navigate('/scan')}
+                    className="mt-1 px-4 py-2 neo-btn-primary text-xs font-black rounded-full cursor-pointer glow-emerald"
+                  >
+                    Scan a Product Now
+                  </button>
+                )}
               </div>
             )}
           </motion.div>
@@ -579,7 +619,7 @@ export const DashboardPage: React.FC = () => {
               activeItem={activeItem}
               thresholdRules={thresholds}
               scanHistory={scanHistory}
-              onOpenThresholdModal={() => setIsThresholdModalOpen(true)}
+              onOpenThresholdModal={isAdmin ? () => setIsThresholdModalOpen(true) : undefined}
             />
           </motion.div>
         </div>
@@ -682,17 +722,30 @@ export const DashboardPage: React.FC = () => {
           >
             <h3 className="text-sm font-black text-[#07221A]">Quick Actions</h3>
             <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
-              {/* Add Device */}
-              <button 
-                type="button"
-                onClick={() => navigate('/admin/devices')}
-                className="neo-btn p-3 min-h-[72px] rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer group hover:border-[#20E79A]/40 active:scale-97 transition-transform"
-              >
-                <div className="w-8 h-8 rounded-full bg-[#20E79A] text-white flex items-center justify-center glow-emerald shadow-sm">
-                  <Plus className="w-4 h-4" />
-                </div>
-                <span className="text-[10px] font-black text-[#07221A]">Add Device</span>
-              </button>
+              {/* Add Device for Admin or Live Telemetry for User */}
+              {isAdmin ? (
+                <button 
+                  type="button"
+                  onClick={() => navigate('/admin/devices')}
+                  className="neo-btn p-3 min-h-[72px] rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer group hover:border-[#20E79A]/40 active:scale-97 transition-transform"
+                >
+                  <div className="w-8 h-8 rounded-full bg-[#20E79A] text-white flex items-center justify-center glow-emerald shadow-sm">
+                    <Plus className="w-4 h-4" />
+                  </div>
+                  <span className="text-[10px] font-black text-[#07221A]">Add Device</span>
+                </button>
+              ) : (
+                <button 
+                  type="button"
+                  onClick={() => navigate(lastScanned ? `/live-data/${lastScanned.itemId}` : '/live-data')}
+                  className="neo-btn p-3 min-h-[72px] rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer group hover:border-[#20E79A]/40 active:scale-97 transition-transform"
+                >
+                  <div className="w-8 h-8 rounded-full bg-[#20E79A] text-white flex items-center justify-center glow-emerald shadow-sm">
+                    <Activity className="w-4 h-4" />
+                  </div>
+                  <span className="text-[10px] font-black text-[#07221A]">Live Telemetry</span>
+                </button>
+              )}
 
               {/* Manage Products */}
               <button 
@@ -793,13 +846,15 @@ export const DashboardPage: React.FC = () => {
                 <p className="text-[10px] text-[#5C7F75] max-w-[200px]">
                   Scan an RFID or QR tag to inspect freshness and populate telemetry.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => navigate('/scan')}
-                  className="mt-2 px-4 py-2 neo-btn-primary text-xs font-bold rounded-xl cursor-pointer glow-emerald"
-                >
-                  Scan Product
-                </button>
+                {isAdmin && (
+                  <button
+                    type="button"
+                    onClick={() => navigate('/scan')}
+                    className="mt-2 px-4 py-2 neo-btn-primary text-xs font-bold rounded-xl cursor-pointer glow-emerald"
+                  >
+                    Scan Product
+                  </button>
+                )}
               </div>
             )}
           </motion.div>

@@ -12,6 +12,7 @@ import {
 } from '../types';
 import { auth, database, isFirebaseConfigured } from '../firebase/firebase';
 import { parseTimestamp } from '../utils/dateUtils';
+import { saveProductThresholdToFirebase } from '../services/alertThresholdService';
 
 import { 
   ref, 
@@ -622,10 +623,27 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateProductProfile = async (profile: ProductProfile) => {
     if (isDemoMode) {
       setProductProfiles(prev => prev.map(p => p.id === profile.id ? profile : p));
-      return;
+    } else {
+      await dbSet(ref(database, `productProfiles/${profile.id}`), profile);
     }
 
-    await dbSet(ref(database, `productProfiles/${profile.id}`), profile);
+    try {
+      await saveProductThresholdToFirebase(
+        profile.name,
+        {
+          productId: profile.id,
+          productName: profile.name,
+          tempMin: profile.temperature_min ?? 2.0,
+          tempMax: profile.temperature_max ?? 6.0,
+          humMin: profile.humidity_min ?? 50,
+          humMax: profile.humidity_max ?? 70,
+          mq135_threshold: profile.mq135_threshold ?? 1500,
+          gasWarning: profile.mq135_threshold && profile.mq135_threshold < 600 ? profile.mq135_threshold : 250,
+        }
+      );
+    } catch (e) {
+      console.warn('saveProductThresholdToFirebase error in updateProductProfile:', e);
+    }
   };
 
   const applyFirebaseConfig = (config: any) => {

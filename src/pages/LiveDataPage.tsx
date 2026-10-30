@@ -28,6 +28,7 @@ import {
   Tooltip, 
   CartesianGrid 
 } from 'recharts';
+import { useAuth } from '../context/AuthContext';
 import { useFreshness } from '../context/FreshnessContext';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { FreshnessGauge } from '../components/common/FreshnessGauge';
@@ -40,6 +41,8 @@ import { calculatePH } from '../utils/phCalculator';
 import { formatRealtimeDateTime, parseTimestamp } from '../utils/dateUtils';
 
 export const LiveDataPage: React.FC = () => {
+  const { userProfile } = useAuth();
+  const isAdmin = userProfile?.role === 'admin';
   const { itemId } = useParams<{ itemId: string }>();
   const navigate = useNavigate();
   const { 
@@ -187,15 +190,17 @@ export const LiveDataPage: React.FC = () => {
           <span>Back to Dashboard</span>
         </button>
 
-        <div className="grid grid-cols-3 sm:flex items-center gap-2 w-full sm:w-auto">
-          <button
-            type="button"
-            onClick={() => setIsConfigOpen(true)}
-            className="px-3 sm:px-4 py-2 min-h-[40px] rounded-xl bg-white border border-[#13493B]/10 text-[11px] sm:text-xs font-bold text-[#07221A] hover:bg-[#F4F7F6] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-          >
-            <Sliders className="w-3.5 h-3.5 text-[#20E79A] shrink-0" />
-            <span className="truncate">Thresholds</span>
-          </button>
+        <div className={`grid ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'} sm:flex items-center gap-2 w-full sm:w-auto`}>
+          {isAdmin && (
+            <button
+              type="button"
+              onClick={() => setIsConfigOpen(true)}
+              className="px-3 sm:px-4 py-2 min-h-[40px] rounded-xl bg-white border border-[#13493B]/10 text-[11px] sm:text-xs font-bold text-[#07221A] hover:bg-[#F4F7F6] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+            >
+              <Sliders className="w-3.5 h-3.5 text-[#20E79A] shrink-0" />
+              <span className="truncate">Thresholds</span>
+            </button>
+          )}
           <button
             type="button"
             onClick={handleShare}

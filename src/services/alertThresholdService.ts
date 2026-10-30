@@ -602,3 +602,244 @@ export function subscribeToGlobalThresholds(
     if (unsubFirestore) unsubFirestore();
   };
 }
+
+export interface ProductThresholdConfig {
+  productId: string;
+  productName: string;
+  tempMin: number;
+  tempMax: number;
+  tempCritical: number;
+  humMin: number;
+  humMax: number;
+  mq135_threshold: number;
+  gasWarning: number;
+  gasCritical: number;
+  updatedAt: number;
+  updatedBy?: string;
+}
+
+/**
+ * Normalizes any product name, tag ID, or device code into a canonical threshold key
+ * e.g. "Cold Drinks", "COLD_DRINKS", "colddrinks", "YGS-FD-000124" -> "cold_drinks"
+ */
+export function normalizeProductKey(rawKey: string): string {
+  if (!rawKey) return 'cold_drinks';
+  const clean = rawKey.trim().toLowerCase().replace(/^#/, '');
+  if (
+    clean.includes('cold') || 
+    clean.includes('drink') || 
+    clean.includes('000124') || 
+    clean.includes('beverage') ||
+    clean === 'milk' ||
+    clean === 'ketchup'
+  ) {
+    return 'cold_drinks';
+  }
+  if (clean.includes('meat') || clean.includes('112233') || clean.includes('unconfigured')) {
+    return 'meat';
+  }
+  return clean.replace(/\s+/g, '_');
+}
+
+/**
+ * Converts a ProductThresholdConfig into a SensorThresholdConfig for calculations and evaluation
+ */
+export function productThresholdToSensorConfig(pt: Partial<ProductThresholdConfig>): SensorThresholdConfig {
+  const tempMin = typeof pt.tempMin === 'number' ? pt.tempMin : 0.0;
+  const tempMax = typeof pt.tempMax === 'number' ? pt.tempMax : 8.0;
+  const tempCritical = typeof pt.tempCritical === 'number' ? pt.tempCritical : Math.max(tempMax + 7, 15.0);
+  const humMin = typeof pt.humMin === 'number' ? pt.humMin : 40;
+  const humMax = typeof pt.humMax === 'number' ? pt.humMax : 85;
+  const gasWarning = typeof pt.gasWarning === 'number' 
+    ? pt.gasWarning 
+    : (typeof pt.mq135_threshold === 'number' && pt.mq135_threshold < 600 ? pt.mq135_threshold : 250);
+  const gasCritical = typeof pt.gasCritical === 'number' ? pt.gasCritical : Math.round(gasWarning * 1.6);
+
+  return {
+    tempMin,
+    tempMax,
+    tempCritical,
+    gasWarning,
+    gasCritical,
+    humidityMin: humMin,
+    humidityMax: humMax,
+    enableAudio: true,
+    autoResolve: false,
+  };
+}
+
+/**
+ * Save product-specific threshold configuration globally to Firebase (Realtime Database & Firestore)
+ * and update local caches so user dashboards immediately reflect admin-set thresholds.
+ */
+export async function saveProductThresholdToFirebase(
+  productKeyOrName: string,
+  config: Partial<ProductThresholdConfig>,
+  authorName?: string
+): Promise<void> {
+  const canonicalKey = normalizeProductKey(productKeyOrName);
+  const displayName = config.productName || (canonicalKey === 'cold_drinks' ? 'Cold Drinks' : productKeyOrName);
+
+  const fullRecord: ProductThresholdConfig = {
+    productId: canonicalKey,
+    productName: displayName,
+    tempMin: typeof config.tempMin === 'number' ? config.tempMin : 2.0,
+    tempMax: typeof config.tempMax === 'number' ? config.tempMax : 6.0,
+    tempCritical: typeof config.tempCritical === 'number' ? config.tempCritical : (typeof config.tempMax === 'number' ? config.tempMax + 7 : 15.0),
+    humMin: typeof config.humMin === 'number' ? config.humMin : 50,
+    humMax: typeof config.humMax === 'number' ? config.humMax : 70,
+    mq135_threshold: typeof config.mq135_threshold === 'number' ? config.mq135_threshold : 1500,
+    gasWarning: typeof config.gasWarning === 'number' ? config.gasWarning : 250,
+    gasCritical: typeof config.gasCritical === 'number' ? config.gasCritical : 400,
+    updatedAt: Date.now(),
+    updatedBy: authorName || 'Admin',
+  };
+
+  const sensorConfig = productThresholdToSensorConfig(fullRecord);
+
+  // 1. Cache to LocalStorage under canonical key, raw key, and uppercase tag
+  try {
+    localStorage.setItem(`freshnex_product_thresholds_${canonicalKey}`, JSON.stringify(fullRecord));
+    localStorage.setItem(`freshnex_product_thresholds_${productKeyOrName.trim().toUpperCase().replace(/^#/, '')}`, JSON.stringify(fullRecord));
+    localStorage.setItem('freshnex_sensor_thresholds', JSON.stringify(sensorConfig));
+  } catch (e) {
+    console.warn('Local threshold cache error:', e);
+  }
+
+  // 2. Save to Firebase Realtime Database
+  const db = getDirectDatabase();
+  if (db) {
+    try {
+      const aliases = Array.from(new Set([
+        canonicalKey,
+        productKeyOrName.trim().toUpperCase().replace(/^#/, ''),
+        canonicalKey === 'cold_drinks' ? 'COLD_DRINKS' : '',
+        canonicalKey === 'cold_drinks' ? 'YGS-FD-000124' : '',
+        canonicalKey === 'meat' ? 'MEAT' : '',
+        canonicalKey === 'meat' ? 'YGS-FD-112233' : '',
+      ].filter(Boolean)));
+
+      for (const alias of aliases) {
+        await set(ref(db, `productThresholds/${alias}`), fullRecord);
+      }
+      
+      // Also update system/thresholds for global fallback
+      await set(ref(db, 'system/thresholds'), sensorConfig);
+    } catch (err) {
+      console.warn('Realtime Database saveProductThreshold error:', err);
+    }
+  }
+
+  // 3. Save to Firestore
+  if (firestoreDb) {
+    try {
+      const docRef = doc(firestoreDb, 'product_thresholds', canonicalKey);
+      await setDoc(docRef, fullRecord, { merge: true });
+
+      if (canonicalKey === 'cold_drinks') {
+        await setDoc(doc(firestoreDb, 'product_thresholds', 'COLD_DRINKS'), fullRecord, { merge: true });
+      }
+
+      await setDoc(doc(firestoreDb, 'system', 'thresholds'), sensorConfig, { merge: true });
+    } catch (err) {
+      console.warn('Firestore saveProductThreshold error:', err);
+    }
+  }
+
+  // 4. Trigger in-memory window event for instant same-tab updates
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('freshnex_threshold_updated', {
+      detail: { productKey: canonicalKey, record: fullRecord, sensorConfig }
+    }));
+  }
+}
+
+/**
+ * Subscribe in real-time to the admin-set thresholds for a specific product
+ * (e.g. "Cold Drinks" or "COLD_DRINKS") using Firebase Realtime Database and Firestore.
+ */
+export function subscribeToProductThreshold(
+  productKeyOrName: string,
+  callback: (sensorConfig: SensorThresholdConfig, rawConfig?: ProductThresholdConfig) => void
+): () => void {
+  const canonicalKey = normalizeProductKey(productKeyOrName);
+  const db = getDirectDatabase();
+
+  // 1. Initial cached seed check
+  try {
+    const rawStored = 
+      localStorage.getItem(`freshnex_product_thresholds_${canonicalKey}`) ||
+      localStorage.getItem(`freshnex_product_thresholds_${productKeyOrName.trim().toUpperCase().replace(/^#/, '')}`);
+    if (rawStored) {
+      const parsed = JSON.parse(rawStored);
+      callback(productThresholdToSensorConfig(parsed), parsed);
+    }
+  } catch {}
+
+  let unsubRtdb: (() => void) | null = null;
+  let unsubFirestore: (() => void) | null = null;
+
+  // 2. Realtime Database subscription
+  if (db) {
+    try {
+      const thRef = ref(db, `productThresholds/${canonicalKey}`);
+      const handler = (snapshot: any) => {
+        if (snapshot.exists()) {
+          const val = snapshot.val() as ProductThresholdConfig;
+          if (val) {
+            try {
+              localStorage.setItem(`freshnex_product_thresholds_${canonicalKey}`, JSON.stringify(val));
+            } catch {}
+            const sensorConfig = productThresholdToSensorConfig(val);
+            callback(sensorConfig, val);
+          }
+        }
+      };
+      onValue(thRef, handler);
+      unsubRtdb = () => off(thRef, 'value', handler);
+    } catch (e) {
+      console.warn('RTDB subscribeToProductThreshold error:', e);
+    }
+  }
+
+  // 3. Firestore subscription
+  if (firestoreDb) {
+    try {
+      const docRef = doc(firestoreDb, 'product_thresholds', canonicalKey);
+      unsubFirestore = onSnapshot(docRef, (docSnap) => {
+        if (docSnap.exists()) {
+          const val = docSnap.data() as ProductThresholdConfig;
+          if (val) {
+            try {
+              localStorage.setItem(`freshnex_product_thresholds_${canonicalKey}`, JSON.stringify(val));
+            } catch {}
+            const sensorConfig = productThresholdToSensorConfig(val);
+            callback(sensorConfig, val);
+          }
+        }
+      }, (err) => {
+        console.warn('Firestore subscribeToProductThreshold error:', err);
+      });
+    } catch (e) {
+      console.warn('Firestore threshold subscription error:', e);
+    }
+  }
+
+  // 4. In-window custom event listener
+  const handleLocalUpdate = (e: any) => {
+    if (e.detail && (e.detail.productKey === canonicalKey || e.detail.productKey === 'all')) {
+      callback(e.detail.sensorConfig, e.detail.record);
+    }
+  };
+  if (typeof window !== 'undefined') {
+    window.addEventListener('freshnex_threshold_updated', handleLocalUpdate);
+  }
+
+  return () => {
+    if (unsubRtdb) unsubRtdb();
+    if (unsubFirestore) unsubFirestore();
+    if (typeof window !== 'undefined') {
+      window.removeEventListener('freshnex_threshold_updated', handleLocalUpdate);
+    }
+  };
+}

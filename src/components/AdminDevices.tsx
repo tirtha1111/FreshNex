@@ -42,6 +42,7 @@ import { researchProductThresholds, AIThresholdResearchResult } from '../service
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
 import { formatRealtimeDateTime, parseTimestamp } from '../utils/dateUtils';
+import { saveProductThresholdToFirebase } from '../services/alertThresholdService';
 
 export const AdminDevices: React.FC = () => {
   const { userProfile, isDemoMode } = useAuth();
@@ -187,6 +188,20 @@ export const AdminDevices: React.FC = () => {
       mq135_threshold: regMqThreshold === '' ? null : Number(regMqThreshold)
     });
 
+    await saveProductThresholdToFirebase(
+      regProduct.trim(),
+      {
+        productId: regCode.trim(),
+        productName: regProduct.trim(),
+        tempMin: regTempMin === '' ? 2.0 : Number(regTempMin),
+        tempMax: regTempMax === '' ? 6.0 : Number(regTempMax),
+        humMin: regHumMin === '' ? 50 : Number(regHumMin),
+        humMax: regHumMax === '' ? 70 : Number(regHumMax),
+        mq135_threshold: regMqThreshold === '' ? 1500 : Number(regMqThreshold),
+      },
+      userProfile?.name || 'Admin'
+    );
+
     setRegSuccess(true);
     setTimeout(() => {
       setRegSuccess(false);
@@ -328,6 +343,21 @@ export const AdminDevices: React.FC = () => {
       humidity_max: humMax === '' ? null : Number(humMax),
       mq135_threshold: mqThreshold === '' ? null : Number(mqThreshold)
     });
+
+    await saveProductThresholdToFirebase(
+      productName,
+      {
+        productId: configModalDevice.device_id,
+        productName: productName,
+        tempMin: tempMin === '' ? 2.0 : Number(tempMin),
+        tempMax: tempMax === '' ? 6.0 : Number(tempMax),
+        humMin: humMin === '' ? 50 : Number(humMin),
+        humMax: humMax === '' ? 70 : Number(humMax),
+        mq135_threshold: mqThreshold === '' ? 1500 : Number(mqThreshold),
+        gasWarning: mqThreshold !== '' && Number(mqThreshold) < 600 ? Number(mqThreshold) : 250,
+      },
+      userProfile?.name || 'Admin'
+    );
 
     setSaveSuccess(true);
     setTimeout(() => {
