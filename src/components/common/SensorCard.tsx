@@ -12,6 +12,7 @@ interface SensorCardProps {
   iconBgColor?: string;
   iconColor?: string;
   isEmpty?: boolean;
+  isOnline?: boolean;
   className?: string;
   message?: string;
 }
@@ -26,6 +27,7 @@ export const SensorCard: React.FC<SensorCardProps> = ({
   iconBgColor = 'bg-[#20E79A]/10',
   iconColor = 'text-[#20E79A]',
   isEmpty = false,
+  isOnline = true,
   className = '',
   message,
 }) => {
@@ -90,11 +92,11 @@ export const SensorCard: React.FC<SensorCardProps> = ({
         {/* Message / Status footer */}
         <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-[#F4F7F6]">
           <span className="text-[10px] font-bold text-[#5C7F75] truncate max-w-[150px]">
-            {message || (isEmpty ? 'Awaiting connection' : 'Sensor Active')}
+            {message || (!isOnline || isEmpty ? 'Device Offline' : 'Sensor Active')}
           </span>
-          {isEmpty ? (
-            <span className="text-[11px] font-medium text-[#5C7F75] flex items-center gap-1 shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#5C7F75]" />
+          {!isOnline || isEmpty ? (
+            <span className="text-[10px] font-bold text-slate-500 flex items-center gap-1.5 bg-slate-100 px-2 py-0.5 rounded-full border border-slate-200 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-slate-400" />
               Offline
             </span>
           ) : (

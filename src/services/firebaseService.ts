@@ -8,6 +8,10 @@ import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
 import { parseTimestamp, extractLatestTimestamp } from '../utils/dateUtils';
 
+// Fast offline detection threshold (6 seconds). If no heartbeat/telemetry ping arrives within 6s,
+// the device is considered offline immediately.
+export const DEVICE_ONLINE_TIMEOUT_MS = 6000;
+
 /**
  * Subscribe to real-time status of a device in Firebase Realtime Database
  */
@@ -61,11 +65,17 @@ export function subscribeToDeviceStatus(
         }
       }
 
-      const t = extractLatestTimestamp(target, Date.now());
+      const t = extractLatestTimestamp(target, 0);
       lastUpdateTime = t;
 
       const diff = Date.now() - lastUpdateTime;
-      const isOnline = diff <= 15000 && (target.online !== false && target.status !== 'offline');
+      const explicitOnline = target.online !== undefined 
+        ? Boolean(target.online) 
+        : (target.status ? target.status.toLowerCase() === 'online' : null);
+
+      const isOnline = explicitOnline !== null
+        ? (explicitOnline && diff <= DEVICE_ONLINE_TIMEOUT_MS && t > 0)
+        : (diff <= DEVICE_ONLINE_TIMEOUT_MS && t > 0);
       reportStatus(isOnline ? 'online' : 'offline');
     } else {
       reportStatus('offline');
@@ -76,10 +86,11 @@ export function subscribeToDeviceStatus(
     reportStatus('offline');
   });
 
+  // Fast 1-second watchdog check so offline transitions happen swiftly
   statusInterval = setInterval(() => {
     const diff = Date.now() - lastUpdateTime;
-    reportStatus(diff <= 15000 ? 'online' : 'offline');
-  }, 3000);
+    reportStatus((diff <= DEVICE_ONLINE_TIMEOUT_MS && lastUpdateTime > 0) ? 'online' : 'offline');
+  }, 1000);
 
   return () => {
     clearInterval(statusInterval);

@@ -124,7 +124,7 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
             <span className="font-bold text-[#5C7F75] shrink-0">Last Response:</span>
             <span className="font-mono font-bold text-[#07221A] truncate">{formattedDate}, {formattedTime}</span>
           </div>
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0 ml-1.5" />
+          <span className={`w-1.5 h-1.5 rounded-full shrink-0 ml-1.5 ${realtimeStatus === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
         </div>
       </div>
 
