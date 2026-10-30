@@ -6,7 +6,6 @@ import { FreshnessProvider } from './context/FreshnessContext';
 import { AppLayout } from './components/layout/AppLayout';
 
 // Pages
-import { LandingPage } from './pages/LandingPage';
 import { LoginPage } from './pages/LoginPage';
 import { SignUpPage } from './pages/SignUpPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
@@ -29,9 +28,9 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#140C08] flex flex-col items-center justify-center p-4">
-        <div className="w-10 h-10 border-3 border-[#FF6A00] border-t-transparent rounded-full animate-spin" />
-        <p className="text-xs text-[#B8A89E] font-bold mt-4 tracking-wider uppercase">
+      <div className="min-h-screen bg-[#F4FBF7] flex flex-col items-center justify-center p-4">
+        <div className="w-10 h-10 border-3 border-emerald-500 border-t-transparent rounded-full animate-spin" />
+        <p className="text-xs text-emerald-900/70 font-bold mt-4 tracking-wider uppercase">
           Loading FreshNex Platform...
         </p>
       </div>
@@ -49,10 +48,10 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const AppRoutes: React.FC = () => {
   return (
     <Routes>
-      {/* Public Pages */}
-      <Route path="/" element={<Navigate to="/login" replace />} />
-      <Route path="/about" element={<AboutPage />} />
+      {/* Public Entry (Login Page IS the primary entry/landing experience) */}
+      <Route path="/" element={<LoginPage />} />
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/about" element={<AboutPage />} />
       <Route path="/signup" element={<SignUpPage />} />
       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 

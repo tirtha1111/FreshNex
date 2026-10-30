@@ -639,9 +639,7 @@ export const AdminDevices: React.FC = () => {
                     <span className="text-[#5C7F75]">Last Response:</span>
                     <span>{formattedResponseDate}, {formattedResponseTime}</span>
                   </span>
-                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${realtimeStatus === 'online' ? 'text-[#20E79A] bg-[#EBFBF4]' : 'text-slate-500 bg-slate-100'}`}>
-                    {realtimeStatus === 'online' ? 'Real-time Stream' : 'Cached Telemetry'}
-                  </span>
+                  <span className="text-[10px] font-bold text-[#20E79A] bg-[#EBFBF4] px-2 py-0.5 rounded-full">Real-time Stream</span>
                 </div>
               </div>
 
@@ -752,7 +750,7 @@ export const AdminDevices: React.FC = () => {
             <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-[#EBFBF4] via-white to-[#F0FAF5] border border-[#20E79A]/40 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div className="space-y-1">
                 <div className="flex items-center gap-1.5">
-                  <span className={`w-2 h-2 rounded-full ${realtimeStatus === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+                  <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                   <span className="text-[10px] font-black uppercase tracking-wider text-[#13493B]">
                     Active Configured Safety Thresholds
                   </span>

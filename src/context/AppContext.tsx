@@ -129,14 +129,7 @@ function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
   const humidity = Number(target.humidity ?? target.hum ?? target.h ?? 58.0);
   const mq135_raw = Number(target.mq135_raw ?? target.gas ?? target.mq135 ?? 110);
   const last_update = extractLatestTimestamp(target);
-  const timeSinceUpdate = Date.now() - last_update;
-  const explicitOnline = target.online !== undefined 
-    ? Boolean(target.online) 
-    : (target.status ? target.status.toLowerCase() === 'online' : null);
-
-  const online = explicitOnline !== null
-    ? (explicitOnline && timeSinceUpdate <= 6000)
-    : (timeSinceUpdate <= 6000);
+  const online = target.online !== undefined ? Boolean(target.online) : (target.status ? target.status.toLowerCase() === 'online' : true);
   const product = target.product || target.name || 'Cold Drinks';
 
   const temperature_min = target.temperature_min ?? rawDevice.temperature_min;
@@ -246,38 +239,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsLoading(false);
     }
   }, [isDemoMode]);
-
-  // Fast device online watchdog: automatically flags devices offline as soon as heartbeat lapses > 6 seconds
-  useEffect(() => {
-    const watchdogInterval = setInterval(() => {
-      setDevicesMap(prev => {
-        let changed = false;
-        const now = Date.now();
-        const updated: Record<string, DeviceData> = {};
-
-        Object.keys(prev).forEach(devId => {
-          const dev = prev[devId];
-          const lastTs = extractLatestTimestamp(dev, 0);
-          const diff = now - lastTs;
-          const shouldBeOnline = lastTs > 0 && diff <= 6000 && (dev as any).explicitOnline !== false;
-
-          if (dev.online !== shouldBeOnline) {
-            changed = true;
-            updated[devId] = {
-              ...dev,
-              online: shouldBeOnline
-            };
-          } else {
-            updated[devId] = dev;
-          }
-        });
-
-        return changed ? updated : prev;
-      });
-    }, 1000);
-
-    return () => clearInterval(watchdogInterval);
-  }, []);
 
   // Sync to local storage in demo mode
   useEffect(() => {

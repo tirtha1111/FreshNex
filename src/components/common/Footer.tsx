@@ -6,33 +6,30 @@ import {
   Twitter, 
   Instagram, 
   Youtube, 
-  Leaf, 
-  Globe2 
+  Leaf,
+  ArrowUpRight
 } from 'lucide-react';
 
 export const Footer: React.FC = () => {
   return (
-    <footer className="w-full bg-[#061827] border-t border-[#3D261A] pt-14 pb-8 select-none">
+    <footer className="w-full bg-[#061C14] border-t border-emerald-900/40 pt-16 pb-10 select-none text-emerald-50/90 font-['DM_Sans',sans-serif]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 pb-12 border-b border-[#3D261A]/70">
-          {/* Brand Col */}
-          <div className="lg:col-span-2 space-y-4">
-            <Logo size="lg" variant="dark" showTagline={true} linkTo="/" />
-            <p className="text-xs font-bold text-[#FF6A00] tracking-widest uppercase">
-              SMART FOOD. BRIGHTER TOMORROWS.
-            </p>
-            <p className="text-sm text-[#B8A89E] max-w-sm leading-relaxed">
-              Let's connect for a safer, more sustainable world through intelligent cold-chain IoT sensing and real-time freshness telemetry.
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-12 gap-10 pb-12 border-b border-emerald-800/30">
+          {/* Brand Column */}
+          <div className="lg:col-span-5 space-y-5">
+            <Logo size="lg" variant="dark" showTagline={false} linkTo="/" />
+            <p className="text-sm text-emerald-100/70 max-w-md leading-relaxed">
+              Continuous cold-chain quality intelligence combining wireless ESP32 environmental telemetry, volatile organic gas analysis, and optical QR/RFID traceability from farm harvest to table.
             </p>
 
             {/* Social Links */}
-            <div className="flex items-center gap-3 pt-2">
+            <div className="flex items-center gap-3 pt-1">
               <a
                 href="https://linkedin.com"
                 target="_blank"
                 rel="noreferrer"
                 aria-label="LinkedIn"
-                className="w-8 h-8 rounded-lg bg-[#261A12] border border-[#3D261A] flex items-center justify-center text-[#B8A89E] hover:text-[#FF6A00] hover:border-[#FF6A00]/40 transition-colors"
+                className="w-9 h-9 rounded-xl bg-emerald-950/80 border border-emerald-800/50 flex items-center justify-center text-emerald-200/70 hover:text-emerald-300 hover:border-emerald-500/50 transition-colors"
               >
                 <Linkedin className="w-4 h-4" />
               </a>
@@ -41,7 +38,7 @@ export const Footer: React.FC = () => {
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Twitter / X"
-                className="w-8 h-8 rounded-lg bg-[#261A12] border border-[#3D261A] flex items-center justify-center text-[#B8A89E] hover:text-[#FF6A00] hover:border-[#FF6A00]/40 transition-colors"
+                className="w-9 h-9 rounded-xl bg-emerald-950/80 border border-emerald-800/50 flex items-center justify-center text-emerald-200/70 hover:text-emerald-300 hover:border-emerald-500/50 transition-colors"
               >
                 <Twitter className="w-4 h-4" />
               </a>
@@ -50,7 +47,7 @@ export const Footer: React.FC = () => {
                 target="_blank"
                 rel="noreferrer"
                 aria-label="Instagram"
-                className="w-8 h-8 rounded-lg bg-[#261A12] border border-[#3D261A] flex items-center justify-center text-[#B8A89E] hover:text-[#FF6A00] hover:border-[#FF6A00]/40 transition-colors"
+                className="w-9 h-9 rounded-xl bg-emerald-950/80 border border-emerald-800/50 flex items-center justify-center text-emerald-200/70 hover:text-emerald-300 hover:border-emerald-500/50 transition-colors"
               >
                 <Instagram className="w-4 h-4" />
               </a>
@@ -59,88 +56,93 @@ export const Footer: React.FC = () => {
                 target="_blank"
                 rel="noreferrer"
                 aria-label="YouTube"
-                className="w-8 h-8 rounded-lg bg-[#261A12] border border-[#3D261A] flex items-center justify-center text-[#B8A89E] hover:text-[#FF6A00] hover:border-[#FF6A00]/40 transition-colors"
+                className="w-9 h-9 rounded-xl bg-emerald-950/80 border border-emerald-800/50 flex items-center justify-center text-emerald-200/70 hover:text-emerald-300 hover:border-emerald-500/50 transition-colors"
               >
                 <Youtube className="w-4 h-4" />
               </a>
             </div>
           </div>
 
-          {/* Quick Links */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold text-[#FDF8F5] tracking-wider uppercase">
-              Quick Links
+          {/* Platform Links */}
+          <div className="lg:col-span-2 space-y-3.5">
+            <h4 className="text-sm font-semibold text-white font-['Plus_Jakarta_Sans',sans-serif]">
+              Platform
             </h4>
-            <ul className="space-y-2 text-sm text-[#B8A89E]">
+            <ul className="space-y-2.5 text-sm text-emerald-100/70">
               <li>
-                <Link to="/" className="hover:text-[#FF6A00] transition-colors">Home</Link>
+                <a href="#simulator" className="hover:text-emerald-300 transition-colors">Freshness Lab</a>
               </li>
               <li>
-                <a href="#features" className="hover:text-[#FF6A00] transition-colors">Features</a>
+                <a href="#capabilities" className="hover:text-emerald-300 transition-colors">Capabilities</a>
               </li>
               <li>
-                <a href="#how-it-works" className="hover:text-[#FF6A00] transition-colors">How It Works</a>
+                <a href="#workflow" className="hover:text-emerald-300 transition-colors">How It Works</a>
               </li>
               <li>
-                <Link to="/about" className="hover:text-[#FF6A00] transition-colors">Impact</Link>
-              </li>
-              <li>
-                <Link to="/about" className="hover:text-[#FF6A00] transition-colors">About</Link>
+                <a href="#impact" className="hover:text-emerald-300 transition-colors">Verified Impact</a>
               </li>
             </ul>
           </div>
 
-          {/* Support */}
-          <div className="space-y-3">
-            <h4 className="text-xs font-bold text-[#FDF8F5] tracking-wider uppercase">
-              Support
+          {/* Access Portals */}
+          <div className="lg:col-span-2 space-y-3.5">
+            <h4 className="text-sm font-semibold text-white font-['Plus_Jakarta_Sans',sans-serif]">
+              Portals
             </h4>
-            <ul className="space-y-2 text-sm text-[#B8A89E]">
+            <ul className="space-y-2.5 text-sm text-emerald-100/70">
               <li>
-                <span className="hover:text-[#FF6A00] cursor-pointer transition-colors">Help Center</span>
+                <Link to="/login" className="hover:text-emerald-300 transition-colors">Product Tag Lookup</Link>
               </li>
               <li>
-                <span className="hover:text-[#FF6A00] cursor-pointer transition-colors">Contact Us</span>
+                <Link to="/login" className="hover:text-emerald-300 transition-colors">Admin Console</Link>
               </li>
               <li>
-                <span className="hover:text-[#FF6A00] cursor-pointer transition-colors">Privacy Policy</span>
+                <Link to="/signup" className="hover:text-emerald-300 transition-colors">Register Node</Link>
               </li>
               <li>
-                <span className="hover:text-[#FF6A00] cursor-pointer transition-colors">Terms & Conditions</span>
+                <Link to="/about" className="hover:text-emerald-300 transition-colors">About FreshNex</Link>
               </li>
             </ul>
           </div>
 
-          {/* Right Card: Good Food Brighter Tomorrows */}
-          <div className="lg:col-span-1">
-            <div className="p-6 rounded-2xl bg-[#261A12] border border-[#3D261A] flex flex-col justify-between h-full relative overflow-hidden group hover:border-[#FF6A00]/30 transition-all">
-              <div className="space-y-2 relative z-10">
-                <div className="w-10 h-10 rounded-xl bg-[#20E79A]/10 border border-[#20E79A]/30 flex items-center justify-center text-[#20E79A] mb-3">
-                  <Leaf className="w-5 h-5" />
+          {/* Right Action Card */}
+          <div className="lg:col-span-3">
+            <div className="p-6 rounded-2xl bg-emerald-950/70 border border-emerald-800/50 flex flex-col justify-between h-full">
+              <div className="space-y-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-300">
+                  <Leaf className="w-4 h-4" />
                 </div>
-                <h5 className="text-lg font-extrabold text-[#FDF8F5] leading-snug">
-                  Good Food<br />Brighter Tomorrows
+                <h5 className="text-base font-bold text-white font-['Plus_Jakarta_Sans',sans-serif]">
+                  Zero-Spoilage Cold Chain
                 </h5>
-                <p className="text-xs text-[#8C7A70] leading-relaxed">
-                  Real-time sensing for zero food waste and safer nutrition globally.
+                <p className="text-xs text-emerald-100/65 leading-relaxed">
+                  Deploy calibrated sensor nodes or verify a live produce batch in seconds.
                 </p>
               </div>
-              <div className="pt-4 mt-4 border-t border-[#3D261A]/60 flex items-center justify-between text-[11px] text-[#FF6A00] font-semibold">
-                <Link to="/signup" className="hover:underline">Join the network →</Link>
+              <div className="pt-4 mt-4 border-t border-emerald-800/40">
+                <Link
+                  to="/login"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-emerald-300 hover:text-emerald-200 transition-colors"
+                >
+                  <span>Open Telemetry Portal</span>
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </Link>
               </div>
             </div>
           </div>
         </div>
 
         {/* Bottom copyright line */}
-        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-[#8C7A70] gap-4">
-          <p>© 2026 FreshNex. All rights reserved.</p>
-          <div className="flex items-center gap-1.5 text-[#B8A89E]">
-            <Leaf className="w-3.5 h-3.5 text-[#20E79A]" />
-            <span>Designed for a healthier planet.</span>
+        <div className="pt-6 flex flex-col sm:flex-row items-center justify-between text-xs text-emerald-200/60 gap-4">
+          <p>© 2026 FreshNex Technologies. All rights reserved. · USDA Handbook 66 &amp; Postharvest Compliant</p>
+          <div className="flex items-center gap-4">
+            <Link to="/about" className="hover:text-emerald-200 transition-colors">Methodology</Link>
+            <span aria-hidden="true">·</span>
+            <Link to="/login" className="hover:text-emerald-200 transition-colors">Portal Login</Link>
           </div>
         </div>
       </div>
     </footer>
   );
 };
+

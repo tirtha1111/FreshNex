@@ -1,10 +1,9 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'motion/react';
 import { useAuth } from '../context/AuthContext';
 import { useApp } from '../context/AppContext';
 import { useFreshness } from '../context/FreshnessContext';
-import * as FirebaseService from '../services/firebaseService';
 import { 
   QrCode, 
   Thermometer, 
@@ -43,23 +42,7 @@ export const DashboardPage: React.FC = () => {
   const assignedTag = userProfile?.assignedProductId || 'COLD_DRINKS';
   const assignedName = userProfile?.assignedProductName || 'Cold Drinks';
 
-  const [deviceStatus, setDeviceStatus] = useState<'online' | 'offline' | undefined>(undefined);
-
-  const targetDevId = useMemo(() => {
-    const clean = (assignedTag || '').replace(/^#/, '').toUpperCase();
-    if (clean === 'MEAT' || clean.includes('112233')) return 'YGS-FD-112233';
-    return 'YGS-FD-000124';
-  }, [assignedTag]);
-
-  useEffect(() => {
-    const unsub = FirebaseService.subscribeToDeviceStatus(targetDevId, (status) => {
-      setDeviceStatus(status);
-    });
-    return () => unsub();
-  }, [targetDevId]);
-
-  const targetDev = devicesMap[targetDevId] || devicesMap['YGS-FD-000124'] || (assignedTag ? devicesMap[assignedTag] : null);
-  const isOnline = deviceStatus !== undefined ? deviceStatus === 'online' : Boolean(targetDev?.online);
+  const targetDev = devicesMap['YGS-FD-000124'] || (assignedTag ? devicesMap[assignedTag] : null);
 
   // Last scanned product telemetry (retrieved from scan history, active session, or live device fallback)
   const lastScanned = scanHistory.length > 0 ? scanHistory[0] : (
@@ -166,16 +149,9 @@ export const DashboardPage: React.FC = () => {
         {/* Left Side Info */}
         <div className="flex-1 w-full space-y-3.5 sm:space-y-4 text-center lg:text-left z-10">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full neo-btn shadow-sm max-w-full">
-            <span className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full shrink-0 ${
-              !isOnline 
-                ? 'bg-slate-400' 
-                : isAdmin 
-                ? 'bg-[#20E79A] shadow-[0_0_8px_#20E79A] animate-pulse' 
-                : 'bg-[#FF6A00] shadow-[0_0_8px_#FF6A00] animate-pulse'
-            }`} />
+            <span className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full shrink-0 ${isAdmin ? 'bg-[#20E79A] shadow-[0_0_8px_#20E79A]' : 'bg-[#FF6A00] shadow-[0_0_8px_#FF6A00]'} animate-pulse`} />
             <span className="text-[9.5px] sm:text-[10px] font-black text-[#07221A] uppercase tracking-wider truncate">
               {isAdmin ? 'Admin Hub • Monitored Products' : `User Portal • Product ID: ${assignedTag}`}
-              {!isOnline ? ' • OFFLINE' : ''}
             </span>
           </div>
           <div className="space-y-0.5 sm:space-y-1">
@@ -559,7 +535,7 @@ export const DashboardPage: React.FC = () => {
                 <div>
                   <h3 className="text-sm font-black text-[#07221A] flex items-center gap-2">
                     <span>Recent Scan History</span>
-                    <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-[#20E79A] animate-pulse' : 'bg-slate-300'}`} />
+                    <span className="w-2 h-2 rounded-full bg-[#20E79A] animate-pulse" />
                   </h3>
                   <p className="text-[11px] text-[#5C7F75] font-semibold">Real-time inspection logs recorded across IoT sensors.</p>
                 </div>
@@ -653,7 +629,6 @@ export const DashboardPage: React.FC = () => {
               thresholdRules={thresholds}
               scanHistory={scanHistory}
               onOpenThresholdModal={isAdmin ? () => setIsThresholdModalOpen(true) : undefined}
-              isDeviceOnline={isOnline}
             />
           </motion.div>
         </div>
@@ -667,21 +642,21 @@ export const DashboardPage: React.FC = () => {
           >
             <div className="flex justify-between items-center pb-1">
               <h3 className="text-sm font-black text-[#07221A]">Live Device Status</h3>
-              <div className={`flex items-center gap-1.5 text-[10px] font-extrabold ${isOnline ? 'text-[#20E79A]' : 'text-slate-500'}`}>
-                <span className={`w-2 h-2 rounded-full ${isOnline ? 'bg-[#20E79A] shadow-[0_0_8px_#20E79A] animate-pulse' : 'bg-slate-400'}`} />
-                <span>{isOnline ? 'Telemetry Online' : 'Device Offline'}</span>
+              <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-[#20E79A]">
+                <span className={`w-2 h-2 rounded-full ${lastScanned ? 'bg-[#20E79A] shadow-[0_0_8px_#20E79A] animate-pulse' : 'bg-slate-300'}`} />
+                <span>{lastScanned ? 'Telemetry Online' : 'Standby / Ready'}</span>
               </div>
             </div>
 
             {/* Last Response Received Tile with Full Date & Time and 2-Hour Validity Note */}
-            <div className={`p-3.5 rounded-2xl ${isOnline ? 'bg-[#EBFBF4] border border-[#20E79A]/30' : 'bg-[#F4F7F6] border border-[#13493B]/10'} space-y-2.5 shadow-xs`}>
+            <div className="p-3.5 rounded-2xl bg-[#EBFBF4] border border-[#20E79A]/30 space-y-2.5 shadow-xs">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[9px] font-black uppercase tracking-wider text-[#5C7F75] flex items-center gap-1.5">
                   <Clock className="w-3.5 h-3.5 text-[#20E79A] shrink-0" />
                   Last Response Received
                 </span>
-                <span className={`px-2 py-0.5 rounded-full text-[9px] font-bold shrink-0 ${isOnline ? 'bg-[#20E79A]/20 text-[#07221A]' : 'bg-slate-200 text-slate-600'}`}>
-                  {isOnline ? 'Active Telemetry' : 'Offline Cached Readings'}
+                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#20E79A]/20 text-[#07221A] shrink-0">
+                  Active Telemetry
                 </span>
               </div>
               <div className="flex items-center justify-between text-xs font-mono font-black text-[#07221A]">

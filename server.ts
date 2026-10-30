@@ -4,11 +4,21 @@ import { createServer as createViteServer } from 'vite';
 import dotenv from 'dotenv';
 import http from 'http';
 import { Server } from 'socket.io';
-import { initializeApp } from 'firebase/app';
-import { getFirestore, doc, updateDoc, collection, getDocs } from 'firebase/firestore';
-import firebaseConfig from './firebase-applet-config.json';
+import fs from 'fs';
+import { initializeApp, getApps } from 'firebase/app';
+import { getFirestore, doc, updateDoc, collection, getDocs, Firestore } from 'firebase/firestore';
 
 dotenv.config();
+
+let firebaseConfig: any = {};
+try {
+  const configPath = path.resolve(process.cwd(), 'firebase-applet-config.json');
+  if (fs.existsSync(configPath)) {
+    firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  }
+} catch (e) {
+  console.warn('Could not read firebase-applet-config.json:', e);
+}
 
 const app = express();
 const httpServer = http.createServer(app);
@@ -17,22 +27,34 @@ const io = new Server(httpServer, {
 });
 const PORT = 3000;
 
-const firebaseApp = initializeApp(firebaseConfig);
-const db = getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId);
+let db: Firestore | null = null;
+try {
+  if (firebaseConfig.apiKey && firebaseConfig.projectId) {
+    const firebaseApp = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
+    db = firebaseConfig.firestoreDatabaseId
+      ? getFirestore(firebaseApp, firebaseConfig.firestoreDatabaseId)
+      : getFirestore(firebaseApp);
+  }
+} catch (fbErr) {
+  console.warn('Firebase server initialization warning:', fbErr);
+}
 
 const deviceHeartbeats = new Map<string, number>();
 
 io.on('connection', (socket) => {
   socket.on('heartbeat', (deviceId: string) => {
     deviceHeartbeats.set(deviceId, Date.now());
-    updateDoc(doc(db, 'devices', deviceId), {
-      status: 'online',
-      lastHeartbeat: Date.now()
-    }).catch(console.error);
+    if (db) {
+      updateDoc(doc(db, 'devices', deviceId), {
+        status: 'online',
+        lastHeartbeat: Date.now()
+      }).catch(console.error);
+    }
   });
 });
 
 setInterval(async () => {
+  if (!db) return;
   const now = Date.now();
   
   // 1. Update based on socket heartbeats

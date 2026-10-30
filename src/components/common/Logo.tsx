@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { motion } from 'motion/react';
+import { Leaf } from 'lucide-react';
 import { FreshNexEmblem } from './FreshNexEmblem';
 
 export interface LogoProps {
@@ -22,6 +23,8 @@ export const Logo: React.FC<LogoProps> = ({
   showTagline = false,
   orientation = 'horizontal',
 }) => {
+  const [isHovered, setIsHovered] = useState(false);
+
   // Size mapping for typography and proportions
   const textSizes: Record<string, string> = {
     xs: 'text-xs sm:text-sm',
@@ -45,28 +48,25 @@ export const Logo: React.FC<LogoProps> = ({
     xs: 'gap-1',
     sm: 'gap-1.5',
     md: 'gap-2',
-    lg: 'gap-2 sm:gap-2.5',
-    xl: 'gap-3',
+    lg: 'gap-2.5 sm:gap-3',
+    xl: 'gap-3.5',
     '2xl': 'gap-4',
   };
 
-  // Color logic for "Fresh"
-  // In 'dark' mode or 'auto', we provide a bright white with deep readability
-  // In 'light' mode, we use deep forest charcoal (#07221A)
-  const freshTextColor =
-    variant === 'light'
-      ? 'text-[#07221A]'
-      : variant === 'dark'
-      ? 'text-white'
-      : 'text-white group-hover:text-white';
+  const freshLetters = ['F', 'r', 'e', 's', 'h'];
+  const nexLetters = ['N', 'e', 'x'];
+
+  const isLight = variant === 'light';
 
   const content = (
     <motion.div
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
       className={`group inline-flex select-none transition-all duration-300 ${
         orientation === 'vertical' ? 'flex-col items-center text-center' : 'items-center'
       } ${gapSizes[size]} ${className}`}
-      whileHover={animated ? { scale: 1.02 } : undefined}
-      whileTap={animated ? { scale: 0.98 } : undefined}
+      whileHover={animated ? { scale: 1.03 } : undefined}
+      whileTap={animated ? { scale: 0.97 } : undefined}
     >
       {/* Precision FreshNex Infinity & Leaves Emblem with Multi-layer Animation */}
       <FreshNexEmblem
@@ -76,36 +76,148 @@ export const Logo: React.FC<LogoProps> = ({
         interactive={animated}
       />
 
-      {/* Brand Typography */}
-      <div className={`flex flex-col ${orientation === 'vertical' ? 'items-center' : 'items-start'}`}>
+      {/* Brand Typography Container (Target Element: div:nth-of-type(2)) */}
+      <motion.div
+        animate={
+          animated && isHovered
+            ? { x: 2 }
+            : { x: 0 }
+        }
+        transition={{ type: 'spring', stiffness: 360, damping: 24 }}
+        className={`relative flex flex-col ${
+          orientation === 'vertical' ? 'items-center' : 'items-start'
+        }`}
+      >
+        {/* Subtle Ambient Fresh Chlorophyll Glow Behind Typography */}
+        <motion.div
+          animate={
+            animated
+              ? {
+                  opacity: isHovered ? [0.45, 0.75, 0.45] : [0.15, 0.35, 0.15],
+                  scale: isHovered ? 1.08 : 1,
+                }
+              : undefined
+          }
+          transition={{ duration: 3, repeat: Infinity, ease: 'easeInOut' }}
+          className="absolute -inset-x-2 -inset-y-1 rounded-2xl bg-gradient-to-r from-emerald-400/20 via-teal-300/15 to-lime-400/20 blur-md pointer-events-none"
+        />
+
+        {/* Interactive Wordmark Row */}
         <div
-          className={`font-black tracking-tight font-sans flex items-center leading-none ${textSizes[size]}`}
+          className={`relative font-['Plus_Jakarta_Sans',sans-serif] font-extrabold tracking-tight flex items-center leading-none ${textSizes[size]}`}
         >
-          {/* "Fresh" */}
-          <span className={`${freshTextColor} transition-colors duration-200 drop-shadow-sm`}>
-            Fresh
+          {/* "Fresh" with Interactive Per-Character Wave & Deep Forest-Mint Tint */}
+          <span className="inline-flex items-center">
+            {freshLetters.map((char, idx) => (
+              <motion.span
+                key={`fresh-${idx}`}
+                animate={
+                  animated && isHovered
+                    ? {
+                        y: [0, -3.5, 0],
+                        color: isLight ? '#059669' : '#34D399',
+                      }
+                    : {
+                        y: 0,
+                        color: isLight ? '#07221A' : '#FFFFFF',
+                      }
+                }
+                transition={{
+                  duration: 0.38,
+                  delay: idx * 0.035,
+                  ease: [0.16, 1, 0.3, 1],
+                }}
+                className={`inline-block transition-colors duration-200 ${
+                  isLight
+                    ? 'text-[#07221A] drop-shadow-[0_1px_2px_rgba(16,185,129,0.12)]'
+                    : 'text-white drop-shadow-[0_1px_6px_rgba(16,185,129,0.28)]'
+                }`}
+              >
+                {char}
+              </motion.span>
+            ))}
           </span>
 
-          {/* "Nex" in radiant fresh green gradient */}
-          <span className="bg-gradient-to-r from-[#22C55E] via-[#34D399] to-[#4ADE80] bg-clip-text text-transparent ml-0.5 filter drop-shadow-[0_2px_8px_rgba(34,197,94,0.35)]">
-            Nex
-          </span>
+          {/* "Nex" in Flowing Animated Fresh Emerald-Lime Shimmer Gradient */}
+          <motion.span
+            animate={
+              animated
+                ? {
+                    backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
+                    y: isHovered ? [0, -3.5, 0] : 0,
+                  }
+                : undefined
+            }
+            transition={{
+              backgroundPosition: { duration: 4.5, repeat: Infinity, ease: 'linear' },
+              y: { duration: 0.4, delay: 0.18, ease: [0.16, 1, 0.3, 1] },
+            }}
+            style={{ backgroundSize: '200% 200%' }}
+            className="inline-flex items-center bg-gradient-to-r from-[#059669] via-[#10B981] to-[#65A30D] bg-clip-text text-transparent ml-0.5 filter drop-shadow-[0_2px_10px_rgba(16,185,129,0.32)]"
+          >
+            {nexLetters.map((char, idx) => (
+              <span key={`nex-${idx}`} className="inline-block">
+                {char}
+              </span>
+            ))}
+          </motion.span>
 
-          {/* Trademark ™ symbol */}
-          <span className="text-[0.42em] font-extrabold text-[#22C55E]/90 align-top ml-0.5 -mt-1 tracking-normal">
-            ™
-          </span>
+          {/* Animated Botanical Leaf & Trademark Superscript Accent */}
+          <motion.span
+            animate={
+              animated
+                ? {
+                    rotate: isHovered ? [0, 18, -10, 0] : [0, 8, 0],
+                    y: isHovered ? -2 : 0,
+                    scale: isHovered ? 1.15 : 1,
+                  }
+                : undefined
+            }
+            transition={{
+              duration: isHovered ? 0.5 : 3.2,
+              repeat: isHovered ? 0 : Infinity,
+              ease: 'easeInOut',
+            }}
+            className="inline-flex items-center ml-1 -mt-2 text-emerald-600"
+          >
+            <Leaf className="w-3 h-3 fill-emerald-400/30 stroke-[2.4]" />
+          </motion.span>
         </div>
 
-        {/* Optional Tagline */}
+        {/* Optional Interactive Fresh-Tint Tagline with Animated Dew Sweep */}
         {showTagline && (
-          <span
-            className={`font-medium tracking-wide text-[#22C55E]/90 mt-0.5 font-sans leading-tight hidden sm:block ${taglineSizes[size]}`}
+          <motion.div
+            initial={{ opacity: 0.9 }}
+            animate={
+              animated
+                ? {
+                    opacity: isHovered ? 1 : 0.92,
+                  }
+                : undefined
+            }
+            className="relative mt-1 overflow-hidden rounded-full px-2 py-0.5 bg-gradient-to-r from-emerald-500/10 via-teal-500/12 to-lime-500/10 border border-emerald-500/20 flex items-center gap-1.5"
           >
-            Track Freshness. Trust Every Bite.
-          </span>
+            {/* Flowing Shimmer Highlight across Tagline */}
+            <motion.span
+              animate={{ x: ['-120%', '220%'] }}
+              transition={{ duration: 3.8, repeat: Infinity, ease: 'easeInOut' }}
+              className="absolute inset-y-0 w-1/3 bg-gradient-to-r from-transparent via-white/60 to-transparent skew-x-12 pointer-events-none"
+            />
+
+            <motion.span
+              animate={{ scale: [1, 1.25, 1], opacity: [0.7, 1, 0.7] }}
+              transition={{ duration: 2.2, repeat: Infinity, ease: 'easeInOut' }}
+              className="w-1.5 h-1.5 rounded-full bg-emerald-500 shrink-0"
+            />
+
+            <span
+              className={`relative font-['DM_Sans',sans-serif] font-bold tracking-wide bg-gradient-to-r from-[#047857] via-[#059669] to-[#0D9488] bg-clip-text text-transparent leading-tight whitespace-nowrap ${taglineSizes[size]}`}
+            >
+              Track Freshness · Trust Every Bite
+            </span>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
     </motion.div>
   );
 
@@ -113,7 +225,7 @@ export const Logo: React.FC<LogoProps> = ({
     return (
       <Link
         to={linkTo}
-        className="inline-block focus:outline-none focus-visible:ring-2 focus-visible:ring-[#22C55E] rounded-2xl"
+        className="inline-block focus:outline-none focus-visible:ring-2 focus-visible:ring-[#10B981] rounded-2xl"
         aria-label="FreshNex Home"
       >
         {content}

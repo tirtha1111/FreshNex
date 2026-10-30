@@ -20,14 +20,14 @@ if (savedConfigStr) {
 }
 
 export const firebaseConfig = {
-  apiKey: savedConfig.apiKey || metaEnv.VITE_FIREBASE_API_KEY || appletConfig?.apiKey || 'AIzaSyCyM0wApLbwJ-W5uZajMfHqrEK1CgD53Wk',
-  authDomain: savedConfig.authDomain || metaEnv.VITE_FIREBASE_AUTH_DOMAIN || appletConfig?.authDomain || 'freshnex-9bf3f.firebaseapp.com',
-  databaseURL: savedConfig.databaseURL || metaEnv.VITE_FIREBASE_DATABASE_URL || 'https://freshnex-9bf3f-default-rtdb.firebaseio.com',
-  projectId: savedConfig.projectId || metaEnv.VITE_FIREBASE_PROJECT_ID || appletConfig?.projectId || 'freshnex-9bf3f',
-  firestoreDatabaseId: savedConfig.firestoreDatabaseId || appletConfig?.firestoreDatabaseId || 'ai-studio-freshnex-49eab42e-b36e-4f53-a64b-4f4bda5f7eec',
-  storageBucket: savedConfig.storageBucket || metaEnv.VITE_FIREBASE_STORAGE_BUCKET || appletConfig?.storageBucket || 'freshnex-9bf3f.firebasestorage.app',
-  messagingSenderId: savedConfig.messagingSenderId || metaEnv.VITE_FIREBASE_MESSAGING_SENDER_ID || appletConfig?.messagingSenderId || '80795813209',
-  appId: savedConfig.appId || metaEnv.VITE_FIREBASE_APP_ID || appletConfig?.appId || '1:80795813209:web:b04802890968f9941db848'
+  apiKey: savedConfig.apiKey || metaEnv.VITE_FIREBASE_API_KEY || appletConfig?.apiKey || '',
+  authDomain: savedConfig.authDomain || metaEnv.VITE_FIREBASE_AUTH_DOMAIN || appletConfig?.authDomain || '',
+  databaseURL: savedConfig.databaseURL || metaEnv.VITE_FIREBASE_DATABASE_URL || '',
+  projectId: savedConfig.projectId || metaEnv.VITE_FIREBASE_PROJECT_ID || appletConfig?.projectId || '',
+  firestoreDatabaseId: savedConfig.firestoreDatabaseId || appletConfig?.firestoreDatabaseId || '',
+  storageBucket: savedConfig.storageBucket || metaEnv.VITE_FIREBASE_STORAGE_BUCKET || appletConfig?.storageBucket || '',
+  messagingSenderId: savedConfig.messagingSenderId || metaEnv.VITE_FIREBASE_MESSAGING_SENDER_ID || appletConfig?.messagingSenderId || '',
+  appId: savedConfig.appId || metaEnv.VITE_FIREBASE_APP_ID || appletConfig?.appId || ''
 };
 
 let app: any = null;

@@ -39,8 +39,6 @@ import { HistoricalReadingPoint } from '../types';
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
 import { formatRealtimeDateTime, parseTimestamp, extractLatestTimestamp } from '../utils/dateUtils';
-import { useApp } from '../context/AppContext';
-import * as FirebaseService from '../services/firebaseService';
 
 export const LiveDataPage: React.FC = () => {
   const { userProfile } = useAuth();
@@ -59,34 +57,6 @@ export const LiveDataPage: React.FC = () => {
   const [activeMetricTab, setActiveMetricTab] = useState<'temp' | 'humidity' | 'moisture' | 'ph' | 'gas'>('temp');
   const [copiedLink, setCopiedLink] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
-
-  const { devicesMap } = useApp();
-  const [deviceStatus, setDeviceStatus] = useState<'online' | 'offline' | undefined>(undefined);
-
-  const targetDevId = useMemo(() => {
-    if (!activeItem) return 'YGS-FD-000124';
-    const tag = (activeItem.tagId || '').replace(/^#/, '');
-    if (tag === 'COLD_DRINKS' || tag.includes('000124') || activeItem.id === 'COLD_DRINKS' || activeItem.name?.toLowerCase().includes('cold')) {
-      return 'YGS-FD-000124';
-    }
-    if (tag === 'MEAT' || tag.includes('112233') || activeItem.id === 'MEAT') {
-      return 'YGS-FD-112233';
-    }
-    return tag || activeItem.id || 'YGS-FD-000124';
-  }, [activeItem]);
-
-  useEffect(() => {
-    if (!targetDevId) return;
-    const unsub = FirebaseService.subscribeToDeviceStatus(targetDevId, (status) => {
-      setDeviceStatus(status);
-    });
-    return () => unsub();
-  }, [targetDevId]);
-
-  const matchedDevice = devicesMap[targetDevId] || devicesMap['YGS-FD-000124'];
-  const isDeviceOnline = deviceStatus !== undefined
-    ? deviceStatus === 'online'
-    : Boolean(matchedDevice?.online);
 
   useEffect(() => {
     if (itemId) {
@@ -339,8 +309,8 @@ export const LiveDataPage: React.FC = () => {
               
               <div className="pt-1 flex flex-wrap items-center justify-center sm:justify-start gap-x-3 gap-y-1.5 text-[11px] font-bold text-[#5C7F75]">
                 <div className="flex items-center gap-1">
-                  <span className={`w-2 h-2 rounded-full ${!isDeviceOnline ? 'bg-slate-400' : ((currentProduct as any)?.isUnconfigured) ? 'bg-[#FFAA00]' : 'bg-[#20E79A]'}`} />
-                  <span>{!isDeviceOnline ? 'Device Offline' : ((currentProduct as any)?.isUnconfigured) ? 'Awaiting Device Sync' : 'Bio-Sensor Linked'}</span>
+                  <span className={`w-2 h-2 rounded-full ${((currentProduct as any)?.isUnconfigured) ? 'bg-[#FFAA00]' : 'bg-[#20E79A]'}`} />
+                  <span>{((currentProduct as any)?.isUnconfigured) ? 'Awaiting Device Sync' : 'Bio-Sensor Linked'}</span>
                 </div>
                 <span className="hidden sm:inline">•</span>
                 <span>ID: {currentProduct.id}</span>
@@ -374,10 +344,9 @@ export const LiveDataPage: React.FC = () => {
           unit={((currentProduct as any)?.isUnconfigured) ? undefined : "°C"}
           icon={Thermometer}
           color={metricConfig.temp.color}
-          status={((currentProduct as any)?.isUnconfigured) ? undefined : (!isDeviceOnline ? 'Offline' : (isTempBreached ? 'critical' : 'normal'))}
-          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : (!isDeviceOnline ? 'Offline - Last Known Value' : (isTempBreached ? 'Elevated temperature' : 'Safe cooling bounds'))}
+          status={((currentProduct as any)?.isUnconfigured) ? undefined : (isTempBreached ? 'critical' : 'normal')}
+          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : (isTempBreached ? 'Elevated temperature' : 'Safe cooling bounds')}
           isEmpty={!!((currentProduct as any)?.isUnconfigured)}
-          isOnline={isDeviceOnline}
         />
  
         <SensorCard
@@ -386,10 +355,9 @@ export const LiveDataPage: React.FC = () => {
           unit={((currentProduct as any)?.isUnconfigured) ? undefined : "%"}
           icon={Droplets}
           color={metricConfig.humidity.color}
-          status={((currentProduct as any)?.isUnconfigured) ? undefined : (!isDeviceOnline ? 'Offline' : (isHumidityBreached ? 'critical' : 'normal'))}
-          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : (!isDeviceOnline ? 'Offline - Last Known Value' : "Moisture level steady")}
+          status={((currentProduct as any)?.isUnconfigured) ? undefined : (isHumidityBreached ? 'critical' : 'normal')}
+          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : "Moisture level steady"}
           isEmpty={!!((currentProduct as any)?.isUnconfigured)}
-          isOnline={isDeviceOnline}
         />
 
         <SensorCard
@@ -398,10 +366,9 @@ export const LiveDataPage: React.FC = () => {
           unit={((currentProduct as any)?.isUnconfigured) ? undefined : "g/m³"}
           icon={Droplets}
           color={metricConfig.moisture.color}
-          status={((currentProduct as any)?.isUnconfigured) ? undefined : (!isDeviceOnline ? 'Offline' : (liveMoisture.status === 'Condensation Hazard' ? 'critical' : liveMoisture.status === 'Elevated' ? 'warning' : 'normal'))}
-          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : (!isDeviceOnline ? 'Offline - Last Known Value' : `Dew: ${liveMoisture.dewPoint}°C • ${liveMoisture.status}`)}
+          status={((currentProduct as any)?.isUnconfigured) ? undefined : (liveMoisture.status === 'Condensation Hazard' ? 'critical' : liveMoisture.status === 'Elevated' ? 'warning' : 'normal')}
+          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : `Dew: ${liveMoisture.dewPoint}°C • ${liveMoisture.status}`}
           isEmpty={!!((currentProduct as any)?.isUnconfigured)}
-          isOnline={isDeviceOnline}
         />
 
         <SensorCard
@@ -410,10 +377,9 @@ export const LiveDataPage: React.FC = () => {
           unit={((currentProduct as any)?.isUnconfigured) ? undefined : "pH"}
           icon={Activity}
           color={metricConfig.ph.color}
-          status={((currentProduct as any)?.isUnconfigured) ? undefined : (!isDeviceOnline ? 'Offline' : (livePH.status === 'Acidic / Fermenting' ? 'critical' : livePH.status === 'Mild Acidic' ? 'warning' : 'normal'))}
-          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : (!isDeviceOnline ? 'Offline - Last Known Value' : `${livePH.status} • ${livePH.acidityClassification}`)}
+          status={((currentProduct as any)?.isUnconfigured) ? undefined : (livePH.status === 'Acidic / Fermenting' ? 'critical' : livePH.status === 'Mild Acidic' ? 'warning' : 'normal')}
+          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : `${livePH.status} • ${livePH.acidityClassification}`}
           isEmpty={!!((currentProduct as any)?.isUnconfigured)}
-          isOnline={isDeviceOnline}
         />
  
         <SensorCard
@@ -422,10 +388,9 @@ export const LiveDataPage: React.FC = () => {
           unit={((currentProduct as any)?.isUnconfigured) ? undefined : (sensorData?.gas && sensorData.gas > 500 ? "ADC" : "ppm")}
           icon={Wind}
           color={metricConfig.gas.color}
-          status={((currentProduct as any)?.isUnconfigured) ? undefined : (!isDeviceOnline ? 'Offline' : (isGasBreached ? 'critical' : 'normal'))}
-          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : (!isDeviceOnline ? 'Offline - Last Known Value' : (isGasBreached ? 'Gas threshold breach' : 'Stable atmosphere'))}
+          status={((currentProduct as any)?.isUnconfigured) ? undefined : (isGasBreached ? 'critical' : 'normal')}
+          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : (isGasBreached ? 'Gas threshold breach' : 'Stable atmosphere')}
           isEmpty={!!((currentProduct as any)?.isUnconfigured)}
-          isOnline={isDeviceOnline}
         />
       </div>
 

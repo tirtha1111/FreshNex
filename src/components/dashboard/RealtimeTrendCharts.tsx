@@ -64,7 +64,6 @@ interface RealtimeTrendChartsProps {
   thresholdRules?: SensorThresholdConfig;
   scanHistory?: ScanHistoryRecord[];
   onOpenThresholdModal?: () => void;
-  isDeviceOnline?: boolean;
 }
 
 export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
@@ -74,13 +73,11 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
   thresholdRules = DEFAULT_THRESHOLDS,
   scanHistory = [],
   onOpenThresholdModal,
-  isDeviceOnline = true,
 }) => {
   const { userProfile } = useAuth();
   const isAdmin = userProfile?.role === 'admin';
   const [viewMode, setViewMode] = useState<'correlated' | 'grid' | 'temperature' | 'humidity' | 'gas' | 'freshness'>('correlated');
   const [isLiveStreaming, setIsLiveStreaming] = useState(true);
-  const isEffectiveLive = isLiveStreaming && isDeviceOnline;
   const [activeSimulation, setActiveSimulation] = useState<'none' | 'tempSpike' | 'gasSpike' | 'chillingRecovery'>('none');
   const [showThresholdRefLines, setShowThresholdRefLines] = useState(true);
 
@@ -154,7 +151,7 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
 
   // Live real-time tick interval (updates every 3 seconds to reflect live IoT streaming)
   useEffect(() => {
-    if (!isEffectiveLive) return;
+    if (!isLiveStreaming) return;
 
     const interval = setInterval(() => {
       const now = Date.now();
@@ -348,9 +345,9 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
                 <h3 className="text-sm sm:text-base font-black text-[#07221A] tracking-tight">
                   Real-Time Environmental & Freshness Trends
                 </h3>
-                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full ${isEffectiveLive ? 'bg-[#EBFBF4] border border-[#20E79A]/30 text-[#07221A]' : 'bg-slate-100 border border-slate-200 text-slate-500'} text-[9px] font-bold`}>
-                  <span className={`w-1.5 h-1.5 rounded-full ${isEffectiveLive ? 'bg-[#20E79A] animate-ping' : 'bg-slate-400'}`} />
-                  {isEffectiveLive ? 'LIVE IOT FEED' : !isDeviceOnline ? 'DEVICE OFFLINE' : 'STREAM PAUSED'}
+                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#EBFBF4] border border-[#20E79A]/30 text-[9px] font-bold text-[#07221A]">
+                  <span className={`w-1.5 h-1.5 rounded-full ${isLiveStreaming ? 'bg-[#20E79A] animate-ping' : 'bg-slate-400'}`} />
+                  {isLiveStreaming ? 'LIVE IOT FEED' : 'STREAM PAUSED'}
                 </span>
               </div>
               <p className="text-[11px] sm:text-xs text-[#5C7F75] font-semibold mt-0.5">

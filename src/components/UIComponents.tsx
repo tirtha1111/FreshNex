@@ -65,13 +65,11 @@ export const LiveIndicator: React.FC<LiveIndicatorProps> = ({ isConnected, isDem
     return (
       <div className="inline-flex items-center gap-2 px-3.5 py-1.5 bg-[#FF6A00]/15 border border-[#FF6A00]/35 text-[#FFAA00] rounded-full text-xs font-bold select-none shadow-sm shadow-[#FF6A00]/20 backdrop-blur-md">
         <span className="relative flex h-2 w-2">
-          {isConnected && (
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FFAA00] opacity-75"></span>
-          )}
-          <span className={`relative inline-flex rounded-full h-2 w-2 ${isConnected ? 'bg-[#FF6A00]' : 'bg-[#7E6A5E]'}`}></span>
+          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FFAA00] opacity-75"></span>
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-[#FF6A00]"></span>
         </span>
         <Activity className="w-3.5 h-3.5" />
-        <span className="uppercase tracking-wider">{isConnected ? 'ESP32 Telemetry Live' : 'ESP32 Disconnected'}</span>
+        <span className="uppercase tracking-wider">ESP32 Telemetry Live</span>
       </div>
     );
   }
