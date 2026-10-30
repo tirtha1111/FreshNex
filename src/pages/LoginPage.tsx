@@ -392,25 +392,24 @@ export const LoginPage: React.FC = () => {
           </motion.div>
 
           <motion.h1
-            initial={{ opacity: 0, y: 8 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.12 }}
-            className="text-3xl font-extrabold text-[#07221A] font-['Plus_Jakarta_Sans',sans-serif] tracking-tight"
+            transition={{ duration: 0.45, delay: 0.12, ease: [0.16, 1, 0.3, 1] }}
+            className="text-3xl sm:text-[2.5rem] leading-[1.15] pt-1 flex items-baseline justify-center gap-2.5 flex-wrap"
           >
-            Welcome to{' '}
-            <span className="bg-gradient-to-r from-[#059669] via-[#10B981] to-[#16A34A] bg-clip-text text-transparent">
-              FreshNex
+            <span className="font-['Playfair_Display',Georgia,serif] italic font-medium text-[#174936] tracking-[-0.01em] text-[0.92em]">
+              Welcome to
             </span>
+            <motion.span
+              animate={{ backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'] }}
+              transition={{ duration: 4.5, repeat: Infinity, ease: 'linear' }}
+              whileHover={{ scale: 1.04 }}
+              style={{ backgroundSize: '200% 200%' }}
+              className="font-['Outfit',sans-serif] font-extrabold tracking-[-0.035em] bg-gradient-to-r from-[#064E3B] via-[#059669] to-[#10B981] bg-clip-text text-transparent drop-shadow-[0_4px_14px_rgba(16,185,129,0.25)] pb-0.5"
+            >
+              FreshNex
+            </motion.span>
           </motion.h1>
-
-          <motion.p
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.18 }}
-            className="text-xs text-[#3B5E52] font-medium max-w-xs mx-auto leading-relaxed"
-          >
-            Select User or Admin portal to monitor live food freshness and quality sensors
-          </motion.p>
         </div>
 
         {/* Main Glassmorphic Fresh Login Card with 3D Tilt & Animated Corner Brackets */}
