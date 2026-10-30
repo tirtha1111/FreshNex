@@ -22,6 +22,11 @@ export interface SensorData {
   moisture?: number; // Absolute moisture content in air (g/m³), repeatedly calculated from temp & humidity
   dewPoint?: number; // Dew point condensation temperature (°C)
   ph?: number; // Calculated thermodynamic pH derived from temperature, humidity, and moisture
+  impact?: number; // Impact / shock sensor reading (G-force)
+  light?: number; // Ambient light sensor exposure reading (lux)
+  gpsLat?: number; // NEO-6M GPS module latitude
+  gpsLng?: number; // NEO-6M GPS module longitude
+  gpsSats?: number; // NEO-6M GPS satellites locked
   timestamp: number;
 }
 
@@ -34,6 +39,8 @@ export interface HistoricalReadingPoint {
   moisture?: number; // Calculated moisture (g/m³)
   dewPoint?: number;
   ph?: number; // Calculated pH
+  impact?: number;
+  light?: number;
 }
 
 export interface ScanHistoryRecord {
@@ -47,6 +54,11 @@ export interface ScanHistoryRecord {
   gas: number;
   moisture?: number; // Calculated moisture (g/m³)
   ph?: number; // Calculated pH
+  impact?: number; // Impact sensor reading (G)
+  light?: number; // Light sensor reading (lx)
+  gpsLat?: number; // NEO-6M GPS latitude
+  gpsLng?: number; // NEO-6M GPS longitude
+  gpsSats?: number; // NEO-6M GPS satellites locked
   freshnessScore: number;
   status: FreshnessStatus;
   timestamp: number;
@@ -97,6 +109,11 @@ export interface DeviceData {
   mq135_raw?: number;
   moisture?: number;
   ph?: number;
+  impact?: number;
+  light?: number;
+  gpsLat?: number;
+  gpsLng?: number;
+  gpsSats?: number;
   lastUpdated?: number;
   last_update?: number;
   timestamp?: number;

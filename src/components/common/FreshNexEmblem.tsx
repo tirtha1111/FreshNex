@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion } from 'motion/react';
 
-const EMBLEM_SRC = '/freshnex-emblem.png';
+const UPLOADED_LOGO_CLEAN_SRC = '/assets/aistudio/freshnex_logo_clean.png?v=2';
 
 interface FreshNexEmblemProps {
   className?: string;
@@ -18,33 +18,37 @@ export const FreshNexEmblem: React.FC<FreshNexEmblemProps> = ({
   withGlow = true,
   interactive = true,
 }) => {
-  // Preset pixel dimensions calibrated to the authentic uncut emblem aspect ratio (747 x 565 ~ 1.322)
+  // Preset pixel dimensions calibrated to the full uncropped FreshNex logo aspect ratio (586 x 388 ~ 1.51)
   const sizeMap: Record<string, { height: number; width: number }> = {
-    xs: { height: 18, width: 24 },
-    sm: { height: 24, width: 32 },
-    md: { height: 32, width: 42 },
-    lg: { height: 40, width: 53 },
-    xl: { height: 52, width: 69 },
-    '2xl': { height: 68, width: 90 },
+    xs: { height: 28, width: 42 },
+    sm: { height: 36, width: 54 },
+    md: { height: 42, width: 64 },
+    lg: { height: 78, width: 118 },
+    xl: { height: 98, width: 148 },
+    '2xl': { height: 122, width: 184 },
   };
 
-  const dimensions = typeof size === 'number'
-    ? { height: size, width: Math.round(size * (747 / 565)) }
-    : sizeMap[size] || sizeMap.md;
+  const dimensions =
+    typeof size === 'number'
+      ? { height: size, width: Math.round(size * (586 / 388)) }
+      : sizeMap[size] || sizeMap.md;
 
   return (
     <motion.div
       className={`relative inline-flex items-center justify-center shrink-0 select-none ${className}`}
       style={{ width: dimensions.width, height: dimensions.height }}
+      initial={animated ? { opacity: 0, scale: 0.88, y: 6 } : undefined}
       animate={
         animated
           ? {
-              y: [0, -2.5, 0],
+              opacity: 1,
+              scale: [1, 1.035, 1],
+              y: [0, -3.5, 0],
               filter: withGlow
                 ? [
-                    'drop-shadow(0 0 6px rgba(34, 197, 94, 0.3))',
-                    'drop-shadow(0 0 16px rgba(74, 222, 128, 0.55))',
-                    'drop-shadow(0 0 6px rgba(34, 197, 94, 0.3))',
+                    'drop-shadow(0 4px 10px rgba(16, 185, 129, 0.22))',
+                    'drop-shadow(0 8px 20px rgba(34, 197, 94, 0.45))',
+                    'drop-shadow(0 4px 10px rgba(16, 185, 129, 0.22))',
                   ]
                 : undefined,
             }
@@ -53,9 +57,10 @@ export const FreshNexEmblem: React.FC<FreshNexEmblemProps> = ({
       transition={
         animated
           ? {
-              duration: 3.5,
-              repeat: Infinity,
-              ease: 'easeInOut',
+              opacity: { duration: 0.45, ease: 'easeOut' },
+              scale: { duration: 4, repeat: Infinity, ease: 'easeInOut' },
+              y: { duration: 3.6, repeat: Infinity, ease: 'easeInOut' },
+              filter: { duration: 3.6, repeat: Infinity, ease: 'easeInOut' },
             }
           : undefined
       }
@@ -63,29 +68,21 @@ export const FreshNexEmblem: React.FC<FreshNexEmblemProps> = ({
         interactive
           ? {
               scale: 1.08,
-              filter: 'drop-shadow(0 0 20px rgba(74, 222, 128, 0.75))',
-              transition: { duration: 0.25, ease: 'easeOut' },
+              y: -3,
+              filter: 'drop-shadow(0 10px 24px rgba(16, 185, 129, 0.6))',
+              transition: { duration: 0.3, ease: 'easeOut' },
             }
           : undefined
       }
       whileTap={interactive ? { scale: 0.95 } : undefined}
     >
-      <svg
-        viewBox="0 0 747 565"
-        fill="none"
-        xmlns="http://www.w3.org/2000/svg"
-        className="w-full h-full overflow-visible pointer-events-none"
-      >
-        <image
-          href={EMBLEM_SRC}
-          x="0"
-          y="0"
-          width="747"
-          height="565"
-          preserveAspectRatio="xMidYMid meet"
-        />
-      </svg>
+      {/* Full Uncropped Transparent FreshNex Logo */}
+      <img
+        src={UPLOADED_LOGO_CLEAN_SRC}
+        alt="FreshNex Official Logo"
+        draggable={false}
+        className="relative z-10 w-full h-full object-contain pointer-events-none select-none"
+      />
     </motion.div>
   );
 };
-

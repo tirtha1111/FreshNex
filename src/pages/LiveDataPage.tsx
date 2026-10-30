@@ -17,7 +17,10 @@ import {
   Scan,
   ShieldCheck,
   Clock,
-  Calendar
+  Calendar,
+  Zap,
+  Sun,
+  Navigation
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -54,17 +57,16 @@ export const LiveDataPage: React.FC = () => {
     updateThresholds
   } = useFreshness();
 
-  const [activeMetricTab, setActiveMetricTab] = useState<'temp' | 'humidity' | 'moisture' | 'ph' | 'gas'>('temp');
+  const [activeMetricTab, setActiveMetricTab] = useState<'temp' | 'humidity' | 'moisture' | 'ph' | 'gas' | 'impact' | 'light'>('temp');
   const [copiedLink, setCopiedLink] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
   useEffect(() => {
-    if (itemId) {
-      if (!activeItem || activeItem.id.toLowerCase() !== itemId.toLowerCase()) {
-        scanItem(itemId).catch(() => {});
-      }
+    const targetId = itemId || userProfile?.assignedProductId || 'COLD_DRINKS';
+    if (!activeItem || (itemId && activeItem.id.toLowerCase() !== itemId.toLowerCase())) {
+      scanItem(targetId).catch(() => {});
     }
-  }, [itemId]);
+  }, [itemId, userProfile?.assignedProductId]);
 
   const isTempBreached = sensorData && sensorData.temperature > thresholds.tempMax;
   const isGasBreached = sensorData && (sensorData.gas > 500 ? sensorData.gas > 1400 : sensorData.gas > thresholds.gasWarning);
@@ -83,17 +85,23 @@ export const LiveDataPage: React.FC = () => {
     { category: activeItem?.category, gas: sensorData?.gas }
   );
 
+  const liveImpact = Number(sensorData?.impact ?? 0.08);
+  const liveLight = Math.round(Number(sensorData?.light ?? 14));
+  const liveGpsLat = Number(sensorData?.gpsLat ?? 28.6139);
+  const liveGpsLng = Number(sensorData?.gpsLng ?? 77.2090);
+  const liveGpsSats = Number(sensorData?.gpsSats ?? 9);
+
   const lastResponseFormatted = useMemo(() => {
     const raw = extractLatestTimestamp(sensorData, Date.now());
     return formatRealtimeDateTime(raw).fullStr;
   }, [sensorData]);
 
   const chartData: HistoricalReadingPoint[] = [
-    { time: '09:00', timestamp: 1, temperature: 4.0, humidity: 60, gas: 112, moisture: calculateMoisture(4.0, 60).absoluteMoisture, ph: calculatePH(4.0, 60, calculateMoisture(4.0, 60).absoluteMoisture).ph },
-    { time: '09:30', timestamp: 2, temperature: 4.1, humidity: 61, gas: 115, moisture: calculateMoisture(4.1, 61).absoluteMoisture, ph: calculatePH(4.1, 61, calculateMoisture(4.1, 61).absoluteMoisture).ph },
-    { time: '10:00', timestamp: 3, temperature: 4.3, humidity: 63, gas: 118, moisture: calculateMoisture(4.3, 63).absoluteMoisture, ph: calculatePH(4.3, 63, calculateMoisture(4.3, 63).absoluteMoisture).ph },
-    { time: '10:15', timestamp: 4, temperature: 4.2, humidity: 62, gas: 119, moisture: calculateMoisture(4.2, 62).absoluteMoisture, ph: calculatePH(4.2, 62, calculateMoisture(4.2, 62).absoluteMoisture).ph },
-    { time: '10:30', timestamp: 5, temperature: 4.1, humidity: 61, gas: 120, moisture: calculateMoisture(4.1, 61).absoluteMoisture, ph: calculatePH(4.1, 61, calculateMoisture(4.1, 61).absoluteMoisture).ph },
+    { time: '09:00', timestamp: 1, temperature: 4.0, humidity: 60, gas: 112, moisture: calculateMoisture(4.0, 60).absoluteMoisture, ph: calculatePH(4.0, 60, calculateMoisture(4.0, 60).absoluteMoisture).ph, impact: 0.05, light: 12 },
+    { time: '09:30', timestamp: 2, temperature: 4.1, humidity: 61, gas: 115, moisture: calculateMoisture(4.1, 61).absoluteMoisture, ph: calculatePH(4.1, 61, calculateMoisture(4.1, 61).absoluteMoisture).ph, impact: 0.07, light: 13 },
+    { time: '10:00', timestamp: 3, temperature: 4.3, humidity: 63, gas: 118, moisture: calculateMoisture(4.3, 63).absoluteMoisture, ph: calculatePH(4.3, 63, calculateMoisture(4.3, 63).absoluteMoisture).ph, impact: 0.11, light: 15 },
+    { time: '10:15', timestamp: 4, temperature: 4.2, humidity: 62, gas: 119, moisture: calculateMoisture(4.2, 62).absoluteMoisture, ph: calculatePH(4.2, 62, calculateMoisture(4.2, 62).absoluteMoisture).ph, impact: 0.09, light: 14 },
+    { time: '10:30', timestamp: 5, temperature: 4.1, humidity: 61, gas: 120, moisture: calculateMoisture(4.1, 61).absoluteMoisture, ph: calculatePH(4.1, 61, calculateMoisture(4.1, 61).absoluteMoisture).ph, impact: 0.06, light: 13 },
     { 
       time: '10:45', 
       timestamp: 6, 
@@ -101,7 +109,9 @@ export const LiveDataPage: React.FC = () => {
       humidity: sensorData ? sensorData.humidity : 62, 
       gas: sensorData ? sensorData.gas : 120,
       moisture: sensorData?.moisture ?? liveMoisture.absoluteMoisture,
-      ph: sensorData?.ph ?? livePH.ph
+      ph: sensorData?.ph ?? livePH.ph,
+      impact: liveImpact,
+      light: liveLight
     },
   ];
 
@@ -125,6 +135,13 @@ export const LiveDataPage: React.FC = () => {
       dewPoint: sensorData?.dewPoint ?? liveMoisture.dewPoint,
       ph: sensorData?.ph ?? livePH.ph,
       gas: sensorData?.gas,
+      impact: liveImpact,
+      light: liveLight,
+      neo6mGps: {
+        latitude: liveGpsLat,
+        longitude: liveGpsLng,
+        satellites: liveGpsSats
+      },
       freshnessScore: freshnessReport?.score,
       status: freshnessReport?.status,
     };
@@ -170,6 +187,9 @@ export const LiveDataPage: React.FC = () => {
     moisture: { name: 'Calculated Moisture', unit: 'g/m³', color: '#0EA5E9', bg: '#E0F2FE' },
     ph: { name: 'Calculated pH', unit: 'pH', color: '#10B981', bg: '#ECFDF5' },
     gas: { name: 'Gas Level (VOC)', unit: 'ppm', color: '#9333EA', bg: '#F5EBFF' },
+    impact: { name: 'Impact Sensor', unit: 'G', color: '#F59E0B', bg: '#FEF3C7' },
+    light: { name: 'Light Sensor', unit: 'lx', color: '#EAB308', bg: '#FEF9C3' },
+    gps: { name: 'NEO-6M GPS', unit: 'Sats', color: '#06B6D4', bg: '#CFFAFE' },
   };
 
   return (
@@ -336,8 +356,8 @@ export const LiveDataPage: React.FC = () => {
         </div>
       </div>
  
-      {/* FIVE LIVE METRIC TILES */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 sm:gap-4">
+      {/* EIGHT LIVE METRIC TILES - INCLUDES IMPACT, LIGHT & NEO-6M GPS */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
         <SensorCard
           title="Ambient Temperature"
           value={((currentProduct as any)?.isUnconfigured) ? '--' : (sensorData?.temperature || 4.2)}
@@ -392,6 +412,38 @@ export const LiveDataPage: React.FC = () => {
           message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : (isGasBreached ? 'Gas threshold breach' : 'Stable atmosphere')}
           isEmpty={!!((currentProduct as any)?.isUnconfigured)}
         />
+
+        <SensorCard
+          title="Impact Sensor"
+          value={((currentProduct as any)?.isUnconfigured) ? '--' : liveImpact.toFixed(2)}
+          unit={((currentProduct as any)?.isUnconfigured) ? undefined : "G"}
+          icon={Zap}
+          color={metricConfig.impact.color}
+          status={((currentProduct as any)?.isUnconfigured) ? undefined : (liveImpact > 1.5 ? 'critical' : 'normal')}
+          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : (liveImpact > 1.5 ? 'Shock detected (> 1.5 G)' : 'No Shock • Safe (< 1.5 G)')}
+          isEmpty={!!((currentProduct as any)?.isUnconfigured)}
+        />
+
+        <SensorCard
+          title="Light Sensor"
+          value={((currentProduct as any)?.isUnconfigured) ? '--' : liveLight}
+          unit={((currentProduct as any)?.isUnconfigured) ? undefined : "lx"}
+          icon={Sun}
+          color={metricConfig.light.color}
+          status={((currentProduct as any)?.isUnconfigured) ? undefined : (liveLight > 50 ? 'warning' : 'normal')}
+          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : (liveLight > 50 ? 'Light exposed (> 50 lx)' : 'Dark Sealed (< 50 lx)')}
+          isEmpty={!!((currentProduct as any)?.isUnconfigured)}
+        />
+
+        <SensorCard
+          title="NEO-6M GPS"
+          value={((currentProduct as any)?.isUnconfigured) ? '--' : `${liveGpsLat.toFixed(4)}°N, ${liveGpsLng.toFixed(4)}°E`}
+          icon={Navigation}
+          color={metricConfig.gps.color}
+          status={((currentProduct as any)?.isUnconfigured) ? undefined : 'normal'}
+          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : `NEO-6M • ${liveGpsSats} Sats Fix Locked`}
+          isEmpty={!!((currentProduct as any)?.isUnconfigured)}
+        />
       </div>
 
       {/* FRESHNESS SCORE WORKING PRINCIPLE & SCIENTIFIC REMARK CARD */}
@@ -401,6 +453,11 @@ export const LiveDataPage: React.FC = () => {
         category={currentProduct.category}
         isUnconfigured={!!((currentProduct as any)?.isUnconfigured)}
         thresholdRules={thresholds}
+        impact={liveImpact}
+        light={liveLight}
+        gpsLat={liveGpsLat}
+        gpsLng={liveGpsLng}
+        gpsSats={liveGpsSats}
       />
 
       {/* TREND GRAPH CARD */}
@@ -408,7 +465,7 @@ export const LiveDataPage: React.FC = () => {
         <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3.5 pb-2 border-b border-[#F4F7F6]">
           <div className="space-y-0.5">
             <h3 className="text-sm font-black text-[#07221A]">Live Bio-Telemetry Trends</h3>
-            <p className="text-[11px] text-[#5C7F75] font-semibold">Continuous sensor telemetry feed synced via Bluetooth/RFID.</p>
+            <p className="text-[11px] text-[#5C7F75] font-semibold">Continuous sensor telemetry feed synced via Bluetooth/RFID &amp; NEO-6M GPS.</p>
             <div className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-[10px] font-mono text-[#5C7F75]">
               <div className="flex items-center gap-1">
                 <Clock className="w-3 h-3 text-[#20E79A]" />
@@ -421,7 +478,7 @@ export const LiveDataPage: React.FC = () => {
           </div>
 
           <div className="flex overflow-x-auto max-w-full bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10 [scrollbar-width:none]">
-            {(['temp', 'humidity', 'moisture', 'ph', 'gas'] as const).map((tab) => {
+            {(['temp', 'humidity', 'moisture', 'ph', 'gas', 'impact', 'light'] as const).map((tab) => {
               const active = activeMetricTab === tab;
               return (
                 <button
@@ -438,7 +495,19 @@ export const LiveDataPage: React.FC = () => {
                     />
                   )}
                   <span className={`relative z-10 ${active ? 'text-[#07221A]' : 'text-[#5C7F75] hover:text-[#07221A]'}`}>
-                    {tab === 'temp' ? 'Temp (°C)' : tab === 'humidity' ? 'Humidity (%)' : tab === 'moisture' ? 'Moisture' : tab === 'ph' ? 'pH Level' : 'Gas (ppm)'}
+                    {tab === 'temp'
+                      ? 'Temp (°C)'
+                      : tab === 'humidity'
+                      ? 'Humidity (%)'
+                      : tab === 'moisture'
+                      ? 'Moisture'
+                      : tab === 'ph'
+                      ? 'pH Level'
+                      : tab === 'gas'
+                      ? 'Gas (ppm)'
+                      : tab === 'impact'
+                      ? 'Impact (G)'
+                      : 'Light (lx)'}
                   </span>
                 </button>
               );
@@ -497,7 +566,11 @@ export const LiveDataPage: React.FC = () => {
                     ? 'moisture'
                     : activeMetricTab === 'ph'
                     ? 'ph'
-                    : 'gas'
+                    : activeMetricTab === 'gas'
+                    ? 'gas'
+                    : activeMetricTab === 'impact'
+                    ? 'impact'
+                    : 'light'
                 }
                 stroke={metricConfig[activeMetricTab].color}
                 strokeWidth={3}

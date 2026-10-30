@@ -70,26 +70,30 @@ export const SensorCard: React.FC<SensorCardProps> = ({
       </div>
 
       <div className="flex flex-col mt-1">
-        <div className="flex items-baseline gap-1.5">
+        <div className="flex items-baseline gap-1.5 min-w-0">
           <motion.span 
             key={String(value)}
             initial={{ opacity: 0.6, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.25 }}
-            className="text-2xl sm:text-3xl font-black text-[#07221A] tracking-tight"
+            className={`${
+              String(value).length > 10
+                ? 'text-base sm:text-lg font-mono'
+                : 'text-2xl sm:text-3xl'
+            } font-black text-[#07221A] tracking-tight truncate`}
           >
             {isEmpty ? '--' : value}
           </motion.span>
           {unit && (
-            <span className="text-sm font-bold text-[#5C7F75]">
+            <span className="text-xs sm:text-sm font-bold text-[#5C7F75] shrink-0">
               {unit}
             </span>
           )}
         </div>
 
         {/* Message / Status footer */}
-        <div className="flex items-center justify-between mt-2.5 pt-2 border-t border-[#F4F7F6]">
-          <span className="text-[10px] font-bold text-[#5C7F75] truncate max-w-[150px]">
+        <div className="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-[#F4F7F6]">
+          <span className="text-[10px] font-bold text-[#5C7F75] truncate">
             {message || (isEmpty ? 'Awaiting connection' : 'Sensor Active')}
           </span>
           {isEmpty ? (

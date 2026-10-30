@@ -22,7 +22,10 @@ import {
   ChevronDown,
   Clock,
   Calendar,
-  Info
+  Info,
+  Zap,
+  Sun,
+  Navigation
 } from 'lucide-react';
 import { RealtimeTrendCharts } from '../components/dashboard/RealtimeTrendCharts';
 import { ThresholdConfigModal } from '../components/common/ThresholdConfigModal';
@@ -58,6 +61,11 @@ export const DashboardPage: React.FC = () => {
       dewPoint: sensorData.dewPoint,
       ph: sensorData.ph,
       gas: sensorData.gas,
+      impact: sensorData.impact ?? 0.08,
+      light: sensorData.light ?? 14,
+      gpsLat: sensorData.gpsLat ?? 28.6139,
+      gpsLng: sensorData.gpsLng ?? 77.2090,
+      gpsSats: sensorData.gpsSats ?? 9,
       freshnessScore: freshnessReport?.score ?? 98,
       status: freshnessReport?.status ?? 'Fresh',
       timestamp: extractLatestTimestamp(sensorData, Date.now()),
@@ -76,6 +84,11 @@ export const DashboardPage: React.FC = () => {
       dewPoint: -3.0,
       ph: 4.2,
       gas: targetDev?.mq135_raw ?? 110,
+      impact: targetDev?.impact ?? 0.08,
+      light: targetDev?.light ?? 14,
+      gpsLat: targetDev?.gpsLat ?? 28.6139,
+      gpsLng: targetDev?.gpsLng ?? 77.2090,
+      gpsSats: targetDev?.gpsSats ?? 9,
       freshnessScore: 98,
       status: 'Fresh',
       timestamp: extractLatestTimestamp(targetDev, Date.now()),
@@ -92,6 +105,43 @@ export const DashboardPage: React.FC = () => {
   const livePH = lastScanned
     ? calculatePH(lastScanned.temperature, lastScanned.humidity, liveMoisture?.absoluteMoisture, { category: (lastScanned as any).category, gas: lastScanned.gas })
     : (sensorData ? calculatePH(sensorData.temperature, sensorData.humidity, liveMoisture?.absoluteMoisture, { category: activeItem?.category, gas: sensorData.gas }) : null);
+
+  // Derived Impact Sensor (G-force), Light Sensor (lux), and NEO-6M GPS telemetry
+  const liveImpact = Number(
+    (lastScanned as any)?.impact ??
+    sensorData?.impact ??
+    targetDev?.impact ??
+    0.08
+  ).toFixed(2);
+  const liveImpactNum = parseFloat(liveImpact);
+
+  const liveLight = Math.round(
+    Number(
+      (lastScanned as any)?.light ??
+      sensorData?.light ??
+      targetDev?.light ??
+      14
+    )
+  );
+
+  const liveGpsLat = Number(
+    (lastScanned as any)?.gpsLat ??
+    sensorData?.gpsLat ??
+    targetDev?.gpsLat ??
+    28.6139
+  );
+  const liveGpsLng = Number(
+    (lastScanned as any)?.gpsLng ??
+    sensorData?.gpsLng ??
+    targetDev?.gpsLng ??
+    77.2090
+  );
+  const liveGpsSats = Number(
+    (lastScanned as any)?.gpsSats ??
+    sensorData?.gpsSats ??
+    targetDev?.gpsSats ??
+    9
+  );
 
   // Formatted last response received timestamp with full date, time, and 2-hour validity window
   const lastResponseInfo = useMemo(() => {
@@ -167,7 +217,7 @@ export const DashboardPage: React.FC = () => {
           </div>
           <p className="text-xs text-[#5C7F75] font-semibold max-w-md mx-auto lg:mx-0 leading-relaxed">
             {lastScanned 
-              ? (freshnessReport?.message || `Inspection telemetry: ${lastScanned.temperature}°C, ${lastScanned.humidity}% humidity, ${lastScanned.gas} ppm MQ-135 gas. ${lastScanned.status === 'Fresh' ? 'Optimal preservation bounds confirmed.' : 'Monitor cold-chain retention.'}`)
+              ? (freshnessReport?.message || `Inspection telemetry: ${lastScanned.temperature}°C, ${lastScanned.humidity}% humidity, ${lastScanned.gas} ppm MQ-135 gas. ${lastScanned.status === 'Fresh' ? 'Optimal preservation bounds confirmed.' : 'Monitor preservation retention.'}`)
               : 'IoT telemetry from physical RFID and QR scanned products. Ready for next product tag inspection.'}
           </p>
 
@@ -287,10 +337,10 @@ export const DashboardPage: React.FC = () => {
         </div>
       </motion.div>
 
-      {/* 2. SIX SENSOR METRICS CARDS - INCLUDES DERIVED THERMODYNAMIC pH */}
+      {/* 2. NINE SENSOR METRICS CARDS - INCLUDES IMPACT, LIGHT & NEO-6M GPS */}
       <motion.div 
         variants={itemVariants}
-        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4"
+        className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-3 gap-3 sm:gap-4"
       >
         {/* Metric 1: Temp */}
         <div className="glass-card p-3.5 sm:p-5 depth-2 space-y-3 flex flex-col justify-between transition-all">
@@ -516,6 +566,130 @@ export const DashboardPage: React.FC = () => {
                 strokeLinecap="round"
                 strokeOpacity={lastScanned ? 1 : 0.3}
               />
+            </svg>
+          </div>
+        </div>
+
+        {/* Metric 7: Impact Sensor (Shock & Vibration G-Force) */}
+        <div className="glass-card p-3.5 sm:p-5 depth-2 space-y-3 flex flex-col justify-between transition-all">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-0.5 min-w-0">
+              <span className="text-[9.5px] sm:text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block truncate">Impact Sensor</span>
+              <span className="text-lg sm:text-2xl font-black text-[#07221A] tracking-tight tabular-nums block">
+                {lastScanned ? `${liveImpact} G` : '0.00 G'}
+              </span>
+              <span className={`text-[9.5px] sm:text-[10px] font-bold block truncate ${
+                !lastScanned
+                  ? 'text-[#5C7F75]'
+                  : liveImpactNum > 1.5
+                  ? 'text-[#FF5A67]'
+                  : liveImpactNum > 0.8
+                  ? 'text-[#FFAA00]'
+                  : 'text-[#F59E0B]'
+              }`}>
+                {lastScanned
+                  ? (liveImpactNum > 1.5
+                      ? 'Shock Detected (> 1.5 G)'
+                      : 'No Shock • Safe (< 1.5 G)')
+                  : '0 Scans'}
+              </span>
+            </div>
+            <div className="neo-icon-box w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center text-[#F59E0B] shadow-sm shrink-0">
+              <Zap className="w-4 h-4 sm:w-5 sm:h-5" />
+            </div>
+          </div>
+          <div className="w-full h-7 pt-1">
+            <svg viewBox="0 0 100 30" className="w-full h-full overflow-visible">
+              <path 
+                d={lastScanned ? "M 0 18 L 22 18 L 30 8 L 38 24 L 46 14 L 54 18 L 100 18" : "M 0 25 L 100 25"} 
+                fill="none" 
+                stroke="#F59E0B" 
+                strokeWidth="2.5" 
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeOpacity={lastScanned ? 1 : 0.3}
+              />
+            </svg>
+          </div>
+        </div>
+
+        {/* Metric 8: Light Sensor (Ambient Illumination / UV Exposure) */}
+        <div className="glass-card p-3.5 sm:p-5 depth-2 space-y-3 flex flex-col justify-between transition-all">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-0.5 min-w-0">
+              <span className="text-[9.5px] sm:text-[10px] font-bold text-[#5C7F75] uppercase tracking-wider block truncate">Light Sensor</span>
+              <span className="text-lg sm:text-2xl font-black text-[#07221A] tracking-tight tabular-nums block">
+                {lastScanned ? `${liveLight} lx` : '0 lx'}
+              </span>
+              <span className={`text-[9.5px] sm:text-[10px] font-bold block truncate ${
+                !lastScanned
+                  ? 'text-[#5C7F75]'
+                  : liveLight > 100
+                  ? 'text-[#FF5A67]'
+                  : liveLight > 50
+                  ? 'text-[#FFAA00]'
+                  : 'text-[#D97706]'
+              }`}>
+                {lastScanned
+                  ? (liveLight > 50
+                      ? 'Light Exposed (> 50 lx)'
+                      : 'Dark Sealed (< 50 lx)')
+                  : '0 Scans'}
+              </span>
+            </div>
+            <div className="neo-icon-box w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center text-[#EAB308] shadow-sm shrink-0">
+              <Sun className="w-4 h-4 sm:w-5 sm:h-5" />
+            </div>
+          </div>
+          <div className="w-full h-7 pt-1">
+            <svg viewBox="0 0 100 30" className="w-full h-full overflow-visible">
+              <path 
+                d={lastScanned ? "M 0 21 Q 25 14 50 19 T 100 13" : "M 0 25 L 100 25"} 
+                fill="none" 
+                stroke="#EAB308" 
+                strokeWidth="2.5" 
+                strokeLinecap="round"
+                strokeOpacity={lastScanned ? 1 : 0.3}
+              />
+            </svg>
+          </div>
+        </div>
+
+        {/* Metric 9: NEO-6M GPS Module (Satellite Coordinates & Fix Lock) */}
+        <div className="glass-card p-3.5 sm:p-5 depth-2 space-y-3 flex flex-col justify-between transition-all col-span-2 md:col-span-1">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-0.5 min-w-0">
+              <span className="text-[9.5px] sm:text-[10px] font-extrabold text-[#0E7490] uppercase tracking-wider block truncate">NEO-6M GPS</span>
+              <span className="text-sm sm:text-lg font-black text-[#07221A] font-mono tracking-tight tabular-nums block truncate">
+                {lastScanned
+                  ? `${liveGpsLat.toFixed(4)}°N, ${liveGpsLng.toFixed(4)}°E`
+                  : '0.0000°N, 0.0000°E'}
+              </span>
+              <span className={`text-[9.5px] sm:text-[10px] font-bold block truncate ${
+                !lastScanned ? 'text-[#5C7F75]' : 'text-[#0891B2]'
+              }`}>
+                {lastScanned
+                  ? `NEO-6M • ${liveGpsSats} Sats Fix Locked`
+                  : 'Searching Satellites...'}
+              </span>
+            </div>
+            <div className="neo-icon-box w-8 h-8 sm:w-10 sm:h-10 rounded-xl sm:rounded-2xl flex items-center justify-center text-[#06B6D4] shadow-sm shrink-0">
+              <Navigation className="w-4 h-4 sm:w-5 sm:h-5" />
+            </div>
+          </div>
+          <div className="w-full h-7 pt-1">
+            <svg viewBox="0 0 100 30" className="w-full h-full overflow-visible">
+              <path 
+                d={lastScanned ? "M 0 22 Q 20 10 45 16 T 85 10 L 100 8" : "M 0 25 L 100 25"} 
+                fill="none" 
+                stroke="#06B6D4" 
+                strokeWidth="2.5" 
+                strokeLinecap="round"
+                strokeOpacity={lastScanned ? 1 : 0.3}
+              />
+              {lastScanned && (
+                <circle cx="100" cy="8" r="3" fill="#06B6D4" />
+              )}
             </svg>
           </div>
         </div>

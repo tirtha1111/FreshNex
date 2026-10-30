@@ -14,7 +14,10 @@ import {
   Info,
   Sparkles,
   Layers,
-  Activity
+  Activity,
+  Zap,
+  Sun,
+  Navigation
 } from 'lucide-react';
 import { FreshnessReport } from '../../utils/freshnessEngine';
 import { SensorThresholdConfig, DEFAULT_THRESHOLDS } from '../../services/alertThresholdService';
@@ -25,6 +28,11 @@ interface FreshnessPrincipleCardProps {
   category?: string;
   isUnconfigured?: boolean;
   thresholdRules?: SensorThresholdConfig;
+  impact?: number;
+  light?: number;
+  gpsLat?: number;
+  gpsLng?: number;
+  gpsSats?: number;
 }
 
 export const FreshnessPrincipleCard: React.FC<FreshnessPrincipleCardProps> = ({
@@ -33,6 +41,11 @@ export const FreshnessPrincipleCard: React.FC<FreshnessPrincipleCardProps> = ({
   category = 'Produce',
   isUnconfigured = false,
   thresholdRules,
+  impact = 0.08,
+  light = 14,
+  gpsLat = 28.6139,
+  gpsLng = 77.2090,
+  gpsSats = 9,
 }) => {
   const [showFormulaDetails, setShowFormulaDetails] = useState(false);
 
@@ -44,7 +57,7 @@ export const FreshnessPrincipleCard: React.FC<FreshnessPrincipleCardProps> = ({
           <h3 className="text-sm font-black text-[#07221A]">Awaiting Sensor Hardware Node Sync</h3>
         </div>
         <p className="text-xs text-[#5C7F75] font-semibold leading-relaxed">
-          The freshness score working principle requires active sensor telemetry (Temperature, Humidity, and MQ-135 Gas). Please pair or activate the micro-node hardware device.
+          The freshness score working principle requires active sensor telemetry (Temperature, Humidity, MQ-135 Gas, Impact, Light, and NEO-6M GPS). Please pair or activate the micro-node hardware device.
         </p>
       </div>
     );
@@ -58,6 +71,8 @@ export const FreshnessPrincipleCard: React.FC<FreshnessPrincipleCardProps> = ({
   const gasAn = workingPrinciple.gasAnalysis;
 
   const rules: SensorThresholdConfig = thresholdRules || report.activeThresholdRules || workingPrinciple.activeThresholdRules || DEFAULT_THRESHOLDS;
+  const impactSubScore = impact <= 1.5 ? 100 : Math.max(40, Math.round(100 - (impact - 1.5) * 35));
+  const lightSubScore = light <= 50 ? 100 : Math.max(50, Math.round(100 - (light - 50) * 0.5));
 
   return (
     <div className="bg-white border border-[#13493B]/10 rounded-[32px] p-6 sm:p-7 shadow-sm space-y-6">
@@ -121,7 +136,7 @@ export const FreshnessPrincipleCard: React.FC<FreshnessPrincipleCardProps> = ({
           <div className="p-4 rounded-2xl bg-white border border-[#13493B]/10 space-y-1.5 shadow-sm">
             <span className="text-[10px] font-black uppercase tracking-wider text-[#5C7F75] flex items-center gap-1">
               <Layers className="w-3 h-3 text-[#20E79A]" />
-              Scientific Cold-Chain Evaluation
+              Scientific Preservation Evaluation
             </span>
             <p className="text-[11px] font-semibold text-[#3D524C] leading-relaxed">
               {report.scientificRemark}
@@ -141,7 +156,7 @@ export const FreshnessPrincipleCard: React.FC<FreshnessPrincipleCardProps> = ({
         </div>
       </div>
 
-      {/* Sensor Component Breakdown (Temperature, Humidity, Gas) */}
+      {/* Sensor Component Breakdown (Temperature, Humidity, Gas, Impact, Light, NEO-6M GPS) */}
       <div className="space-y-3">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
           <h4 className="text-xs font-black text-[#07221A] uppercase tracking-wider">
@@ -295,6 +310,146 @@ export const FreshnessPrincipleCard: React.FC<FreshnessPrincipleCardProps> = ({
                 <div className="flex justify-between text-[#5C7F75] px-1 font-sans">
                   <span>Standard: Matched</span>
                   <span className="font-bold">Weight: {Math.round(weights.gas * 100)}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 4. Impact Sensor Analysis */}
+          <div className="p-4 rounded-2xl border border-[#13493B]/10 bg-[#FAFCFB] space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-black text-[#F59E0B]">
+                <Zap className="w-4 h-4" />
+                <span>Impact Sensor</span>
+              </div>
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                impact <= 1.5 ? 'bg-[#20E79A]/15 text-[#07221A]' : 'bg-red-100 text-red-700'
+              }`}>
+                {impactSubScore}% • {impact <= 1.5 ? 'Normal' : 'Shock Alert'}
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between items-baseline">
+                <span className="text-lg font-black text-[#07221A]">{impact.toFixed(2)} G</span>
+                <span className="text-[10px] font-bold text-[#20E79A]">
+                  Target: &lt; 1.50 G
+                </span>
+              </div>
+              <div className="w-full h-1.5 bg-[#EBF1EF] rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    impact <= 1.5 ? 'bg-[#20E79A]' : 'bg-[#F59E0B]'
+                  }`} 
+                  style={{ width: `${impactSubScore}%` }}
+                />
+              </div>
+              <p className="text-[10px] font-semibold text-[#5C7F75] pt-1 leading-snug">
+                {impact <= 1.5
+                  ? 'No physical drop or mechanical bruising shock detected during handling.'
+                  : 'Elevated kinetic impact force recorded; inspect packaging integrity.'}
+              </p>
+
+              <div className="pt-1 flex flex-col gap-1 text-[9px] font-mono">
+                <div className="px-2 py-1 rounded-lg bg-[#F4F7F6] border border-[#13493B]/10 flex items-center justify-between">
+                  <span className="text-[#5C7F75]">Threshold Rule:</span>
+                  <span className="font-bold text-[#07221A]">Safe &le; 1.50 G (Crit &gt; 2.50 G)</span>
+                </div>
+                <div className="flex justify-between text-[#5C7F75] px-1 font-sans">
+                  <span>Standard: Matched</span>
+                  <span className="font-bold">Shock &amp; Vibration</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 5. Light Sensor Analysis */}
+          <div className="p-4 rounded-2xl border border-[#13493B]/10 bg-[#FAFCFB] space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-black text-[#D97706]">
+                <Sun className="w-4 h-4" />
+                <span>Light Sensor</span>
+              </div>
+              <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
+                light <= 50 ? 'bg-[#20E79A]/15 text-[#07221A]' : 'bg-amber-100 text-amber-700'
+              }`}>
+                {lightSubScore}% • {light <= 50 ? 'Normal' : 'Exposed'}
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between items-baseline">
+                <span className="text-lg font-black text-[#07221A]">{Math.round(light)} lx</span>
+                <span className="text-[10px] font-bold text-[#20E79A]">
+                  Target: &lt; 50 lx
+                </span>
+              </div>
+              <div className="w-full h-1.5 bg-[#EBF1EF] rounded-full overflow-hidden">
+                <div 
+                  className={`h-full rounded-full transition-all duration-500 ${
+                    light <= 50 ? 'bg-[#20E79A]' : 'bg-[#EAB308]'
+                  }`} 
+                  style={{ width: `${lightSubScore}%` }}
+                />
+              </div>
+              <p className="text-[10px] font-semibold text-[#5C7F75] pt-1 leading-snug">
+                {light <= 50
+                  ? 'Dark sealed enclosure maintained; zero photo-oxidation risk.'
+                  : 'Elevated ambient light detected; verify container seal.'}
+              </p>
+
+              <div className="pt-1 flex flex-col gap-1 text-[9px] font-mono">
+                <div className="px-2 py-1 rounded-lg bg-[#F4F7F6] border border-[#13493B]/10 flex items-center justify-between">
+                  <span className="text-[#5C7F75]">Threshold Rule:</span>
+                  <span className="font-bold text-[#07221A]">Safe &le; 50 lx (Crit &gt; 150 lx)</span>
+                </div>
+                <div className="flex justify-between text-[#5C7F75] px-1 font-sans">
+                  <span>Standard: Matched</span>
+                  <span className="font-bold">UV / Lux Guard</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 6. NEO-6M GPS Module Telemetry */}
+          <div className="p-4 rounded-2xl border border-[#13493B]/10 bg-[#FAFCFB] space-y-2.5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-1.5 text-xs font-black text-[#0891B2]">
+                <Navigation className="w-4 h-4" />
+                <span>NEO-6M GPS</span>
+              </div>
+              <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-[#20E79A]/15 text-[#07221A]">
+                {gpsSats} Sats • Locked
+              </span>
+            </div>
+
+            <div className="space-y-1">
+              <div className="flex justify-between items-baseline gap-2">
+                <span className="text-sm font-black font-mono text-[#07221A] truncate">
+                  {gpsLat.toFixed(4)}°N, {gpsLng.toFixed(4)}°E
+                </span>
+                <span className="text-[10px] font-bold text-[#20E79A] shrink-0">
+                  Fix: 3D GNSS
+                </span>
+              </div>
+              <div className="w-full h-1.5 bg-[#EBF1EF] rounded-full overflow-hidden">
+                <div 
+                  className="h-full rounded-full transition-all duration-500 bg-[#06B6D4]" 
+                  style={{ width: '100%' }}
+                />
+              </div>
+              <p className="text-[10px] font-semibold text-[#5C7F75] pt-1 leading-snug">
+                u-blox NEO-6M satellite lock active with continuous geo-fenced transit telemetry.
+              </p>
+
+              <div className="pt-1 flex flex-col gap-1 text-[9px] font-mono">
+                <div className="px-2 py-1 rounded-lg bg-[#F4F7F6] border border-[#13493B]/10 flex items-center justify-between">
+                  <span className="text-[#5C7F75]">Hardware Module:</span>
+                  <span className="font-bold text-[#07221A]">u-blox NEO-6M (±1.2m)</span>
+                </div>
+                <div className="flex justify-between text-[#5C7F75] px-1 font-sans">
+                  <span>Signal: Active</span>
+                  <span className="font-bold">{gpsSats} Satellites</span>
                 </div>
               </div>
             </div>
