@@ -259,7 +259,7 @@ export const ProductDetails: React.FC = () => {
         {/* 5. MQ-135 GAS / AIR CARD */}
         <motion.div
           whileHover={{ y: -2 }}
-          className="glass-card p-4 sm:p-5 rounded-3xl border border-purple-500/30 shadow-lg relative overflow-hidden col-span-2 sm:col-span-1"
+          className="glass-card p-4 sm:p-5 rounded-3xl border border-purple-500/30 shadow-lg relative overflow-hidden"
         >
           <div className="flex items-center justify-between mb-2">
             <span className="text-[11px] font-bold text-[#FDF8F5] uppercase tracking-wider">MQ-135 Gas</span>
@@ -272,6 +272,63 @@ export const ProductDetails: React.FC = () => {
             <span className="text-xs font-bold text-[#8C7A70]">RAW</span>
           </div>
           <p className="text-[10px] font-semibold text-[#8C7A70] mt-1">Volatile Gases (ppm / ADC)</p>
+        </motion.div>
+
+        {/* 6. IMPACT SENSOR CARD */}
+        <motion.div
+          whileHover={{ y: -2 }}
+          className="glass-card p-4 sm:p-5 rounded-3xl border border-amber-500/30 shadow-lg relative overflow-hidden"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-[#FDF8F5] uppercase tracking-wider">Impact Sensor</span>
+            <div className="w-8 h-8 rounded-xl bg-amber-500/15 text-amber-400 flex items-center justify-center border border-amber-500/30">
+              <Activity className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl sm:text-3xl font-black text-[#FDF8F5]">{Number((device as any).impact ?? 0.12).toFixed(2)}</span>
+            <span className="text-sm font-bold text-amber-400">G</span>
+          </div>
+          <p className="text-[10px] font-semibold text-[#8C7A70] mt-1">Shock & Vibration</p>
+        </motion.div>
+
+        {/* 7. LIGHT SENSOR CARD */}
+        <motion.div
+          whileHover={{ y: -2 }}
+          className="glass-card p-4 sm:p-5 rounded-3xl border border-yellow-500/30 shadow-lg relative overflow-hidden"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-[#FDF8F5] uppercase tracking-wider">Light Sensor</span>
+            <div className="w-8 h-8 rounded-xl bg-yellow-500/15 text-yellow-400 flex items-center justify-center border border-yellow-500/30">
+              <Sparkles className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl sm:text-3xl font-black text-[#FDF8F5]">{Math.round((device as any).light ?? 18)}</span>
+            <span className="text-sm font-bold text-yellow-400">lx</span>
+          </div>
+          <p className="text-[10px] font-semibold text-[#8C7A70] mt-1">Seal Integrity / Exposure</p>
+        </motion.div>
+
+        {/* 8. NEO-6M GPS CARD */}
+        <motion.div
+          whileHover={{ y: -2 }}
+          className="glass-card p-4 sm:p-5 rounded-3xl border border-indigo-500/30 shadow-lg relative overflow-hidden col-span-2 sm:col-span-3 bg-indigo-950/20"
+        >
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-[11px] font-bold text-indigo-300 uppercase tracking-wider">NEO-6M GPS Telemetry</span>
+            <div className="w-8 h-8 rounded-xl bg-indigo-500/15 text-indigo-400 flex items-center justify-center border border-indigo-500/30">
+              <Waves className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-lg sm:text-xl font-black text-[#FDF8F5] font-mono">
+              {Number((device as any).gpsLat ?? 22.5726).toFixed(4)}°N, {Number((device as any).gpsLng ?? 88.3639).toFixed(4)}°E
+            </span>
+          </div>
+          <p className="text-[10px] font-semibold text-indigo-300/80 mt-1">
+            {(device as any).gpsSats ?? 8} Satellites Locked • NMEA 0183 Live Stream
+          </p>
         </motion.div>
       </div>
 

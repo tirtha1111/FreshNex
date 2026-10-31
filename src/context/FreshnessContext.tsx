@@ -5,23 +5,22 @@ import { calculateFreshness, FreshnessReport } from '../utils/freshnessEngine';
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
 import { FirebaseService } from '../services/firebaseService';
-import { 
-  SensorThresholdConfig, 
-  DEFAULT_THRESHOLDS, 
-  SensorAlertEvent, 
-  evaluateSensorReading, 
-  pushAlertToFirebase, 
-  subscribeToFirebaseAlerts, 
-  updateAlertReadState, 
-  markAllAlertsReadFirebase, 
-  resolveAlertInFirebase, 
+import {
+  SensorThresholdConfig,
+  DEFAULT_THRESHOLDS,
+  SensorAlertEvent,
+  evaluateSensorReading,
+  pushAlertToFirebase,
+  subscribeToFirebaseAlerts,
+  updateAlertReadState,
+  markAllAlertsReadFirebase,
+  resolveAlertInFirebase,
   deleteAlertFromFirebase,
   clearAllAlertsFromFirebase,
   saveGlobalThresholdsToFirebase,
   subscribeToGlobalThresholds,
   subscribeToProductThreshold,
   saveProductThresholdToFirebase,
-  normalizeProductKey
 } from '../services/alertThresholdService';
 import { playAlertChime } from '../services/alertSound';
 import { useAuth } from './AuthContext';
@@ -77,23 +76,40 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const [scanHistory, setScanHistory] = useState<ScanHistoryRecord[]>(DEFAULT_SCAN_HISTORY);
   const [isScanning, setIsScanning] = useState<boolean>(false);
   const [alerts, setAlerts] = useState<SensorAlertEvent[]>([]);
+  const [configVersion, setConfigVersion] = useState<number>(0);
 
   const assignedName = userProfile?.assignedProductName || '';
   const assignedTag = userProfile?.assignedProductId || '';
   const isAdmin = userProfile?.role === 'admin';
 
-  // Filter scan history and alerts for product users so they only see their assigned product (e.g. Cold Drinks)
+  // Re-bind subscriptions whenever Firebase credentials are updated in the Settings panel
+  useEffect(() => {
+    const handleConfigChange = () => {
+      setConfigVersion((v) => v + 1);
+    };
+    if (typeof window !== 'undefined') {
+      window.addEventListener('freshnex_firebase_config_updated', handleConfigChange);
+    }
+    return () => {
+      if (typeof window !== 'undefined') {
+        window.removeEventListener('freshnex_firebase_config_updated', handleConfigChange);
+      }
+    };
+  }, []);
+
+  // Filter scan history and alerts for product users so they only see their assigned product
   const filteredScanHistory = React.useMemo(() => {
     let list = scanHistory;
     if (!isAdmin && (assignedName || assignedTag)) {
-      list = scanHistory.filter(s =>
-        s.itemName.toLowerCase().includes(assignedName.toLowerCase()) ||
-        s.tagId.toLowerCase().includes(assignedTag.toLowerCase()) ||
-        s.itemId.toLowerCase().includes(assignedTag.toLowerCase())
+      list = scanHistory.filter(
+        (s) =>
+          s.itemName.toLowerCase().includes(assignedName.toLowerCase()) ||
+          s.tagId.toLowerCase().includes(assignedTag.toLowerCase()) ||
+          s.itemId.toLowerCase().includes(assignedTag.toLowerCase())
       );
     }
     const seen = new Set<string>();
-    return list.filter(item => {
+    return list.filter((item) => {
       const uniqueKey = item.id || `${item.itemId}-${item.timestamp}`;
       if (seen.has(uniqueKey)) return false;
       seen.add(uniqueKey);
@@ -104,10 +120,11 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const filteredAlerts = React.useMemo(() => {
     if (isAdmin) return alerts;
     if (assignedName || assignedTag) {
-      return alerts.filter(a =>
-        (a.itemName && a.itemName.toLowerCase().includes(assignedName.toLowerCase())) ||
-        (a.deviceId && a.deviceId.toLowerCase().includes(assignedTag.toLowerCase())) ||
-        (a.title && a.title.toLowerCase().includes(assignedName.toLowerCase()))
+      return alerts.filter(
+        (a) =>
+          (a.itemName && a.itemName.toLowerCase().includes(assignedName.toLowerCase())) ||
+          (a.deviceId && a.deviceId.toLowerCase().includes(assignedTag.toLowerCase())) ||
+          (a.title && a.title.toLowerCase().includes(assignedName.toLowerCase()))
       );
     }
     return alerts;
@@ -131,7 +148,7 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   });
 
   const toggleAudioMute = () => {
-    setIsAudioMuted(prev => {
+    setIsAudioMuted((prev) => {
       const next = !prev;
       localStorage.setItem('freshnex_audio_muted', String(next));
       return next;
@@ -141,20 +158,24 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   const updateThresholds = (newConfig: SensorThresholdConfig) => {
     setThresholds(newConfig);
     saveGlobalThresholdsToFirebase(newConfig);
-    
-    const targetProductKey = assignedTag || assignedName || activeItem?.id || activeItem?.name || 'COLD_DRINKS';
-    saveProductThresholdToFirebase(targetProductKey, {
-      tempMin: newConfig.tempMin,
-      tempMax: newConfig.tempMax,
-      tempCritical: newConfig.tempCritical,
-      humMin: newConfig.humidityMin,
-      humMax: newConfig.humidityMax,
-      gasWarning: newConfig.gasWarning,
-      gasCritical: newConfig.gasCritical,
-      productName: activeItem?.name || assignedName || 'Cold Drinks',
-    }, userProfile?.name || 'Admin').catch(e => console.warn(e));
 
-    // Re-evaluate freshness report with updated threshold rules immediately
+    const targetProductKey =
+      assignedTag || assignedName || activeItem?.id || activeItem?.name || 'COLD_DRINKS';
+    saveProductThresholdToFirebase(
+      targetProductKey,
+      {
+        tempMin: newConfig.tempMin,
+        tempMax: newConfig.tempMax,
+        tempCritical: newConfig.tempCritical,
+        humMin: newConfig.humidityMin,
+        humMax: newConfig.humidityMax,
+        gasWarning: newConfig.gasWarning,
+        gasCritical: newConfig.gasCritical,
+        productName: activeItem?.name || assignedName || 'Cold Drinks',
+      },
+      userProfile?.name || 'Admin'
+    ).catch((e) => console.warn(e));
+
     if (activeItem && sensorData) {
       const report = calculateFreshness({
         temperature: sensorData.temperature,
@@ -167,15 +188,16 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   };
 
-  // 0. Subscribe to Real-Time Product Thresholds (syncs admin-set product thresholds to user in real time)
+  // 0. Subscribe to Real-Time Product Thresholds from active Firebase credentials
   useEffect(() => {
-    const targetProductKey = assignedTag || assignedName || activeItem?.id || activeItem?.name || 'COLD_DRINKS';
+    const targetProductKey =
+      assignedTag || assignedName || activeItem?.id || activeItem?.name || 'COLD_DRINKS';
     const unsubProduct = subscribeToProductThreshold(targetProductKey, (productConfig) => {
       setThresholds(productConfig);
-      
-      // Immediately recalculate freshness report with admin-set thresholds
+
       if (sensorData) {
-        const itemToEval = activeItem || DEFAULT_ITEMS[targetProductKey] || DEFAULT_ITEMS['COLD_DRINKS'];
+        const itemToEval =
+          activeItem || DEFAULT_ITEMS[targetProductKey] || DEFAULT_ITEMS['COLD_DRINKS'];
         const report = calculateFreshness({
           temperature: sensorData.temperature,
           humidity: sensorData.humidity,
@@ -188,14 +210,23 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     });
 
     const unsubGlobal = subscribeToGlobalThresholds((globalConfig) => {
-      setThresholds(prev => ({ ...prev, ...globalConfig }));
+      setThresholds((prev) => ({ ...prev, ...globalConfig }));
     });
 
     return () => {
       unsubProduct();
       unsubGlobal();
     };
-  }, [assignedTag, assignedName, activeItem?.id, activeItem?.name, sensorData?.temperature, sensorData?.humidity, sensorData?.gas]);
+  }, [
+    assignedTag,
+    assignedName,
+    activeItem?.id,
+    activeItem?.name,
+    sensorData?.temperature,
+    sensorData?.humidity,
+    sensorData?.gas,
+    configVersion,
+  ]);
 
   // 1. Subscribe to Real-Time Firebase Alerts Collection
   useEffect(() => {
@@ -206,73 +237,82 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return () => {
       unsubscribe();
     };
-  }, []);
+  }, [configVersion]);
 
-  // 2. Load scan history on initial mount or when auth state changes
+  // 2. Load scan history on initial mount, auth state change, or Firebase credential update
   useEffect(() => {
-    FirebaseService.getScanHistory(currentUser?.uid).then(records => {
+    FirebaseService.getScanHistory(currentUser?.uid || userProfile?.uid).then((records) => {
       if (records && records.length > 0) {
         setScanHistory(records);
       }
     });
-  }, [currentUser?.uid]);
+  }, [currentUser?.uid, userProfile?.uid, configVersion]);
 
-  // 3. Process and evaluate incoming sensor data against thresholds
-  const handleSensorTelemetry = useCallback((data: SensorData & { isReal?: boolean }, currentItem?: FoodItem | null) => {
-    // Repeatedly calculate moisture from temperature and humidity
-    const moistureInfo = calculateMoisture(data.temperature, data.humidity);
-    const itemToEval = currentItem || activeItem;
-    const phInfo = calculatePH(data.temperature, data.humidity, moistureInfo.absoluteMoisture, {
-      category: itemToEval?.category,
-      gas: data.gas,
-    });
+  // 3. Process and evaluate incoming sensor data (all 9 parameters) against thresholds
+  const handleSensorTelemetry = useCallback(
+    (data: SensorData & { isReal?: boolean }, currentItem?: FoodItem | null) => {
+      const moistureInfo = calculateMoisture(data.temperature, data.humidity);
+      const itemToEval = currentItem || activeItem;
+      const phInfo = calculatePH(
+        data.temperature,
+        data.humidity,
+        moistureInfo.absoluteMoisture,
+        {
+          category: itemToEval?.category,
+          gas: data.gas,
+        }
+      );
 
-    const enrichedData: SensorData & { isReal?: boolean } = {
-      ...data,
-      moisture: data.moisture !== undefined ? data.moisture : moistureInfo.absoluteMoisture,
-      dewPoint: data.dewPoint !== undefined ? data.dewPoint : moistureInfo.dewPoint,
-      ph: data.ph !== undefined ? data.ph : phInfo.ph,
-    };
+      const enrichedData: SensorData & { isReal?: boolean } = {
+        ...data,
+        moisture: data.moisture !== undefined ? data.moisture : moistureInfo.absoluteMoisture,
+        dewPoint: data.dewPoint !== undefined ? data.dewPoint : moistureInfo.dewPoint,
+        ph: data.ph !== undefined ? data.ph : phInfo.ph,
+        impact: data.impact !== undefined ? data.impact : 0.12,
+        light: data.light !== undefined ? data.light : 18,
+        gpsLat: data.gpsLat !== undefined ? data.gpsLat : 22.5726,
+        gpsLng: data.gpsLng !== undefined ? data.gpsLng : 88.3639,
+        gpsSats: data.gpsSats !== undefined ? data.gpsSats : 8,
+      };
 
-    setSensorData(enrichedData);
-    
-    if (itemToEval) {
-      const report = calculateFreshness({
-        temperature: enrichedData.temperature,
-        humidity: enrichedData.humidity,
-        gas: enrichedData.gas,
-        category: itemToEval.category,
-        activeThresholdRules: thresholds,
-      });
-      setFreshnessReport(report);
+      setSensorData(enrichedData);
 
-      // ONLY evaluate and trigger alerts if the actual physical product is connected successfully
-      if (enrichedData.isReal) {
-        // Evaluate sensor readings for threshold breaches
-        const triggeredAlerts = evaluateSensorReading(enrichedData, itemToEval, thresholds);
-        if (triggeredAlerts.length > 0) {
-          triggeredAlerts.forEach(alert => {
-            // Push to Firebase in real-time
-            pushAlertToFirebase(alert, currentUser?.uid);
+      if (itemToEval) {
+        const report = calculateFreshness({
+          temperature: enrichedData.temperature,
+          humidity: enrichedData.humidity,
+          gas: enrichedData.gas,
+          category: itemToEval.category,
+          activeThresholdRules: thresholds,
+        });
+        setFreshnessReport(report);
 
-            // Play audible tone if not muted
-            if (!isAudioMuted && thresholds.enableAudio) {
-              playAlertChime(alert.severity);
-            }
-          });
+        if (enrichedData.isReal) {
+          const triggeredAlerts = evaluateSensorReading(enrichedData, itemToEval, thresholds);
+          if (triggeredAlerts.length > 0) {
+            triggeredAlerts.forEach((alert) => {
+              pushAlertToFirebase(alert, currentUser?.uid || userProfile?.uid);
+
+              if (!isAudioMuted && thresholds.enableAudio) {
+                playAlertChime(alert.severity);
+              }
+            });
+          }
         }
       }
-    }
-  }, [activeItem, thresholds, isAudioMuted, currentUser?.uid]);
+    },
+    [activeItem, thresholds, isAudioMuted, currentUser?.uid, userProfile?.uid]
+  );
 
   // Seed default scan history and active item for assigned product user if logged in with unique code
   useEffect(() => {
     if (!isAdmin && (assignedName || assignedTag)) {
       const prodName = assignedName || 'Cold Drinks';
       const tagId = assignedTag || 'COLD_DRINKS';
-      const hasItem = scanHistory.some(s =>
-        s.itemName.toLowerCase().includes(prodName.toLowerCase()) ||
-        s.tagId.toLowerCase().includes(tagId.toLowerCase())
+      const hasItem = scanHistory.some(
+        (s) =>
+          s.itemName.toLowerCase().includes(prodName.toLowerCase()) ||
+          s.tagId.toLowerCase().includes(tagId.toLowerCase())
       );
       if (!hasItem) {
         const defaultRecord: ScanHistoryRecord = {
@@ -286,11 +326,16 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           moisture: 4.2,
           ph: 4.2,
           gas: 110,
+          impact: 0.12,
+          light: 18,
+          gpsLat: 22.5726,
+          gpsLng: 88.3639,
+          gpsSats: 8,
           freshnessScore: 98,
           status: 'Fresh',
           timestamp: Date.now(),
         };
-        setScanHistory(prev => [defaultRecord, ...prev]);
+        setScanHistory((prev) => [defaultRecord, ...prev]);
       }
 
       if (!activeItem) {
@@ -311,6 +356,11 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           temperature: 3.5,
           humidity: 58,
           gas: 110,
+          impact: 0.12,
+          light: 18,
+          gpsLat: 22.5726,
+          gpsLng: 88.3639,
+          gpsSats: 8,
           timestamp: Date.now(),
         };
         handleSensorTelemetry(initSensor, itemObj as any);
@@ -318,7 +368,7 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [isAdmin, assignedName, assignedTag, scanHistory, activeItem, handleSensorTelemetry]);
 
-  // 4. Real-time sensor listener whenever activeItem changes
+  // 4. Real-time sensor listener whenever activeItem or Firebase credentials change
   useEffect(() => {
     if (!activeItem) {
       setSensorData(null);
@@ -333,7 +383,7 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     return () => {
       unsubscribe();
     };
-  }, [activeItem?.id, handleSensorTelemetry]);
+  }, [activeItem?.id, handleSensorTelemetry, configVersion]);
 
   // Scan product
   const scanItem = async (itemId: string): Promise<FoodItem> => {
@@ -344,14 +394,18 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       setActiveItem(item);
 
-      // Get instantaneous reading
       const initSensor = DEFAULT_SENSOR_DATA[item.id] || {
         temperature: 4.2,
         humidity: 62,
         gas: 120,
+        impact: 0.12,
+        light: 18,
+        gpsLat: 22.5726,
+        gpsLng: 88.3639,
+        gpsSats: 8,
         timestamp: Date.now(),
       };
-      
+
       handleSensorTelemetry(initSensor, item);
 
       const report = calculateFreshness({
@@ -364,12 +418,16 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setFreshnessReport(report);
 
       const initMoisture = calculateMoisture(initSensor.temperature, initSensor.humidity);
-      const initPH = calculatePH(initSensor.temperature, initSensor.humidity, initMoisture.absoluteMoisture, {
-        category: item.category,
-        gas: initSensor.gas,
-      });
+      const initPH = calculatePH(
+        initSensor.temperature,
+        initSensor.humidity,
+        initMoisture.absoluteMoisture,
+        {
+          category: item.category,
+          gas: initSensor.gas,
+        }
+      );
 
-      // Record to history
       const record: ScanHistoryRecord = {
         id: `scan-${Date.now()}`,
         itemId: item.id,
@@ -381,13 +439,18 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         gas: initSensor.gas,
         moisture: initSensor.moisture ?? initMoisture.absoluteMoisture,
         ph: initSensor.ph ?? initPH.ph,
+        impact: initSensor.impact ?? 0.12,
+        light: initSensor.light ?? 18,
+        gpsLat: initSensor.gpsLat ?? 22.5726,
+        gpsLng: initSensor.gpsLng ?? 88.3639,
+        gpsSats: initSensor.gpsSats ?? 8,
         freshnessScore: report.score,
         status: report.status,
         timestamp: Date.now(),
       };
 
-      await FirebaseService.saveScanHistory(record, currentUser?.uid);
-      setScanHistory(prev => [record, ...prev.filter(r => r.id !== record.id)]);
+      await FirebaseService.saveScanHistory(record, currentUser?.uid || userProfile?.uid);
+      setScanHistory((prev) => [record, ...prev.filter((r) => r.id !== record.id)]);
 
       return item;
     } finally {
@@ -423,8 +486,8 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const deleteHistoryRecord = (id: string) => {
-    setScanHistory(prev => {
-      const updated = prev.filter(r => r.id !== id);
+    setScanHistory((prev) => {
+      const updated = prev.filter((r) => r.id !== id);
       try {
         localStorage.setItem('freshnex_scan_history', JSON.stringify(updated));
       } catch (e) {
@@ -435,17 +498,16 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   };
 
   const clearHistory = async () => {
-    await FirebaseService.clearScanHistory(currentUser?.uid);
+    await FirebaseService.clearScanHistory(currentUser?.uid || userProfile?.uid);
     setScanHistory([]);
   };
 
   const reloadHistory = async () => {
-    const data = await FirebaseService.getScanHistory(currentUser?.uid);
+    const data = await FirebaseService.getScanHistory(currentUser?.uid || userProfile?.uid);
     setScanHistory(data);
   };
 
-  // Convert alerts to notifications shape for backward-compatibility with UI components
-  const notifications: FreshnessNotification[] = filteredAlerts.map(a => ({
+  const notifications: FreshnessNotification[] = filteredAlerts.map((a) => ({
     id: a.id,
     title: a.title,
     message: a.message,
@@ -461,7 +523,7 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     resolved: a.resolved,
   }));
 
-  const unreadCount = filteredAlerts.filter(n => !n.read).length;
+  const unreadCount = filteredAlerts.filter((n) => !n.read).length;
 
   return (
     <FreshnessContext.Provider
@@ -502,4 +564,3 @@ export const useFreshness = () => {
   }
   return context;
 };
-

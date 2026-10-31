@@ -79,11 +79,14 @@ export interface UserProfile {
 }
 
 export interface UserSettings {
-  emailNotifications: boolean;
-  scanAlerts: boolean;
-  systemUpdates: boolean;
-  theme: 'Dark' | 'Light';
-  language: 'English' | 'Spanish' | 'French' | 'German';
+  emailNotifications?: boolean;
+  scanAlerts?: boolean;
+  systemUpdates?: boolean;
+  theme?: 'Dark' | 'Light';
+  language?: 'English' | 'Spanish' | 'French' | 'German';
+  notificationsEnabled?: boolean;
+  tempUnit?: 'C' | 'F';
+  alertSoundEnabled?: boolean;
 }
 
 export interface AnalyticsSummary {
@@ -108,6 +111,7 @@ export interface DeviceData {
   gasLevel?: number;
   mq135_raw?: number;
   moisture?: number;
+  dewPoint?: number;
   ph?: number;
   impact?: number;
   light?: number;

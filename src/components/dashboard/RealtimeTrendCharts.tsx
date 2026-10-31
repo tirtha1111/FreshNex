@@ -33,7 +33,9 @@ import {
   TrendingDown,
   Info,
   Clock,
-  Calendar
+  Calendar,
+  Sun,
+  Navigation
 } from 'lucide-react';
 import { SensorData, FoodItem, ScanHistoryRecord } from '../../types';
 import { FreshnessReport, calculateFreshness } from '../../utils/freshnessEngine';
@@ -52,6 +54,11 @@ export interface TelemetryPoint {
   moisture: number; // Repeatedly calculated psychrometric moisture (g/m³)
   dewPoint: number; // Condensation temperature (°C)
   ph: number; // Calculated thermodynamic pH
+  impact: number; // Impact sensor (G)
+  light: number; // Light sensor (lx)
+  gpsLat: number; // NEO-6M GPS Latitude
+  gpsLng: number; // NEO-6M GPS Longitude
+  gpsSats: number; // NEO-6M Satellites
   freshnessScore: number;
   status: string;
   eventNote?: string;
@@ -126,6 +133,11 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
         moisture: m.absoluteMoisture,
         dewPoint: m.dewPoint,
         ph: p.ph,
+        impact: +(currentSensorData?.impact ?? 0.12).toFixed(2),
+        light: Math.round(currentSensorData?.light ?? 18),
+        gpsLat: currentSensorData?.gpsLat ?? 22.5726,
+        gpsLng: currentSensorData?.gpsLng ?? 88.3639,
+        gpsSats: currentSensorData?.gpsSats ?? 8,
         freshnessScore: report.score,
         status: report.status,
       });
@@ -197,6 +209,11 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
         moisture: m.absoluteMoisture,
         dewPoint: m.dewPoint,
         ph: p.ph,
+        impact: +(currentSensorData?.impact ?? 0.12).toFixed(2),
+        light: Math.round(currentSensorData?.light ?? 18),
+        gpsLat: currentSensorData?.gpsLat ?? 22.5726,
+        gpsLng: currentSensorData?.gpsLng ?? 88.3639,
+        gpsSats: currentSensorData?.gpsSats ?? 8,
         freshnessScore: report.score,
         status: report.status,
         eventNote,
@@ -218,6 +235,12 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
     gas: 120,
     moisture: 4.0,
     dewPoint: -2.3,
+    ph: 4.2,
+    impact: 0.12,
+    light: 18,
+    gpsLat: 22.5726,
+    gpsLng: 88.3639,
+    gpsSats: 8,
     freshnessScore: 100,
     status: 'Fresh',
   };
@@ -293,6 +316,20 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
                 <Wind className="w-3.5 h-3.5" /> MQ-135 Gas
               </span>
               <span className="font-mono font-black">{data.gas} ppm</span>
+            </div>
+
+            <div className="flex items-center justify-between text-amber-600">
+              <span className="flex items-center gap-1.5 font-bold">
+                <Activity className="w-3.5 h-3.5" /> Impact & Light
+              </span>
+              <span className="font-mono font-black">{Number(data.impact ?? 0.12).toFixed(2)} G • {Math.round(data.light ?? 18)} lx</span>
+            </div>
+
+            <div className="flex items-center justify-between text-indigo-600">
+              <span className="flex items-center gap-1.5 font-bold">
+                <Navigation className="w-3.5 h-3.5" /> NEO-6M GPS
+              </span>
+              <span className="font-mono font-black">{Number(data.gpsLat ?? 22.5726).toFixed(3)}°N, {Number(data.gpsLng ?? 88.3639).toFixed(3)}°E</span>
             </div>
 
             <div className="flex items-center justify-between text-[#20E79A] pt-1 border-t border-[#13493B]/10">
@@ -489,6 +526,18 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
           <div className="flex items-center gap-1 text-[#9333EA] font-mono font-bold tabular-nums" title="MQ-135 Gas">
             <Wind className="w-3.5 h-3.5" />
             <span>{latestPoint.gas} ppm</span>
+          </div>
+          <div className="flex items-center gap-1 text-amber-600 font-mono font-bold tabular-nums" title="Impact Sensor">
+            <Activity className="w-3.5 h-3.5" />
+            <span>{Number(latestPoint.impact ?? 0.12).toFixed(2)} G</span>
+          </div>
+          <div className="flex items-center gap-1 text-yellow-600 font-mono font-bold tabular-nums" title="Light Sensor">
+            <Sun className="w-3.5 h-3.5" />
+            <span>{Math.round(latestPoint.light ?? 18)} lx</span>
+          </div>
+          <div className="flex items-center gap-1 text-indigo-600 font-mono font-bold tabular-nums" title="NEO-6M GPS">
+            <Navigation className="w-3.5 h-3.5" />
+            <span>{latestPoint.gpsSats ?? 8} Sats</span>
           </div>
           <div className="flex items-center gap-1 text-[#07221A] font-black pl-2 border-l border-[#13493B]/15">
             <span className="text-[10px] text-[#5C7F75] uppercase">Score:</span>

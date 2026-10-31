@@ -1,14 +1,22 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { 
-  User, 
-  signInWithEmailAndPassword, 
-  createUserWithEmailAndPassword, 
-  signOut, 
+import {
+  User,
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
   sendPasswordResetEmail,
   onAuthStateChanged,
-  updateProfile
+  updateProfile,
 } from 'firebase/auth';
-import { auth, isFirebaseConfigured } from '../firebase/firebase';
+import { ref, set as dbSet, update as dbUpdate, onValue, off } from 'firebase/database';
+import { doc, setDoc } from 'firebase/firestore';
+import {
+  auth,
+  isFirebaseConfigured,
+  getActiveFirebaseConfig,
+  reinitializeFirebaseWithConfig,
+} from '../firebase/firebase';
+import { getDirectDatabase, getDirectFirestore } from '../services/firebaseService';
 import { UserProfile, UserSettings } from '../types';
 
 interface AuthContextType {
@@ -44,9 +52,72 @@ const DEFAULT_SETTINGS: UserSettings = {
   systemUpdates: false,
   theme: 'Dark',
   language: 'English',
+  notificationsEnabled: true,
+  tempUnit: 'C',
+  alertSoundEnabled: true,
 };
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+async function syncProfileToFirebase(profile: UserProfile) {
+  if (!profile.uid) return;
+  const rtdb = getDirectDatabase();
+  if (rtdb) {
+    try {
+      await dbUpdate(ref(rtdb, `users/${profile.uid}`), {
+        ...profile,
+        updatedAt: Date.now(),
+      });
+    } catch (e) {
+      console.warn('RTDB profile sync warning:', e);
+    }
+  }
+  const fs = getDirectFirestore();
+  if (fs) {
+    try {
+      await setDoc(
+        doc(fs, 'users', profile.uid),
+        {
+          ...profile,
+          updatedAt: Date.now(),
+        },
+        { merge: true }
+      );
+    } catch (e) {
+      console.warn('Firestore profile sync warning:', e);
+    }
+  }
+}
+
+async function syncSettingsToFirebase(uid: string, settings: UserSettings) {
+  if (!uid) return;
+  const rtdb = getDirectDatabase();
+  if (rtdb) {
+    try {
+      await dbSet(ref(rtdb, `userSettings/${uid}`), {
+        ...settings,
+        updatedAt: Date.now(),
+      });
+    } catch (e) {
+      console.warn('RTDB userSettings sync warning:', e);
+    }
+  }
+  const fs = getDirectFirestore();
+  if (fs) {
+    try {
+      await setDoc(
+        doc(fs, 'users', uid),
+        {
+          settings,
+          updatedAt: Date.now(),
+        },
+        { merge: true }
+      );
+    } catch (e) {
+      console.warn('Firestore userSettings sync warning:', e);
+    }
+  }
+}
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [currentUser, setCurrentUser] = useState<User | null>(() => {
@@ -85,19 +156,58 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userSettings, setUserSettings] = useState<UserSettings>(() => {
     try {
       const stored = localStorage.getItem('freshnex_settings');
-      if (stored) return JSON.parse(stored);
+      if (stored) return { ...DEFAULT_SETTINGS, ...JSON.parse(stored) };
     } catch (e) {
       console.warn(e);
     }
     return DEFAULT_SETTINGS;
   });
 
-  // Start with loading = false if session was already restored from localStorage, otherwise wait for auth listener
   const [isLoading, setIsLoading] = useState<boolean>(() => {
     const hasStored = !!localStorage.getItem('freshnex_profile');
     return !hasStored && !!auth;
   });
   const [authError, setAuthError] = useState<string | null>(null);
+
+  // Sync per-login Firebase config and subscribe to live user settings in Firebase
+  useEffect(() => {
+    const activeUid = userProfile?.uid || currentUser?.uid;
+    if (!activeUid) return;
+
+    // Activate any per-login Firebase credentials configured in the Settings panel for this login
+    const loginCfg = getActiveFirebaseConfig(activeUid);
+    reinitializeFirebaseWithConfig(loginCfg, activeUid);
+
+    // Sync profile to Firebase
+    if (userProfile?.uid) {
+      syncProfileToFirebase(userProfile);
+    }
+
+    const rtdb = getDirectDatabase();
+    if (!rtdb) return;
+
+    const settingsRef = ref(rtdb, `userSettings/${activeUid}`);
+    const handleSettingsVal = (snapshot: any) => {
+      if (snapshot.exists()) {
+        const val = snapshot.val();
+        if (val && typeof val === 'object') {
+          setUserSettings((prev) => {
+            const merged = { ...prev, ...val };
+            localStorage.setItem('freshnex_settings', JSON.stringify(merged));
+            return merged;
+          });
+        }
+      } else {
+        // Seed initial settings for this login in Firebase
+        syncSettingsToFirebase(activeUid, userSettings);
+      }
+    };
+
+    onValue(settingsRef, handleSettingsVal);
+    return () => {
+      off(settingsRef, 'value', handleSettingsVal);
+    };
+  }, [userProfile?.uid, currentUser?.uid]);
 
   // Sync auth state
   useEffect(() => {
@@ -128,56 +238,62 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setIsLoading(false);
     }, 1200);
 
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      clearTimeout(timer);
-      if (user) {
-        setCurrentUser(user);
-        setUserProfile(prev => {
-          const isAdmin = 
-            user.email === 'realtirtharaj@gmail.com' || 
-            prev.role === 'admin' ||
-            (parsedStored && parsedStored.role === 'admin');
+    const unsubscribe = onAuthStateChanged(
+      auth,
+      (user) => {
+        clearTimeout(timer);
+        if (user) {
+          setCurrentUser(user);
+          setUserProfile((prev) => {
+            const isAdmin =
+              user.email === 'realtirtharaj@gmail.com' ||
+              prev.role === 'admin' ||
+              (parsedStored && parsedStored.role === 'admin');
 
-          const updated: UserProfile = {
-            ...prev,
-            uid: user.uid,
-            email: user.email || prev.email || '',
-            name: user.displayName || prev.name || user.email?.split('@')[0] || 'User',
-            role: isAdmin ? 'admin' : (prev.role || 'user'),
-            memberSince: prev.memberSince || new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-            organization: prev.organization || 'FreshNex Operations'
-          };
-          localStorage.setItem('freshnex_profile', JSON.stringify(updated));
-          return updated;
-        });
-      } else {
-        // If Firebase Auth returned null, check if we have a locally stored valid session (admin, demo, or product session)
-        const currentStored = localStorage.getItem('freshnex_profile');
-        if (currentStored) {
-          try {
-            const p = JSON.parse(currentStored);
-            if (p && p.uid) {
-              setCurrentUser({
-                uid: p.uid,
-                email: p.email || '',
-                displayName: p.name || '',
-              } as any);
-              setUserProfile(p);
-            }
-          } catch {
-            // Ignore parse errors
-          }
+            const updated: UserProfile = {
+              ...prev,
+              uid: user.uid,
+              email: user.email || prev.email || '',
+              name: user.displayName || prev.name || user.email?.split('@')[0] || 'User',
+              role: isAdmin ? 'admin' : prev.role || 'user',
+              memberSince:
+                prev.memberSince ||
+                new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+              organization: prev.organization || 'FreshNex Operations',
+            };
+            localStorage.setItem('freshnex_profile', JSON.stringify(updated));
+            syncProfileToFirebase(updated);
+            return updated;
+          });
         } else {
-          setCurrentUser(null);
-          setUserProfile(DEFAULT_PROFILE);
+          const currentStored = localStorage.getItem('freshnex_profile');
+          if (currentStored) {
+            try {
+              const p = JSON.parse(currentStored);
+              if (p && p.uid) {
+                setCurrentUser({
+                  uid: p.uid,
+                  email: p.email || '',
+                  displayName: p.name || '',
+                } as any);
+                setUserProfile(p);
+              }
+            } catch {
+              // Ignore parse errors
+            }
+          } else {
+            setCurrentUser(null);
+            setUserProfile(DEFAULT_PROFILE);
+          }
         }
+        setIsLoading(false);
+      },
+      (err) => {
+        console.warn('Auth observer error:', err);
+        clearTimeout(timer);
+        setIsLoading(false);
       }
-      setIsLoading(false);
-    }, (err) => {
-      console.warn('Auth observer error:', err);
-      clearTimeout(timer);
-      setIsLoading(false);
-    });
+    );
 
     return () => {
       clearTimeout(timer);
@@ -190,15 +306,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
 
     const cleanEmail = email.trim().toLowerCase();
-    const isAdminCredentials = 
-      cleanEmail === 'realtirtharaj@gmail.com' || 
-      cleanEmail.includes('admin') || 
+    const isAdminCredentials =
+      cleanEmail === 'realtirtharaj@gmail.com' ||
+      cleanEmail.includes('admin') ||
       (cleanEmail === 'realtirtharaj@gmail.com' && pass === '1122');
 
     const assignedRole: 'admin' | 'user' = isAdminCredentials ? 'admin' : 'user';
 
     if (!auth) {
-      // Demo / fallback admin sign in when auth is unavailable or in offline demo mode
       const mockUser = {
         uid: isAdminCredentials ? 'admin_realtirtharaj_101' : 'user_demo_101',
         email: email.trim(),
@@ -218,6 +333,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
       setUserProfile(profileData);
       localStorage.setItem('freshnex_profile', JSON.stringify(profileData));
+      await syncProfileToFirebase(profileData);
       setIsLoading(false);
       return;
     }
@@ -230,15 +346,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const profileData: UserProfile = {
         uid: userCred.user.uid,
         email: userCred.user.email || email,
-        name: isAdminCredentials ? 'Tirtharaj (System Admin)' : (userCred.user.displayName || userCred.user.email?.split('@')[0] || 'User'),
+        name: isAdminCredentials
+          ? 'Tirtharaj (System Admin)'
+          : userCred.user.displayName || userCred.user.email?.split('@')[0] || 'User',
         role: assignedRole,
         memberSince: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
         organization: 'FreshNex Network',
       };
       setUserProfile(profileData);
       localStorage.setItem('freshnex_profile', JSON.stringify(profileData));
+      await syncProfileToFirebase(profileData);
     } catch (err: any) {
-      // Fallback demo sign in for admin credentials (e.g. realtirtharaj@gmail.com / 1122)
       if (isAdminCredentials || pass === '1122' || pass === 'admin123') {
         const mockUser = {
           uid: 'admin_realtirtharaj_101',
@@ -258,6 +376,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
         setUserProfile(profileData);
         localStorage.setItem('freshnex_profile', JSON.stringify(profileData));
+        await syncProfileToFirebase(profileData);
       } else {
         const message = err.message || 'Failed to sign in. Please verify your credentials.';
         setAuthError(message);
@@ -281,11 +400,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error(msg);
     }
 
-    // Resolve product name for display
     let productName = 'Cold Drinks';
     if (cleanTag === 'MEAT' || cleanTag.includes('MEAT') || cleanTag.includes('UNCONFIGURED')) {
       productName = 'Meat Package';
-    } else if (cleanTag === 'COLD_DRINKS' || cleanTag === 'DRINKS' || cleanTag === 'KETCHUP' || cleanTag.includes('KETCHUP') || cleanTag === 'MILK' || cleanTag.includes('MILK') || cleanTag.includes('YGS') || cleanTag.includes('124')) {
+    } else if (
+      cleanTag === 'COLD_DRINKS' ||
+      cleanTag === 'DRINKS' ||
+      cleanTag === 'KETCHUP' ||
+      cleanTag.includes('KETCHUP') ||
+      cleanTag === 'MILK' ||
+      cleanTag.includes('MILK') ||
+      cleanTag.includes('YGS') ||
+      cleanTag.includes('124')
+    ) {
       productName = 'Cold Drinks';
     } else {
       productName = `Monitored Unit (${cleanTag})`;
@@ -314,6 +441,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setUserProfile(userProf);
     localStorage.setItem('freshnex_profile', JSON.stringify(userProf));
+    await syncProfileToFirebase(userProf);
     setIsLoading(false);
   };
 
@@ -323,7 +451,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (!auth) {
       setIsLoading(false);
-      const msg = 'Firebase Authentication is not initialized. Please verify your Firebase credentials in Settings.';
+      const msg =
+        'Firebase Authentication is not initialized. Please verify your Firebase credentials in Settings.';
       setAuthError(msg);
       throw new Error(msg);
     }
@@ -346,6 +475,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
       setUserProfile(newProf);
       localStorage.setItem('freshnex_profile', JSON.stringify(newProf));
+      await syncProfileToFirebase(newProf);
     } catch (err: any) {
       const message = err.message || 'Registration failed. Please check your information.';
       setAuthError(message);
@@ -379,17 +509,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateUserProfile = (updates: Partial<UserProfile>) => {
-    setUserProfile(prev => {
+    setUserProfile((prev) => {
       const next = { ...prev, ...updates };
       localStorage.setItem('freshnex_profile', JSON.stringify(next));
+      syncProfileToFirebase(next);
       return next;
     });
   };
 
   const updateUserSettings = (updates: Partial<UserSettings>) => {
-    setUserSettings(prev => {
+    setUserSettings((prev) => {
       const next = { ...prev, ...updates };
       localStorage.setItem('freshnex_settings', JSON.stringify(next));
+      const activeUid = userProfile?.uid || currentUser?.uid;
+      if (activeUid) {
+        syncSettingsToFirebase(activeUid, next);
+      }
       return next;
     });
   };
@@ -399,7 +534,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   return (
     <AuthContext.Provider
       value={{
-        currentUser: isDemoMode ? ({ uid: userProfile.uid, email: userProfile.email, displayName: userProfile.name } as any) : currentUser,
+        currentUser: isDemoMode
+          ? ({
+              uid: userProfile.uid,
+              email: userProfile.email,
+              displayName: userProfile.name,
+            } as any)
+          : currentUser,
         userProfile,
         userSettings,
         isLoading,

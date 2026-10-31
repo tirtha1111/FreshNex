@@ -48,7 +48,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
     { name: 'Analytics', path: '/analytics', icon: BarChart3 },
     { name: 'Notifications', path: '/alerts', icon: Bell, badge: unreadCount },
     { name: 'Users', path: '/profile', icon: Users },
-    { name: 'Settings', path: '/settings', icon: Settings },
   ];
 
   const userNavItems: NavItem[] = [

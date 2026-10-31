@@ -1,13 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { 
-  Search, 
-  Trash2, 
-  ExternalLink, 
-  QrCode, 
-  Download
-} from 'lucide-react';
+import { Search, Trash2, ExternalLink, QrCode, Download } from 'lucide-react';
 import { useFreshness } from '../context/FreshnessContext';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { formatRealtimeDateTime } from '../utils/dateUtils';
@@ -22,13 +16,12 @@ export const HistoryPage: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState<'all' | 'fresh' | 'at risk' | 'expired'>('all');
 
   const filteredHistory = scanHistory.filter((item) => {
-    const matchesSearch = 
+    const matchesSearch =
       item.itemName.toLowerCase().includes(searchFilter.toLowerCase()) ||
       item.tagId.toLowerCase().includes(searchFilter.toLowerCase());
-    
-    const matchesStatus = 
-      statusFilter === 'all' || 
-      item.status.toLowerCase() === statusFilter.toLowerCase();
+
+    const matchesStatus =
+      statusFilter === 'all' || item.status.toLowerCase() === statusFilter.toLowerCase();
 
     return matchesSearch && matchesStatus;
   });
@@ -39,23 +32,30 @@ export const HistoryPage: React.FC = () => {
   };
 
   const handleExportCSV = () => {
-    const headers = 'Product,Tag ID,Timestamp,Score,Status,Temp,Humidity,Gas\n';
-    const rows = filteredHistory.map(h => 
-      `"${h.itemName}","${h.tagId}","${h.timestamp}",${h.freshnessScore},"${h.status}",${h.temperature},${h.humidity},${h.gas}`
-    ).join('\n');
+    const headers =
+      'Product,Tag ID,Timestamp,Score,Status,Temp (°C),Humidity (%),Moisture (g/m³),pH,Gas (ppm),Impact (G),Light (lx),NEO-6M GPS Lat,NEO-6M GPS Lng,Satellites\n';
+    const rows = filteredHistory
+      .map(
+        (h) =>
+          `"${h.itemName}","${h.tagId}","${h.timestamp}",${h.freshnessScore},"${h.status}",${h.temperature},${h.humidity},${h.moisture ?? 4.2},${h.ph ?? 4.2},${h.gas},${h.impact ?? 0.12},${h.light ?? 18},${h.gpsLat ?? 22.5726},${h.gpsLng ?? 88.3639},${h.gpsSats ?? 8}`
+      )
+      .join('\n');
 
     const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement('a');
     link.setAttribute('href', url);
-    link.setAttribute('download', `FreshNex_Audit_Logs_${new Date().toISOString().slice(0,10)}.csv`);
+    link.setAttribute(
+      'download',
+      `FreshNex_Audit_Logs_${new Date().toISOString().slice(0, 10)}.csv`
+    );
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0, y: 15 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
@@ -68,7 +68,7 @@ export const HistoryPage: React.FC = () => {
             Audit History & Scanned Logs
           </h1>
           <p className="text-xs font-bold text-[#5C7F75] mt-1">
-            Complete telemetric log records stored and audited in real-time.
+            Complete telemetric log records stored and audited in real-time via Firebase.
           </p>
         </div>
 
@@ -99,7 +99,6 @@ export const HistoryPage: React.FC = () => {
 
       {/* Filter and Search Controls */}
       <div className="bg-white border border-[#13493B]/10 rounded-[24px] sm:rounded-[28px] p-3.5 sm:p-5 shadow-sm flex flex-col md:flex-row items-stretch md:items-center justify-between gap-3 sm:gap-4">
-        {/* Search */}
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-[#5C7F75] absolute left-3.5 top-1/2 -translate-y-1/2" />
           <input
@@ -111,11 +110,15 @@ export const HistoryPage: React.FC = () => {
           />
         </div>
 
-        {/* Status Filter Tabs with animated pill */}
         <div className="flex overflow-x-auto max-w-full [scrollbar-width:none] [&::-webkit-scrollbar]:hidden p-1 rounded-xl bg-[#F4F7F6] border border-[#13493B]/10 self-stretch md:self-auto">
           {(['all', 'fresh', 'at risk', 'expired'] as const).map((st) => {
             const active = statusFilter === st;
-            const labels = { all: 'All', fresh: 'Fresh', 'at risk': 'At Risk', expired: 'Expired' };
+            const labels = {
+              all: 'All',
+              fresh: 'Fresh',
+              'at risk': 'At Risk',
+              expired: 'Expired',
+            };
             return (
               <button
                 key={st}
@@ -129,7 +132,11 @@ export const HistoryPage: React.FC = () => {
                     transition={{ type: 'spring', stiffness: 400, damping: 30 }}
                   />
                 )}
-                <span className={`relative z-10 ${active ? 'text-[#07221A]' : 'text-[#5C7F75] hover:text-[#07221A]'}`}>
+                <span
+                  className={`relative z-10 ${
+                    active ? 'text-[#07221A]' : 'text-[#5C7F75] hover:text-[#07221A]'
+                  }`}
+                >
                   {labels[st]}
                 </span>
               </button>
@@ -146,37 +153,59 @@ export const HistoryPage: React.FC = () => {
               <QrCode className="w-6 h-6" />
             </div>
             <p className="text-sm font-black text-[#07221A]">No matching scan records</p>
-            <p className="text-xs font-semibold text-[#5C7F75]">Try changing your search keywords or perform a new scan.</p>
+            <p className="text-xs font-semibold text-[#5C7F75]">
+              Try changing your search keywords or perform a new scan.
+            </p>
           </div>
         ) : (
           <>
             {/* Mobile Card List */}
             <div className="md:hidden divide-y divide-[#13493B]/10">
               {filteredHistory.map((item) => (
-                <div key={item.id} className="p-4 space-y-3 hover:bg-[#F4F7F6]/40 transition-colors">
+                <div
+                  key={item.id}
+                  className="p-4 space-y-3 hover:bg-[#F4F7F6]/40 transition-colors"
+                >
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <div className="w-9 h-9 rounded-xl bg-[#EBF1EF] border border-[#13493B]/10 flex items-center justify-center text-[#07221A] font-black text-xs shrink-0">
                         {item.itemName.charAt(0)}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-xs font-black text-[#07221A] truncate">{item.itemName}</p>
-                        <p className="text-[10px] font-mono font-bold text-[#5C7F75] truncate">{item.tagId}</p>
+                        <p className="text-xs font-black text-[#07221A] truncate">
+                          {item.itemName}
+                        </p>
+                        <p className="text-[10px] font-mono font-bold text-[#5C7F75] truncate">
+                          {item.tagId}
+                        </p>
                       </div>
                     </div>
                     <StatusBadge status={item.status} size="sm" />
                   </div>
 
-                  <div className="grid grid-cols-2 gap-2 p-2.5 rounded-xl bg-[#F4F7F6] border border-[#13493B]/8 text-[11px]">
-                    <div>
-                      <span className="text-[9px] font-bold uppercase text-[#5C7F75] block">Freshness Score</span>
-                      <span className="font-black text-[#07221A] tabular-nums">{item.freshnessScore}</span>
-                      <span className="text-[10px] font-bold text-[#5C7F75]">/100</span>
+                  <div className="grid grid-cols-1 gap-2 p-2.5 rounded-xl bg-[#F4F7F6] border border-[#13493B]/8 text-[11px]">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[9px] font-bold uppercase text-[#5C7F75]">
+                        Freshness Score
+                      </span>
+                      <div>
+                        <span className="font-black text-[#07221A] tabular-nums">
+                          {item.freshnessScore}
+                        </span>
+                        <span className="text-[10px] font-bold text-[#5C7F75]">/100</span>
+                      </div>
                     </div>
                     <div>
-                      <span className="text-[9px] font-bold uppercase text-[#5C7F75] block">Sensor Readings</span>
-                      <span className="font-mono font-bold text-[#07221A] tabular-nums">
-                        {item.temperature}°C • {item.humidity}% • {item.gas}ppm
+                      <span className="text-[9px] font-bold uppercase text-[#5C7F75] block">
+                        Sensor Readings (All 9 Parameters)
+                      </span>
+                      <span className="font-mono font-bold text-[#07221A] tabular-nums block">
+                        {item.temperature}°C • {item.humidity}% • {item.gas}ppm •{' '}
+                        {Number(item.impact ?? 0.12).toFixed(2)}G • {Math.round(item.light ?? 18)}lx
+                      </span>
+                      <span className="font-mono font-semibold text-indigo-800 text-[10px] block mt-0.5">
+                        NEO-6M: {Number(item.gpsLat ?? 22.5726).toFixed(4)}°N,{' '}
+                        {Number(item.gpsLng ?? 88.3639).toFixed(4)}°E ({item.gpsSats ?? 8} Sats)
                       </span>
                     </div>
                   </div>
@@ -216,7 +245,7 @@ export const HistoryPage: React.FC = () => {
                     <th className="p-4">Timestamp</th>
                     <th className="p-4">Score</th>
                     <th className="p-4">Status</th>
-                    <th className="p-4">Readings</th>
+                    <th className="p-4">Sensor Readings (Temp / RH / Gas / Impact / Light / NEO-6M GPS)</th>
                     <th className="p-4 text-right">Actions</th>
                   </tr>
                 </thead>
@@ -240,9 +269,7 @@ export const HistoryPage: React.FC = () => {
                           </div>
                         </td>
 
-                        <td className="p-4 font-mono text-[#07221A] font-bold">
-                          {item.tagId}
-                        </td>
+                        <td className="p-4 font-mono text-[#07221A] font-bold">{item.tagId}</td>
 
                         <td className="p-4 text-[#5C7F75] font-semibold tabular-nums">
                           {formatRealtimeDateTime(item.timestamp).fullStr}
@@ -260,9 +287,19 @@ export const HistoryPage: React.FC = () => {
                         </td>
 
                         <td className="p-4 text-[#5C7F75] font-mono font-bold text-[11px] tabular-nums">
-                          <span>{item.temperature}°C</span> •{' '}
-                          <span>{item.humidity}%</span> •{' '}
-                          <span>{item.gas}ppm</span>
+                          <div>
+                            <span className="text-[#07221A]">{item.temperature}°C</span> •{' '}
+                            <span className="text-blue-600">{item.humidity}%</span> •{' '}
+                            <span className="text-purple-600">{item.gas}ppm</span> •{' '}
+                            <span className="text-amber-600">
+                              {Number(item.impact ?? 0.12).toFixed(2)}G
+                            </span>{' '}
+                            • <span className="text-yellow-600">{Math.round(item.light ?? 18)}lx</span>
+                          </div>
+                          <div className="text-[10px] text-indigo-700 mt-0.5">
+                            NEO-6M: {Number(item.gpsLat ?? 22.5726).toFixed(4)}°N,{' '}
+                            {Number(item.gpsLng ?? 88.3639).toFixed(4)}°E ({item.gpsSats ?? 8} Sats)
+                          </div>
                         </td>
 
                         <td className="p-4 text-right">

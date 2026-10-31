@@ -11,8 +11,7 @@ import {
   orderBy, 
   limit 
 } from 'firebase/firestore';
-import { getDirectDatabase } from './firebaseService';
-import { db as firestoreDb } from '../firebase/firebase';
+import { getDirectDatabase, getDirectFirestore } from './firebaseService';
 import { SensorData, FoodItem } from '../types';
 
 export interface SensorThresholdConfig {
@@ -230,6 +229,7 @@ export function evaluateSensorReading(
  */
 export async function pushAlertToFirebase(alert: SensorAlertEvent, userUid?: string): Promise<void> {
   const db = getDirectDatabase();
+  const firestoreDb = getDirectFirestore();
   const alertPayload = {
     ...alert,
     userId: userUid || 'anonymous',
@@ -273,6 +273,7 @@ export function subscribeToFirebaseAlerts(
   callback: (alerts: SensorAlertEvent[]) => void
 ): () => void {
   const db = getDirectDatabase();
+  const firestoreDb = getDirectFirestore();
   let unsubscribed = false;
 
   const getCachedAlerts = (): SensorAlertEvent[] => {
@@ -358,6 +359,7 @@ export function subscribeToFirebaseAlerts(
  */
 export async function updateAlertReadState(alertId: string, read: boolean = true): Promise<void> {
   const db = getDirectDatabase();
+  const firestoreDb = getDirectFirestore();
 
   // Local storage update
   try {
@@ -397,6 +399,7 @@ export async function updateAlertReadState(alertId: string, read: boolean = true
  */
 export async function markAllAlertsReadFirebase(alerts: SensorAlertEvent[]): Promise<void> {
   const db = getDirectDatabase();
+  const firestoreDb = getDirectFirestore();
 
   // LocalStorage update
   try {
@@ -426,6 +429,7 @@ export async function markAllAlertsReadFirebase(alerts: SensorAlertEvent[]): Pro
  */
 export async function resolveAlertInFirebase(alertId: string): Promise<void> {
   const db = getDirectDatabase();
+  const firestoreDb = getDirectFirestore();
 
   try {
     const stored = localStorage.getItem('freshnex_realtime_alerts');
@@ -458,6 +462,7 @@ export async function resolveAlertInFirebase(alertId: string): Promise<void> {
  */
 export async function deleteAlertFromFirebase(alertId: string): Promise<void> {
   const db = getDirectDatabase();
+  const firestoreDb = getDirectFirestore();
 
   try {
     const stored = localStorage.getItem('freshnex_realtime_alerts');
@@ -490,6 +495,7 @@ export async function deleteAlertFromFirebase(alertId: string): Promise<void> {
  */
 export async function clearAllAlertsFromFirebase(): Promise<void> {
   const db = getDirectDatabase();
+  const firestoreDb = getDirectFirestore();
 
   try {
     localStorage.removeItem('freshnex_realtime_alerts');
@@ -522,6 +528,7 @@ export async function clearAllAlertsFromFirebase(): Promise<void> {
  */
 export async function saveGlobalThresholdsToFirebase(config: SensorThresholdConfig): Promise<void> {
   const db = getDirectDatabase();
+  const firestoreDb = getDirectFirestore();
   try {
     localStorage.setItem('freshnex_sensor_thresholds', JSON.stringify(config));
   } catch (e) {}
@@ -550,6 +557,7 @@ export function subscribeToGlobalThresholds(
   callback: (config: SensorThresholdConfig) => void
 ): () => void {
   const db = getDirectDatabase();
+  const firestoreDb = getDirectFirestore();
   let unsubRtdb: (() => void) | null = null;
   let unsubFirestore: (() => void) | null = null;
 
@@ -710,6 +718,7 @@ export async function saveProductThresholdToFirebase(
 
   // 2. Save to Firebase Realtime Database
   const db = getDirectDatabase();
+  const firestoreDb = getDirectFirestore();
   if (db) {
     try {
       const aliases = Array.from(new Set([
@@ -771,6 +780,7 @@ export function subscribeToProductThreshold(
 ): () => void {
   const canonicalKey = normalizeProductKey(productKeyOrName);
   const db = getDirectDatabase();
+  const firestoreDb = getDirectFirestore();
 
   // 1. Initial cached seed check
   try {

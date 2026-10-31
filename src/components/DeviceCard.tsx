@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { Cpu, Wifi, Clock } from 'lucide-react';
+import { Cpu, Wifi, Clock, Navigation } from 'lucide-react';
 import { FirebaseService } from '../services/firebaseService';
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
-import { formatRealtimeDateTime, parseTimestamp, extractLatestTimestamp } from '../utils/dateUtils';
+import { formatRealtimeDateTime, extractLatestTimestamp } from '../utils/dateUtils';
 
 interface Device {
   device_id: string;
@@ -12,6 +12,11 @@ interface Device {
   temperature: number;
   humidity: number;
   mq135_raw: number;
+  impact?: number;
+  light?: number;
+  gpsLat?: number;
+  gpsLng?: number;
+  gpsSats?: number;
   last_update?: number;
   lastUpdated?: number;
 }
@@ -29,7 +34,12 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
     temperature: dev.temperature ?? 4.2,
     humidity: dev.humidity ?? 62.0,
     mq135_raw: dev.mq135_raw ?? 120,
-    timestamp: extractLatestTimestamp(dev)
+    impact: dev.impact ?? 0.12,
+    light: dev.light ?? 18,
+    gpsLat: dev.gpsLat ?? 22.5726,
+    gpsLng: dev.gpsLng ?? 88.3639,
+    gpsSats: dev.gpsSats ?? 8,
+    timestamp: extractLatestTimestamp(dev),
   });
 
   useEffect(() => {
@@ -43,7 +53,12 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
           temperature: data.temperature ?? dev.temperature ?? 4.2,
           humidity: data.humidity ?? dev.humidity ?? 62.0,
           mq135_raw: (data as any).gas ?? (data as any).mq135_raw ?? dev.mq135_raw ?? 120,
-          timestamp: extractLatestTimestamp(data)
+          impact: data.impact ?? dev.impact ?? 0.12,
+          light: data.light ?? dev.light ?? 18,
+          gpsLat: data.gpsLat ?? dev.gpsLat ?? 22.5726,
+          gpsLng: data.gpsLng ?? dev.gpsLng ?? 88.3639,
+          gpsSats: data.gpsSats ?? dev.gpsSats ?? 8,
+          timestamp: extractLatestTimestamp(data),
         });
       }
     });
@@ -55,10 +70,15 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
   }, [dev.device_id]);
 
   const liveMoisture = calculateMoisture(liveSensor.temperature, liveSensor.humidity);
-  const livePH = calculatePH(liveSensor.temperature, liveSensor.humidity, liveMoisture.absoluteMoisture, {
-    category: dev.product,
-    gas: liveSensor.mq135_raw,
-  });
+  const livePH = calculatePH(
+    liveSensor.temperature,
+    liveSensor.humidity,
+    liveMoisture.absoluteMoisture,
+    {
+      category: dev.product,
+      gas: liveSensor.mq135_raw,
+    }
+  );
 
   const { dateStr: formattedDate, timeStr: formattedTime } = formatRealtimeDateTime(
     Math.max(extractLatestTimestamp(liveSensor, 0), extractLatestTimestamp(dev, 0)) || Date.now()
@@ -81,50 +101,116 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
             <span className="text-[9px] font-black uppercase tracking-wider text-emerald-800 bg-emerald-100/90 px-2.5 py-0.5 rounded-full border border-emerald-300 inline-block truncate">
               Micro-Node
             </span>
-            <h3 className="text-base sm:text-lg font-black text-[#07221A] mt-1.5 truncate">{dev.product || 'Cold Drinks'}</h3>
-            <p className="text-xs font-mono font-bold text-amber-900 bg-amber-100/80 px-2 py-0.5 rounded-md border border-amber-300/80 inline-block mt-0.5 truncate">{dev.device_id}</p>
+            <h3 className="text-base sm:text-lg font-black text-[#07221A] mt-1.5 truncate">
+              {dev.product || 'Cold Drinks'}
+            </h3>
+            <p className="text-xs font-mono font-bold text-amber-900 bg-amber-100/80 px-2 py-0.5 rounded-md border border-amber-300/80 inline-block mt-0.5 truncate">
+              {dev.device_id}
+            </p>
           </div>
 
-          <span className={`px-2.5 py-1 rounded-full text-[10px] font-black shrink-0 flex items-center gap-1.5 shadow-xs ${
-            realtimeStatus === 'online' ? 'bg-emerald-100 text-emerald-700 border border-emerald-300' : 'bg-slate-100 text-slate-600 border border-slate-300'
-          }`}>
-            <span className={`w-2 h-2 rounded-full ${realtimeStatus === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'}`} />
+          <span
+            className={`px-2.5 py-1 rounded-full text-[10px] font-black shrink-0 flex items-center gap-1.5 shadow-xs ${
+              realtimeStatus === 'online'
+                ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                : 'bg-slate-100 text-slate-600 border border-slate-300'
+            }`}
+          >
+            <span
+              className={`w-2 h-2 rounded-full ${
+                realtimeStatus === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+              }`}
+            />
             <span>{realtimeStatus === 'online' ? 'ONLINE' : 'OFFLINE'}</span>
           </span>
         </div>
 
-        {/* Responsive Sensor Readout with pH */}
-        <div className="grid grid-cols-3 sm:grid-cols-5 gap-1.5 p-2.5 sm:p-3 rounded-2xl bg-gradient-to-b from-[#F4F7F6] to-[#EAEFEB] text-center border border-[#13493B]/8 shadow-inner">
-          <div className="space-y-0.5 p-1 rounded-lg bg-white/60 sm:bg-transparent">
-            <span className="text-[8.5px] font-bold text-[#5C7F75] uppercase block truncate">Temp</span>
-            <span className="text-[11px] sm:text-xs font-black text-[#07221A] tabular-nums">{liveSensor.temperature}°C</span>
+        {/* Responsive Sensor Readout (All Parameters) */}
+        <div className="grid grid-cols-4 gap-1.5 p-2.5 sm:p-3 rounded-2xl bg-gradient-to-b from-[#F4F7F6] to-[#EAEFEB] text-center border border-[#13493B]/8 shadow-inner">
+          <div className="space-y-0.5 p-1 rounded-lg bg-white/70">
+            <span className="text-[8px] font-bold text-[#5C7F75] uppercase block truncate">Temp</span>
+            <span className="text-[10.5px] sm:text-xs font-black text-[#07221A] tabular-nums">
+              {liveSensor.temperature}°C
+            </span>
           </div>
-          <div className="space-y-0.5 p-1 rounded-lg bg-white/60 sm:bg-transparent sm:border-l border-[#13493B]/10">
-            <span className="text-[8.5px] font-bold text-[#5C7F75] uppercase block truncate">Humidity</span>
-            <span className="text-[11px] sm:text-xs font-black text-[#07221A] tabular-nums">{liveSensor.humidity}%</span>
+          <div className="space-y-0.5 p-1 rounded-lg bg-white/70">
+            <span className="text-[8px] font-bold text-[#5C7F75] uppercase block truncate">RH%</span>
+            <span className="text-[10.5px] sm:text-xs font-black text-[#07221A] tabular-nums">
+              {liveSensor.humidity}%
+            </span>
           </div>
-          <div className="space-y-0.5 p-1 rounded-lg bg-white/60 sm:bg-transparent sm:border-l border-[#13493B]/10">
-            <span className="text-[8.5px] font-bold text-[#5C7F75] uppercase block truncate">Moisture</span>
-            <span className="text-[11px] sm:text-xs font-black text-[#07221A] tabular-nums">{liveMoisture.absoluteMoisture}</span>
+          <div className="space-y-0.5 p-1 rounded-lg bg-white/70">
+            <span className="text-[8px] font-bold text-[#5C7F75] uppercase block truncate">
+              Moisture
+            </span>
+            <span className="text-[10.5px] sm:text-xs font-black text-[#07221A] tabular-nums">
+              {liveMoisture.absoluteMoisture}
+            </span>
           </div>
-          <div className="space-y-0.5 p-1 sm:border-l border-[#13493B]/10 bg-emerald-50/80 rounded-lg">
-            <span className="text-[8.5px] font-extrabold text-[#13493B] uppercase block truncate">pH</span>
-            <span className="text-[11px] sm:text-xs font-black text-emerald-800 font-mono tabular-nums">{livePH.ph}</span>
+          <div className="space-y-0.5 p-1 bg-emerald-50/90 rounded-lg">
+            <span className="text-[8px] font-extrabold text-[#13493B] uppercase block truncate">
+              pH
+            </span>
+            <span className="text-[10.5px] sm:text-xs font-black text-emerald-800 font-mono tabular-nums">
+              {livePH.ph}
+            </span>
           </div>
-          <div className="space-y-0.5 p-1 rounded-lg bg-white/60 sm:bg-transparent sm:border-l border-[#13493B]/10 col-span-2 sm:col-span-1">
-            <span className="text-[8.5px] font-bold text-[#5C7F75] uppercase block truncate">MQ-135</span>
-            <span className="text-[11px] sm:text-xs font-black text-[#07221A] tabular-nums">{liveSensor.mq135_raw}</span>
+          <div className="space-y-0.5 p-1 rounded-lg bg-white/70">
+            <span className="text-[8px] font-bold text-[#5C7F75] uppercase block truncate">
+              MQ-135
+            </span>
+            <span className="text-[10.5px] sm:text-xs font-black text-[#07221A] tabular-nums">
+              {liveSensor.mq135_raw}
+            </span>
+          </div>
+          <div className="space-y-0.5 p-1 rounded-lg bg-white/70">
+            <span className="text-[8px] font-bold text-[#5C7F75] uppercase block truncate">
+              Impact
+            </span>
+            <span className="text-[10.5px] sm:text-xs font-black text-[#07221A] tabular-nums">
+              {Number(liveSensor.impact).toFixed(2)}G
+            </span>
+          </div>
+          <div className="space-y-0.5 p-1 rounded-lg bg-white/70">
+            <span className="text-[8px] font-bold text-[#5C7F75] uppercase block truncate">
+              Light
+            </span>
+            <span className="text-[10.5px] sm:text-xs font-black text-[#07221A] tabular-nums">
+              {Math.round(liveSensor.light)}lx
+            </span>
+          </div>
+          <div className="space-y-0.5 p-1 rounded-lg bg-indigo-50/80">
+            <span className="text-[8px] font-bold text-indigo-800 uppercase block truncate">
+              NEO-6M
+            </span>
+            <span className="text-[10px] font-black text-indigo-900 font-mono tabular-nums block truncate">
+              {liveSensor.gpsSats} Sat
+            </span>
           </div>
         </div>
 
-        {/* Last Response Date & Timestamp */}
-        <div className="flex items-center justify-between text-[10px] bg-[#F4F7F6] px-2.5 py-1.5 rounded-xl border border-[#13493B]/8 shadow-xs">
-          <div className="flex items-center gap-1.5 truncate min-w-0">
-            <Clock className="w-3.5 h-3.5 text-[#20E79A] shrink-0" />
-            <span className="font-bold text-[#5C7F75] shrink-0">Last Response:</span>
-            <span className="font-mono font-bold text-[#07221A] truncate">{formattedDate}, {formattedTime}</span>
+        {/* NEO-6M GPS Coordinates & Last Response */}
+        <div className="space-y-1.5">
+          <div className="flex items-center justify-between text-[10px] bg-indigo-50/60 px-2.5 py-1 rounded-xl border border-indigo-200/60">
+            <div className="flex items-center gap-1.5 truncate">
+              <Navigation className="w-3 h-3 text-indigo-600 shrink-0" />
+              <span className="font-bold text-indigo-900">NEO-6M GPS:</span>
+            </div>
+            <span className="font-mono font-bold text-indigo-950 truncate">
+              {Number(liveSensor.gpsLat).toFixed(4)}°N, {Number(liveSensor.gpsLng).toFixed(4)}°E
+            </span>
           </div>
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0 ml-1.5" />
+
+          <div className="flex items-center justify-between text-[10px] bg-[#F4F7F6] px-2.5 py-1.5 rounded-xl border border-[#13493B]/8 shadow-xs">
+            <div className="flex items-center gap-1.5 truncate min-w-0">
+              <Clock className="w-3.5 h-3.5 text-[#20E79A] shrink-0" />
+              <span className="font-bold text-[#5C7F75] shrink-0">Last Response:</span>
+              <span className="font-mono font-bold text-[#07221A] truncate">
+                {formattedDate}, {formattedTime}
+              </span>
+            </div>
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0 ml-1.5" />
+          </div>
         </div>
       </div>
 
