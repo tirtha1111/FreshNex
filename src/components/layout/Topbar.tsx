@@ -222,7 +222,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                 {userProfile?.name || (userProfile?.role === 'admin' ? 'Admin' : 'Product Access')}
               </span>
               <span className="text-[9px] text-[#5C7F75] font-semibold block uppercase tracking-wider truncate">
-                {userProfile?.role === 'admin' ? 'Administrator' : `Product User (${userProfile?.assignedProductId || 'COLD_DRINKS'})`}
+                {userProfile?.role === 'admin' ? 'Administrator' : `Product User (${userProfile?.assignedProductId || 'APPLE'})`}
               </span>
             </div>
           </button>

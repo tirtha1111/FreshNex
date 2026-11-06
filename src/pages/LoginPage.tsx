@@ -499,7 +499,7 @@ export const LoginPage: React.FC = () => {
               )}
               <motion.span
                 animate={loginMode === 'admin' ? { scale: [1, 1.2, 1] } : {}}
-                transition={{ duration: 0.4 }}
+                transition={{ type: 'tween', duration: 0.4, ease: 'easeInOut' }}
               >
                 <Shield className="w-3.5 h-3.5" />
               </motion.span>
@@ -835,7 +835,7 @@ export const LoginPage: React.FC = () => {
             <span className="flex items-center gap-1.5">
               <motion.span
                 animate={{ rotate: [0, 15, -10, 0] }}
-                transition={{ duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
+                transition={{ type: 'tween', duration: 3.5, repeat: Infinity, ease: 'easeInOut' }}
               >
                 <Leaf className="w-3.5 h-3.5 text-emerald-600" />
               </motion.span>

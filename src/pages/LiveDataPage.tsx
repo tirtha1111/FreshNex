@@ -1,23 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { 
   Thermometer, 
   Droplets, 
   Wind, 
-  RotateCcw, 
   Download, 
   Activity,
   ArrowLeft,
   Share2,
-  CheckCircle2,
   AlertTriangle,
   Sliders,
-  Bell,
   Scan,
   ShieldCheck,
   Clock,
-  Calendar,
   Zap,
   Sun,
   Navigation
@@ -41,7 +37,7 @@ import { FreshnessPrincipleCard } from '../components/common/FreshnessPrincipleC
 import { HistoricalReadingPoint } from '../types';
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
-import { formatRealtimeDateTime, parseTimestamp, extractLatestTimestamp } from '../utils/dateUtils';
+import { formatRealtimeDateTime, extractLatestTimestamp } from '../utils/dateUtils';
 
 export const LiveDataPage: React.FC = () => {
   const { userProfile } = useAuth();
@@ -199,163 +195,104 @@ export const LiveDataPage: React.FC = () => {
       transition={{ duration: 0.4 }}
       className="space-y-6 select-none pb-12 font-sans"
     >
-      {/* Top Back navigation & quick actions */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={() => navigate('/dashboard')}
-          className="flex items-center gap-2 text-xs font-black text-[#5C7F75] hover:text-[#07221A] transition-colors cursor-pointer self-start py-1"
-        >
-          <ArrowLeft className="w-4 h-4 text-[#20E79A]" />
-          <span>Back to Dashboard</span>
-        </button>
+      {/* TOP HEADER CONTROLS */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-[#13493B]/10">
+        <div className="flex items-center gap-3">
+          <motion.button
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={() => navigate(-1)}
+            className="p-2.5 rounded-2xl bg-white border border-[#13493B]/10 text-[#07221A] hover:bg-[#F4F7F6] cursor-pointer shadow-sm flex items-center justify-center"
+            aria-label="Go back"
+          >
+            <ArrowLeft className="w-4 h-4" />
+          </motion.button>
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#5C7F75]">Live Telemetry Stream</span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#20E79A]/15 text-[#07221A]">
+                <span className="w-1.5 h-1.5 rounded-full bg-[#20E79A] animate-pulse" />
+                Live Node Connected
+              </span>
+            </div>
+            <h1 className="text-xl sm:text-2xl font-serif italic font-black text-[#07221A]">
+              {currentProduct.name} • <span className="font-mono text-base font-bold text-emerald-700">{currentProduct.tagId}</span>
+            </h1>
+          </div>
+        </div>
 
-        <div className={`grid ${isAdmin ? 'grid-cols-3' : 'grid-cols-2'} sm:flex items-center gap-2 w-full sm:w-auto`}>
+        <div className="flex items-center gap-2 flex-wrap">
           {isAdmin && (
-            <button
-              type="button"
+            <motion.button
+              whileHover={{ scale: 1.03 }}
+              whileTap={{ scale: 0.97 }}
               onClick={() => setIsConfigOpen(true)}
-              className="px-3 sm:px-4 py-2 min-h-[40px] rounded-xl bg-white border border-[#13493B]/10 text-[11px] sm:text-xs font-bold text-[#07221A] hover:bg-[#F4F7F6] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+              className="px-4 py-2.5 rounded-2xl bg-white border border-[#13493B]/10 text-[#07221A] hover:bg-[#F4F7F6] text-xs font-bold flex items-center gap-2 shadow-sm cursor-pointer"
             >
-              <Sliders className="w-3.5 h-3.5 text-[#20E79A] shrink-0" />
-              <span className="truncate">Thresholds</span>
-            </button>
+              <Sliders className="w-3.5 h-3.5 text-[#20E79A]" />
+              <span>Threshold Rules</span>
+            </motion.button>
           )}
-          <button
-            type="button"
-            onClick={handleShare}
-            className="px-3 sm:px-4 py-2 min-h-[40px] rounded-xl bg-white border border-[#13493B]/10 text-[11px] sm:text-xs font-bold text-[#07221A] hover:bg-[#F4F7F6] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
-          >
-            {copiedLink ? <CheckCircle2 className="w-3.5 h-3.5 text-[#20E79A] shrink-0" /> : <Share2 className="w-3.5 h-3.5 text-[#5C7F75] shrink-0" />}
-            <span className="truncate">{copiedLink ? 'Copied!' : 'Share'}</span>
-          </button>
-          <button
-            type="button"
+
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
             onClick={handleExportData}
-            className="px-3 sm:px-4 py-2 min-h-[40px] rounded-xl bg-white border border-[#13493B]/10 text-[11px] sm:text-xs font-bold text-[#07221A] hover:bg-[#F4F7F6] transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-sm"
+            className="px-4 py-2.5 rounded-2xl bg-white border border-[#13493B]/10 text-[#07221A] hover:bg-[#F4F7F6] text-xs font-bold flex items-center gap-2 shadow-sm cursor-pointer"
           >
-            <Download className="w-3.5 h-3.5 text-[#5C7F75] shrink-0" />
-            <span className="truncate">Export</span>
-          </button>
+            <Download className="w-3.5 h-3.5 text-[#20E79A]" />
+            <span>Export Report</span>
+          </motion.button>
+
+          <motion.button
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.97 }}
+            onClick={handleShare}
+            className="px-4 py-2.5 rounded-2xl bg-white border border-[#13493B]/10 text-[#07221A] hover:bg-[#F4F7F6] text-xs font-bold flex items-center gap-2 shadow-sm cursor-pointer"
+          >
+            <Share2 className="w-3.5 h-3.5 text-[#20E79A]" />
+            <span>{copiedLink ? 'Link Copied!' : 'Share Feed'}</span>
+          </motion.button>
         </div>
       </div>
 
-      {/* Threshold Active Breach Banner */}
-      <AnimatePresence>
-        {!((currentProduct as any)?.isUnconfigured) && hasActiveBreach && (
-          <motion.div
-            initial={{ opacity: 0, height: 0, y: -10 }}
-            animate={{ opacity: 1, height: 'auto', y: 0 }}
-            exit={{ opacity: 0, height: 0, y: -10 }}
-            className="p-4 rounded-2xl bg-red-50 border border-red-200 text-[#07221A] shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-          >
-            <div className="flex items-start sm:items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-red-100 text-red-600 flex items-center justify-center shrink-0 border border-red-200">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-xs font-black uppercase tracking-wider text-red-700">
-                  Sensor Threshold Exceeded
-                </h4>
-                <p className="text-xs text-red-900 mt-0.5 font-semibold">
-                  {isTempBreached && `Temperature is elevated at ${sensorData?.temperature}°C (Limit: ${thresholds.tempMax}°C). `}
-                  {isGasBreached && `Gas levels spiking at ${sensorData?.gas} ppm (Limit: ${thresholds.gasWarning} ppm). `}
-                  {isHumidityBreached && `Humidity out of safe bounds (${sensorData?.humidity}%). `}
-                </p>
-              </div>
-            </div>
-            <button
-              type="button"
-              onClick={() => navigate('/alerts')}
-              className="px-3.5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold cursor-pointer shrink-0 transition-colors shadow-sm flex items-center justify-center gap-1.5 self-end sm:self-center"
-            >
-              <Bell className="w-3.5 h-3.5" />
-              <span>View Alerts</span>
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* STATUS HERO BANNER */}
+      <div className="relative glass-card p-5 sm:p-7 overflow-hidden depth-2 flex flex-col md:flex-row justify-between items-center gap-6">
+        <div className="absolute top-0 right-0 w-48 h-48 bg-[#20E79A]/10 rounded-full blur-2xl pointer-events-none" />
 
-      {/* Unconfigured IoT Warning Banner */}
-      <AnimatePresence>
-        {((currentProduct as any)?.isUnconfigured) && (
-          <motion.div
-            initial={{ opacity: 0, height: 0, y: -10 }}
-            animate={{ opacity: 1, height: 'auto', y: 0 }}
-            exit={{ opacity: 0, height: 0, y: -10 }}
-            className="p-4 rounded-2xl bg-[#FFF9E6] border border-[#FFAA00]/20 text-[#07221A] shadow-sm flex items-center justify-between gap-4"
-          >
-            <div className="flex items-start sm:items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#FFAA00]/10 text-[#FFAA00] flex items-center justify-center shrink-0 border border-[#FFAA00]/20 animate-pulse">
-                <AlertTriangle className="w-5 h-5" />
-              </div>
-              <div>
-                <h4 className="text-xs font-black uppercase tracking-wider text-[#996600]">
-                  Micro-node Not Configured Yet
-                </h4>
-                <p className="text-xs text-[#664C00] mt-0.5 font-semibold">
-                  This meat package has been registered, but its corresponding hardware micro-node sensor is not configured or bound yet in Settings.
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* PRODUCT INFORMATION CARD */}
-      <div className="bg-white border border-[#13493B]/10 rounded-[28px] sm:rounded-[32px] p-5 sm:p-8 relative overflow-hidden shadow-sm">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6">
-          {/* Left: Product Media & Meta */}
-          <div className="flex flex-col sm:flex-row items-center gap-4 sm:gap-5 text-center sm:text-left w-full md:w-auto">
-            <div className="relative w-24 h-24 sm:w-32 sm:h-32 rounded-[24px] overflow-hidden border border-[#13493B]/10 bg-[#F4F7F6] shrink-0 shadow-sm">
-              <img
-                src={currentProduct.image}
-                alt={currentProduct.name}
-                className="w-full h-full object-cover"
-              />
-              <div className="absolute top-2 left-2">
-                <span className="text-[9px] font-mono font-black px-2 py-0.5 rounded-md bg-white border border-[#13493B]/10 text-[#07221A]">
-                  {currentProduct.tagId}
-                </span>
-              </div>
-            </div>
- 
-            <div className="space-y-1.5 min-w-0">
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                <h2 className="text-xl font-black text-[#07221A] tracking-tight">{currentProduct.name}</h2>
-                <StatusBadge status={((currentProduct as any)?.isUnconfigured) ? 'Warning' : (freshnessReport?.status || 'Fresh')} size="md" />
-              </div>
-              <p className="text-xs font-semibold text-[#5C7F75]">{currentProduct.category} • FreshNex IoT Node</p>
-              
-              <div className="pt-1 flex flex-wrap items-center justify-center sm:justify-start gap-x-3 gap-y-1.5 text-[11px] font-bold text-[#5C7F75]">
-                <div className="flex items-center gap-1">
-                  <span className={`w-2 h-2 rounded-full ${((currentProduct as any)?.isUnconfigured) ? 'bg-[#FFAA00]' : 'bg-[#20E79A]'}`} />
-                  <span>{((currentProduct as any)?.isUnconfigured) ? 'Awaiting Device Sync' : 'Bio-Sensor Linked'}</span>
-                </div>
-                <span className="hidden sm:inline">•</span>
-                <span>ID: {currentProduct.id}</span>
-                <span className="hidden sm:inline">•</span>
-                <div className="flex items-center gap-1 text-[#07221A] font-mono">
-                  <Clock className="w-3.5 h-3.5 text-[#20E79A] shrink-0" />
-                  <span>Last Response: {lastResponseFormatted}</span>
-                </div>
-              </div>
-              <p className="text-[10.5px] text-[#13493B] font-semibold">
-                Note: response valid for only 2 hours from the last response time
-              </p>
-            </div>
+        <div className="space-y-3 z-10 text-center md:text-left flex-1">
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EBF1EF] border border-[#13493B]/10">
+            <ShieldCheck className="w-3.5 h-3.5 text-[#20E79A]" />
+            <span className="text-[10px] font-black uppercase tracking-wider text-[#07221A]">
+              Category: {currentProduct.category} • Batch #{currentProduct.batchNumber || 'FR-9982'}
+            </span>
           </div>
- 
-          {/* Right: Freshness Index Gauge */}
-          <div className="flex flex-col items-center justify-center shrink-0 border-t md:border-t-0 md:border-l border-[#13493B]/10 pt-4 md:pt-0 md:pl-10 w-full md:w-auto">
-            <span className="text-[10px] font-black text-[#5C7F75] uppercase tracking-wider mb-2">Live Freshness Score</span>
-            <div className="relative flex items-center justify-center">
-              <FreshnessGauge score={((currentProduct as any)?.isUnconfigured) ? 0 : (freshnessReport?.score || 100)} size="md" />
-            </div>
+
+          <div className="space-y-1">
+            <h2 className="text-2xl sm:text-3xl font-black text-[#07221A] tracking-tight">
+              {hasActiveBreach ? 'Threshold Alert Active' : 'Optimal Preservation State'}
+            </h2>
+            <p className="text-xs text-[#5C7F75] font-semibold max-w-lg leading-relaxed">
+              {freshnessReport?.message || 'Physical IoT sensor nodes are actively streaming environmental telemetry with zero preservation anomalies.'}
+            </p>
+          </div>
+
+          <div className="flex items-center justify-center md:justify-start gap-2 pt-1">
+            <StatusBadge status={freshnessReport?.status || 'Fresh'} />
+            <span className="text-xs font-bold text-[#07221A] font-mono">
+              Score: {freshnessReport?.score || 100}%
+            </span>
+          </div>
+        </div>
+
+        <div className="flex flex-col items-center justify-center shrink-0 border-t md:border-t-0 md:border-l border-[#13493B]/10 pt-4 md:pt-0 md:pl-10 w-full md:w-auto">
+          <span className="text-[10px] font-black text-[#5C7F75] uppercase tracking-wider mb-2">Live Freshness Score</span>
+          <div className="relative flex items-center justify-center">
+            <FreshnessGauge score={((currentProduct as any)?.isUnconfigured) ? 0 : (freshnessReport?.score || 100)} size="md" />
           </div>
         </div>
       </div>
- 
+
       {/* EIGHT LIVE METRIC TILES - INCLUDES IMPACT, LIGHT & NEO-6M GPS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
         <SensorCard
@@ -368,7 +305,7 @@ export const LiveDataPage: React.FC = () => {
           message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : (isTempBreached ? 'Elevated temperature' : 'Safe cooling bounds')}
           isEmpty={!!((currentProduct as any)?.isUnconfigured)}
         />
- 
+
         <SensorCard
           title="Relative Humidity"
           value={((currentProduct as any)?.isUnconfigured) ? '--' : (sensorData?.humidity || 62)}
@@ -401,7 +338,7 @@ export const LiveDataPage: React.FC = () => {
           message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : `${livePH.status} • ${livePH.acidityClassification}`}
           isEmpty={!!((currentProduct as any)?.isUnconfigured)}
         />
- 
+
         <SensorCard
           title="MQ-135 Gas Sensors"
           value={((currentProduct as any)?.isUnconfigured) ? '--' : (sensorData?.gas || 120)}
@@ -583,32 +520,12 @@ export const LiveDataPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Action Footer */}
-      <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-2">
-        <button
-          type="button"
-          onClick={() => navigate('/scan')}
-          className="px-5 py-3 min-h-[44px] rounded-full text-xs font-black text-[#07221A] bg-white hover:bg-[#F4F7F6] border border-[#13493B]/10 flex items-center justify-center gap-2 transition-colors cursor-pointer shadow-sm"
-        >
-          <RotateCcw className="w-4 h-4 text-[#20E79A]" />
-          <span>Rescan or Switch Item</span>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => navigate('/history')}
-          className="px-6 py-3 min-h-[44px] rounded-full text-xs font-black text-white bg-[#07221A] hover:bg-[#134336] flex items-center justify-center gap-2 cursor-pointer shadow-md"
-        >
-          <span>View in Audit History →</span>
-        </button>
-      </div>
-
-      {/* Threshold Rules Configuration Modal */}
+      {/* THRESHOLD CONFIG MODAL */}
       <ThresholdConfigModal
         isOpen={isConfigOpen}
         onClose={() => setIsConfigOpen(false)}
-        thresholds={thresholds}
-        onSaveThresholds={updateThresholds}
+        currentThresholds={thresholds}
+        onSave={updateThresholds}
       />
     </motion.div>
   );

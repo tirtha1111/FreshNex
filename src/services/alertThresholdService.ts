@@ -246,16 +246,20 @@ export async function pushAlertToFirebase(alert: SensorAlertEvent, userUid?: str
   }
 
   // 2. Push to Firebase Realtime Database at alerts/{alertId}
+  // If remote rules restrict top-level /alerts, safely handle PERMISSION_DENIED without throwing or spamming
   if (db) {
     try {
       const alertRef = ref(db, `alerts/${alert.id}`);
       await set(alertRef, alertPayload);
-    } catch (err) {
-      console.warn('Realtime Database alert publish error:', err);
+    } catch (err: any) {
+      const isPermDenied = err?.message?.includes('PERMISSION_DENIED') || err?.code === 'PERMISSION_DENIED';
+      if (!isPermDenied) {
+        console.warn('Realtime Database alert publish warning:', err?.message || err);
+      }
     }
   }
 
-  // 3. Push to Firestore if configured
+  // 3. Push to Firestore (fully permitted & persisted across all users)
   if (firestoreDb) {
     try {
       const alertDoc = doc(firestoreDb, 'alerts', alert.id);
@@ -312,7 +316,13 @@ export function subscribeToFirebaseAlerts(
         }
       };
 
-      onValue(alertsRef, handleRtdb);
+      onValue(alertsRef, handleRtdb, (err) => {
+        // If RTDB rules forbid reading /alerts directly, Firestore and LocalStorage handle alerts seamlessly
+        const isPerm = err?.message?.includes('PERMISSION_DENIED');
+        if (!isPerm) {
+          console.warn('Alerts RTDB subscription notice:', err?.message || err);
+        }
+      });
       unsubscribeRtdb = () => off(alertsRef, 'value', handleRtdb);
     } catch (e) {
       console.warn('Alerts RTDB subscription error:', e);
@@ -378,8 +388,10 @@ export async function updateAlertReadState(alertId: string, read: boolean = true
     try {
       const alertRef = ref(db, `alerts/${alertId}/read`);
       await set(alertRef, read);
-    } catch (e) {
-      console.warn(e);
+    } catch (e: any) {
+      if (!e?.message?.includes('PERMISSION_DENIED')) {
+        console.warn('RTDB updateAlertReadState:', e?.message || e);
+      }
     }
   }
 
@@ -418,8 +430,10 @@ export async function markAllAlertsReadFirebase(alerts: SensorAlertEvent[]): Pro
     });
     try {
       await update(ref(db), updates);
-    } catch (e) {
-      console.warn(e);
+    } catch (e: any) {
+      if (!e?.message?.includes('PERMISSION_DENIED')) {
+        console.warn('RTDB markAllAlertsReadFirebase:', e?.message || e);
+      }
     }
   }
 }
@@ -576,7 +590,11 @@ export function subscribeToGlobalThresholds(
           }
         }
       };
-      onValue(thRef, handler);
+      onValue(thRef, handler, (err) => {
+        if (!err?.message?.includes('PERMISSION_DENIED')) {
+          console.warn('RTDB threshold notice:', err?.message || err);
+        }
+      });
       unsubRtdb = () => off(thRef, 'value', handler);
     } catch (e) {
       console.warn('RTDB threshold subscription error:', e);
@@ -812,7 +830,11 @@ export function subscribeToProductThreshold(
           }
         }
       };
-      onValue(thRef, handler);
+      onValue(thRef, handler, (err) => {
+        if (!err?.message?.includes('PERMISSION_DENIED')) {
+          console.warn('RTDB subscribeToProductThreshold notice:', err?.message || err);
+        }
+      });
       unsubRtdb = () => off(thRef, 'value', handler);
     } catch (e) {
       console.warn('RTDB subscribeToProductThreshold error:', e);

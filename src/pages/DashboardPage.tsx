@@ -32,37 +32,68 @@ import { ThresholdConfigModal } from '../components/common/ThresholdConfigModal'
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
 import { formatRealtimeDateTime, parseTimestamp, extractLatestTimestamp } from '../utils/dateUtils';
-import farmLandscapeImg from '../assets/images/freshnex_farm_landscape_1789921215887.jpg';
+import { resolveFactualProduct } from '../data/initialData';
+import { calculateFreshness } from '../utils/freshnessEngine';
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate();
   const { userProfile } = useAuth();
   const { devicesMap } = useApp();
-  const { scanHistory, activeItem, sensorData, freshnessReport, thresholds, updateThresholds } = useFreshness();
+  const { scanHistory, activeItem, sensorData, freshnessReport: contextFreshnessReport, thresholds, updateThresholds } = useFreshness();
   const [isThresholdModalOpen, setIsThresholdModalOpen] = useState(false);
 
   const isAdmin = userProfile?.role === 'admin';
-  const assignedTag = userProfile?.assignedProductId || 'COLD_DRINKS';
-  const assignedName = userProfile?.assignedProductName || 'Cold Drinks';
+  const assignedTag = userProfile?.assignedProductId || 'APPLE';
+  const assignedName = userProfile?.assignedProductName || 'Fresh Apples';
 
   const targetDev = devicesMap['YGS-FD-000124'] || (assignedTag ? devicesMap[assignedTag] : null);
 
-  // Last scanned product telemetry (retrieved from scan history, active session, or live device fallback)
-  const lastScanned = scanHistory.length > 0 ? scanHistory[0] : (
+  // Resolve factual item details for the current context (e.g. APPLE, MILK)
+  const factualFallback = resolveFactualProduct(assignedTag || assignedName || 'APPLE');
+
+  // Compute live freshness dynamically evaluated from the active database values (or targetDev)
+  const liveDbFreshness = useMemo(() => {
+    const tempToEval = sensorData?.temperature ?? targetDev?.temperature ?? 3.5;
+    const humToEval = sensorData?.humidity ?? targetDev?.humidity ?? 65.0;
+    const gasToEval = sensorData?.gas ?? targetDev?.mq135_raw ?? 120;
+    return calculateFreshness({
+      temperature: tempToEval,
+      humidity: humToEval,
+      gas: gasToEval,
+      category: activeItem?.category || factualFallback.category,
+      activeThresholdRules: thresholds,
+    });
+  }, [sensorData, targetDev, activeItem, factualFallback.category, thresholds]);
+
+  const freshnessReport = contextFreshnessReport || liveDbFreshness;
+
+  // Last scanned product telemetry (retrieved from scan history, active session, or live database device stream)
+  const lastScanned = scanHistory.length > 0 ? {
+    ...scanHistory[0],
+    itemImage: resolveFactualProduct(scanHistory[0].itemId || scanHistory[0].itemName, scanHistory[0].itemImage).image,
+    itemName: scanHistory[0].itemName || resolveFactualProduct(scanHistory[0].itemId).name,
+    temperature: targetDev?.temperature ?? scanHistory[0].temperature,
+    humidity: targetDev?.humidity ?? scanHistory[0].humidity,
+    gas: targetDev?.mq135_raw ?? scanHistory[0].gas,
+    impact: targetDev?.impact ?? (scanHistory[0] as any).impact ?? 0.08,
+    light: targetDev?.light ?? (scanHistory[0] as any).light ?? 18,
+    freshnessScore: freshnessReport.score,
+    status: freshnessReport.status,
+  } : (
     activeItem && sensorData ? {
       id: 'active-scan',
       itemId: activeItem.id,
       itemName: activeItem.name,
       tagId: activeItem.tagId,
-      itemImage: activeItem.image,
+      itemImage: resolveFactualProduct(activeItem.id || activeItem.name, activeItem.image).image,
       temperature: sensorData.temperature,
       humidity: sensorData.humidity,
       moisture: sensorData.moisture,
       dewPoint: sensorData.dewPoint,
       ph: sensorData.ph,
       gas: sensorData.gas,
-      impact: sensorData.impact ?? 0.08,
-      light: sensorData.light ?? 14,
+      impact: sensorData.impact ?? targetDev?.impact ?? 0.08,
+      light: sensorData.light ?? targetDev?.light ?? 18,
       gpsLat: sensorData.gpsLat ?? 28.6139,
       gpsLng: sensorData.gpsLng ?? 77.2090,
       gpsSats: sensorData.gpsSats ?? 9,
@@ -74,27 +105,27 @@ export const DashboardPage: React.FC = () => {
       category: activeItem.category,
     } : {
       id: 'fallback-last-online',
-      itemId: assignedTag || 'COLD_DRINKS',
-      itemName: assignedName || 'Cold Drinks',
-      tagId: assignedTag ? (assignedTag.startsWith('#') ? assignedTag : `#${assignedTag}`) : '#YGS-FD-000124',
-      itemImage: '/colddrinks.jpg',
+      itemId: factualFallback.id,
+      itemName: factualFallback.name,
+      tagId: factualFallback.tagId,
+      itemImage: factualFallback.image,
       temperature: targetDev?.temperature ?? 3.5,
-      humidity: targetDev?.humidity ?? 58.2,
+      humidity: targetDev?.humidity ?? 86.4,
       moisture: 4.2,
       dewPoint: -3.0,
       ph: 4.2,
-      gas: targetDev?.mq135_raw ?? 110,
+      gas: targetDev?.mq135_raw ?? 84,
       impact: targetDev?.impact ?? 0.08,
-      light: targetDev?.light ?? 14,
+      light: targetDev?.light ?? 18,
       gpsLat: targetDev?.gpsLat ?? 28.6139,
       gpsLng: targetDev?.gpsLng ?? 77.2090,
       gpsSats: targetDev?.gpsSats ?? 9,
-      freshnessScore: 98,
-      status: 'Fresh',
+      freshnessScore: freshnessReport.score,
+      status: freshnessReport.status,
       timestamp: extractLatestTimestamp(targetDev, Date.now()),
       dateStr: formatRealtimeDateTime(extractLatestTimestamp(targetDev, Date.now())).dateStr,
       timeStr: formatRealtimeDateTime(extractLatestTimestamp(targetDev, Date.now())).timeStr,
-      category: 'Beverages',
+      category: factualFallback.category,
     }
   );
 
@@ -198,22 +229,49 @@ export const DashboardPage: React.FC = () => {
 
         {/* Left Side Info */}
         <div className="flex-1 w-full space-y-3.5 sm:space-y-4 text-center lg:text-left z-10">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full neo-btn shadow-sm max-w-full">
-            <span className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full shrink-0 ${isAdmin ? 'bg-[#20E79A] shadow-[0_0_8px_#20E79A]' : 'bg-[#FF6A00] shadow-[0_0_8px_#FF6A00]'} animate-pulse`} />
-            <span className="text-[9.5px] sm:text-[10px] font-black text-[#07221A] uppercase tracking-wider truncate">
-              {isAdmin ? 'Admin Hub • Monitored Products' : `User Portal • Product ID: ${assignedTag}`}
-            </span>
+          <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2">
+            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full neo-btn shadow-sm max-w-full">
+              <span className={`w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full shrink-0 ${isAdmin ? 'bg-[#20E79A] shadow-[0_0_8px_#20E79A]' : 'bg-[#FF6A00] shadow-[0_0_8px_#FF6A00]'} animate-pulse`} />
+              <span className="text-[9.5px] sm:text-[10px] font-black text-[#07221A] uppercase tracking-wider truncate">
+                {isAdmin ? 'Admin Hub • Monitored Products' : `User Portal • Product ID: ${assignedTag}`}
+              </span>
+            </div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-50 border border-emerald-500/25 text-emerald-800 text-[9.5px] font-extrabold tracking-wide">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              <span>RTDB Connected • {targetDev?.device_id || 'YGS-FD-000124'}</span>
+            </div>
           </div>
-          <div className="space-y-0.5 sm:space-y-1">
+          <div className="space-y-1">
             <h1 className="text-2xl sm:text-3xl lg:text-4xl font-serif italic font-black text-[#07221A] leading-tight tracking-tight">
               {lastScanned ? lastScanned.itemName.toUpperCase() : (isAdmin ? 'FRESH FOOD' : assignedName.toUpperCase())}
             </h1>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-serif italic font-black text-[#07221A] leading-tight tracking-tight">
-              {lastScanned ? `${freshnessReport?.score ?? lastScanned.freshnessScore}% FRESHNESS` : 'MONITORING'}
-            </h2>
-            <h3 className="text-2xl sm:text-3xl lg:text-4xl font-serif italic font-black text-[#07221A] leading-tight tracking-tight">
-              {lastScanned ? `STATUS: ${(freshnessReport?.status ?? lastScanned.status).toUpperCase()}` : 'PORTAL'}
-            </h3>
+            <div className="flex flex-wrap items-center justify-center lg:justify-start gap-2 pt-0.5">
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-black shadow-sm tracking-wide ${
+                (freshnessReport?.status || lastScanned?.status) === 'Fresh'
+                  ? 'bg-gradient-to-r from-emerald-500 to-teal-600 text-white'
+                  : (freshnessReport?.status || lastScanned?.status) === 'Good'
+                  ? 'bg-gradient-to-r from-emerald-600 to-green-700 text-white'
+                  : (freshnessReport?.status || lastScanned?.status) === 'Warning' || targetDev?.status === 'high_risk'
+                  ? 'bg-gradient-to-r from-amber-500 to-orange-600 text-white'
+                  : 'bg-gradient-to-r from-rose-500 to-red-600 text-white'
+              }`}>
+                <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
+                <span>{lastScanned ? `${freshnessReport?.score ?? lastScanned.freshnessScore}% FRESH` : 'MONITORING'}</span>
+              </span>
+              <span className={`inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border ${
+                targetDev?.status === 'high_risk' || (freshnessReport?.status && freshnessReport.status !== 'Fresh' && freshnessReport.status !== 'Good')
+                  ? 'bg-amber-100 text-amber-900 border-amber-300'
+                  : 'bg-[#13493B]/10 text-[#07221A] border-[#13493B]/15'
+              }`}>
+                <span>
+                  STATUS: {(
+                    (targetDev?.status === 'high_risk' && (freshnessReport?.status === 'Fresh' || freshnessReport?.status === 'Good'))
+                      ? 'ELEVATED RISK (RTDB)'
+                      : (freshnessReport?.status ?? lastScanned?.status ?? 'Fresh')
+                  ).toUpperCase()}
+                </span>
+              </span>
+            </div>
           </div>
           <p className="text-xs text-[#5C7F75] font-semibold max-w-md mx-auto lg:mx-0 leading-relaxed">
             {lastScanned 
@@ -257,28 +315,34 @@ export const DashboardPage: React.FC = () => {
 
         {/* Middle Floating Product Display */}
         <div className="flex flex-col items-center justify-center relative py-2 lg:py-0 z-10 shrink-0">
-          <div className="relative w-40 sm:w-44 aspect-[3/5] glass-modal rounded-[28px] p-3.5 depth-4 flex flex-col items-center justify-between text-center overflow-hidden">
+          <div className="relative w-44 sm:w-48 aspect-[3/5] glass-modal rounded-[28px] p-3.5 depth-4 flex flex-col items-center justify-between text-center overflow-hidden border border-emerald-500/25 shadow-[0_12px_40px_rgba(19,73,59,0.14)] bg-white/90 backdrop-blur-xl">
             {/* Glossy Reflection overlay */}
-            <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-white/25 to-transparent skew-x-12 pointer-events-none" />
+            <div className="absolute inset-y-0 left-0 w-1/2 bg-gradient-to-r from-white/35 to-transparent skew-x-12 pointer-events-none" />
 
-            {/* Twin leaves subtle logo badge */}
-            <div className="flex items-center gap-1.5">
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-5 h-5 text-[#20E79A] glow-icon-emerald">
-                <path d="M11.5 2C11.5 2 6 5.5 4.5 10C3.3 13.6 4.8 17 8 18.5C9.5 16.5 10 13.5 10.5 10C11 6.5 11.5 2 11.5 2Z" fill="currentColor" />
-                <path d="M18.5 7.5C18.5 7.5 14.5 10 13.5 13.5C12.7 16.2 13.7 19 16 20C17 18.5 17.5 16 18 13.5C18.5 11 18.5 7.5 18.5 7.5Z" fill="currentColor" fillOpacity="0.8" />
-              </svg>
-              <span className="text-[11px] font-black text-[#07221A]">FreshNex</span>
+            {/* Official FreshNex Logo badge */}
+            <div className="flex items-center justify-center w-full py-1 px-2 border-b border-[#13493B]/10">
+              <img 
+                src="/assets/aistudio/freshnex_logo_clean.png" 
+                alt="FreshNex Logo" 
+                className="h-7 w-auto object-contain filter drop-shadow-[0_2px_8px_rgba(16,185,129,0.22)] select-none pointer-events-none" 
+              />
             </div>
 
-            {/* Product Photo or QR Target */}
-            <div className="w-24 h-24 sm:w-28 sm:h-28 my-1.5 rounded-2xl overflow-hidden bg-[#F4F7F6] border border-[#13493B]/10 flex items-center justify-center relative shadow-inner">
+            {/* Product Photo or QR Target with Live Freshness Pill */}
+            <div className="w-28 h-28 sm:w-32 sm:h-32 my-1 rounded-2xl overflow-hidden bg-emerald-50/50 border border-emerald-500/20 flex items-center justify-center relative shadow-inner group">
               {lastScanned ? (
-                <img 
-                  src={lastScanned.itemImage || "/colddrinks.jpg"} 
-                  alt={lastScanned.itemName}
-                  referrerPolicy="no-referrer"
-                  className="w-full h-full object-cover"
-                />
+                <>
+                  <img 
+                    src={lastScanned.itemImage} 
+                    alt={lastScanned.itemName}
+                    referrerPolicy="no-referrer"
+                    className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                  />
+                  <div className="absolute bottom-1.5 right-1.5 px-2 py-0.5 rounded-full bg-emerald-600/90 backdrop-blur-md text-white text-[9px] font-black shadow-md flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping" />
+                    <span>{lastScanned.freshnessScore}%</span>
+                  </div>
+                </>
               ) : (
                 <div className="flex flex-col items-center justify-center p-2 text-[#5C7F75] gap-1">
                   <QrCode className="w-10 h-10 text-[#07221A]/60" />
@@ -287,16 +351,21 @@ export const DashboardPage: React.FC = () => {
               )}
             </div>
 
-            {/* QR Scan Target Overlay */}
-            <div className="flex flex-col items-center gap-1 neo-btn p-2 rounded-xl w-full">
-              <QrCode className="w-4 h-4 sm:w-5 sm:h-5 text-[#07221A]" />
-              <span className="text-[9px] font-bold text-[#5C7F75] tracking-tight font-mono truncate max-w-full">
-                {lastScanned ? lastScanned.tagId : 'AWAITING SCAN'}
+            {/* Scanned Tag & Status Overlay */}
+            <div className="flex flex-col items-center gap-0.5 neo-btn p-2 rounded-xl w-full border border-emerald-500/15">
+              <div className="flex items-center gap-1">
+                <QrCode className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-[9px] font-bold text-[#5C7F75] tracking-tight font-mono truncate max-w-[110px]">
+                  {lastScanned ? lastScanned.tagId : 'AWAITING SCAN'}
+                </span>
+              </div>
+              <span className="text-[8.5px] font-bold text-emerald-700 uppercase tracking-wider truncate max-w-full">
+                {lastScanned ? lastScanned.itemName : 'RFID / QR Active'}
               </span>
             </div>
           </div>
           {/* Slogan label floating beside the card - tucked cleanly so it never overflows mobile */}
-          <div className="absolute -left-4 sm:-left-9 top-6 -rotate-12 glass-panel px-3 py-1.5 rounded-2xl depth-2 shadow-md">
+          <div className="absolute -left-3 sm:-left-7 top-6 -rotate-12 glass-panel px-3 py-1.5 rounded-2xl depth-2 shadow-md border border-emerald-500/20">
             <span className="font-serif italic text-[11px] sm:text-xs font-black text-[#07221A] block">Scan</span>
             <span className="font-serif italic text-[11px] sm:text-xs font-black text-[#20E79A] glow-icon-emerald block">Track</span>
             <span className="font-serif italic text-[11px] sm:text-xs font-black text-[#07221A] block">Stay Fresh</span>
@@ -696,9 +765,9 @@ export const DashboardPage: React.FC = () => {
       </motion.div>
 
       {/* 3. MULTI-GRID BOTTOM PANEL */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-stretch">
         {/* LEFT COLUMN: ACTIVITY & SENSOR CHART TRENDS */}
-        <div className="lg:col-span-8 space-y-4 sm:space-y-6">
+        <div className="lg:col-span-8 flex flex-col gap-4 sm:gap-6">
           {/* Recent Activity Section */}
           <motion.div 
             variants={itemVariants}
@@ -795,7 +864,7 @@ export const DashboardPage: React.FC = () => {
           </motion.div>
 
           {/* Real-time Environmental & Freshness Trend Charts (Recharts) */}
-          <motion.div variants={itemVariants}>
+          <motion.div variants={itemVariants} className="flex-1 flex flex-col">
             <RealtimeTrendCharts
               currentSensorData={sensorData}
               currentReport={freshnessReport}
@@ -807,93 +876,95 @@ export const DashboardPage: React.FC = () => {
           </motion.div>
         </div>
 
-        {/* RIGHT COLUMN: STATUS, ACTIONS, LAST SCANNED PRODUCT, PROMO CARD */}
-        <div className="lg:col-span-4 space-y-4 sm:space-y-6">
+        {/* RIGHT COLUMN: LIVE DEVICE STATUS & QUICK ACTIONS */}
+        <div className="lg:col-span-4 flex flex-col gap-4 sm:gap-6">
           {/* Live Device Status */}
           <motion.div 
             variants={itemVariants}
-            className="glass-card p-4 sm:p-5 depth-2 space-y-4 sm:space-y-5"
+            className="glass-card p-4 sm:p-6 depth-2 flex flex-col justify-between gap-4 sm:gap-5 flex-1"
           >
-            <div className="flex justify-between items-center pb-1">
-              <h3 className="text-sm font-black text-[#07221A]">Live Device Status</h3>
-              <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-[#20E79A]">
-                <span className={`w-2 h-2 rounded-full ${lastScanned ? 'bg-[#20E79A] shadow-[0_0_8px_#20E79A] animate-pulse' : 'bg-slate-300'}`} />
-                <span>{lastScanned ? 'Telemetry Online' : 'Standby / Ready'}</span>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center pb-1">
+                <h3 className="text-sm font-black text-[#07221A]">Live Device Status</h3>
+                <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-[#20E79A]">
+                  <span className={`w-2 h-2 rounded-full ${lastScanned ? 'bg-[#20E79A] shadow-[0_0_8px_#20E79A] animate-pulse' : 'bg-slate-300'}`} />
+                  <span>{lastScanned ? 'Telemetry Online' : 'Standby / Ready'}</span>
+                </div>
+              </div>
+
+              {/* Last Response Received Tile with Full Date & Time and 2-Hour Validity Note */}
+              <div className="p-4 rounded-2xl bg-[#EBFBF4] border border-[#20E79A]/30 space-y-2.5 shadow-xs">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-[#5C7F75] flex items-center gap-1.5">
+                    <Clock className="w-3.5 h-3.5 text-[#20E79A] shrink-0" />
+                    Last Response Received
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#20E79A]/20 text-[#07221A] shrink-0">
+                    Active Telemetry
+                  </span>
+                </div>
+                <div className="flex items-center justify-between text-xs font-mono font-black text-[#07221A]">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar className="w-3.5 h-3.5 text-[#5C7F75]" />
+                    <span>{lastResponseInfo.date}</span>
+                  </div>
+                  <div className="px-2 py-0.5 rounded-md bg-white border border-[#20E79A]/30 text-[#13493B]">
+                    {lastResponseInfo.time}
+                  </div>
+                </div>
+                {/* Note: Response valid for only 2 hours */}
+                <div className="pt-2 border-t border-[#20E79A]/20 flex items-start gap-1.5 text-[10.5px] leading-snug">
+                  <Info className="w-3.5 h-3.5 text-[#20E79A] shrink-0 mt-0.5" />
+                  <div>
+                    <span className="font-bold text-[#07221A]">Note: </span>
+                    <span className="font-semibold text-[#13493B]">Response valid for only 2 hours from the last response time</span>
+                    <span className="block text-[9px] font-mono text-[#5C7F75] mt-0.5">Telemetry window valid until: {lastResponseInfo.expiryTimeStr}</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Radial Doughnut progress circle */}
+              <div className="flex items-center justify-around gap-4 py-3">
+                <div className="relative w-28 h-28 flex items-center justify-center shrink-0">
+                  <svg viewBox="0 0 96 96" className="w-full h-full -rotate-90">
+                    <circle cx="48" cy="48" r="40" stroke="#EBF1EF" strokeWidth="8" fill="transparent" />
+                    <circle 
+                      cx="48" 
+                      cy="48" 
+                      r="40" 
+                      stroke="#20E79A" 
+                      strokeWidth="8" 
+                      fill="transparent" 
+                      strokeDasharray="251.2" 
+                      strokeDashoffset={lastScanned ? 0 : 251.2} 
+                      strokeLinecap="round"
+                    />
+                  </svg>
+                  <div className="absolute flex flex-col items-center">
+                    <span className="text-lg font-black text-[#07221A]">{lastScanned ? '100%' : '0%'}</span>
+                    <span className="text-[8.5px] font-bold text-[#5C7F75] uppercase">{lastScanned ? 'Connected' : 'Standby'}</span>
+                  </div>
+                </div>
+
+                {/* Status List Legends */}
+                <div className="space-y-2 text-xs font-semibold min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#20E79A] shadow-[0_0_6px_#20E79A] shrink-0" />
+                    <span className="text-[#07221A] truncate">{lastScanned ? '1 Active Tag' : '0 Active Tags'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-slate-300 shrink-0" />
+                    <span className="text-[#07221A] font-mono truncate">{lastScanned ? lastScanned.tagId : 'No Devices'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="w-2.5 h-2.5 rounded-full bg-[#13493B] shrink-0" />
+                    <span className="text-[#07221A] truncate">{scanHistory.length} Recorded Scan{scanHistory.length === 1 ? '' : 's'}</span>
+                  </div>
+                </div>
               </div>
             </div>
 
-            {/* Last Response Received Tile with Full Date & Time and 2-Hour Validity Note */}
-            <div className="p-3.5 rounded-2xl bg-[#EBFBF4] border border-[#20E79A]/30 space-y-2.5 shadow-xs">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[9px] font-black uppercase tracking-wider text-[#5C7F75] flex items-center gap-1.5">
-                  <Clock className="w-3.5 h-3.5 text-[#20E79A] shrink-0" />
-                  Last Response Received
-                </span>
-                <span className="px-2 py-0.5 rounded-full text-[9px] font-bold bg-[#20E79A]/20 text-[#07221A] shrink-0">
-                  Active Telemetry
-                </span>
-              </div>
-              <div className="flex items-center justify-between text-xs font-mono font-black text-[#07221A]">
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="w-3.5 h-3.5 text-[#5C7F75]" />
-                  <span>{lastResponseInfo.date}</span>
-                </div>
-                <div className="px-2 py-0.5 rounded-md bg-white border border-[#20E79A]/30 text-[#13493B]">
-                  {lastResponseInfo.time}
-                </div>
-              </div>
-              {/* Note: Response valid for only 2 hours */}
-              <div className="pt-2 border-t border-[#20E79A]/20 flex items-start gap-1.5 text-[10.5px] leading-snug">
-                <Info className="w-3.5 h-3.5 text-[#20E79A] shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold text-[#07221A]">Note: </span>
-                  <span className="font-semibold text-[#13493B]">Response valid for only 2 hours from the last response time</span>
-                  <span className="block text-[9px] font-mono text-[#5C7F75] mt-0.5">Telemetry window valid until: {lastResponseInfo.expiryTimeStr}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Radial Doughnut progress circle */}
-            <div className="flex items-center justify-around gap-4 py-1">
-              <div className="relative w-24 h-24 flex items-center justify-center shrink-0">
-                <svg className="w-full h-full -rotate-90">
-                  <circle cx="48" cy="48" r="40" stroke="#EBF1EF" strokeWidth="8" fill="transparent" />
-                  <circle 
-                    cx="48" 
-                    cy="48" 
-                    r="40" 
-                    stroke="#20E79A" 
-                    strokeWidth="8" 
-                    fill="transparent" 
-                    strokeDasharray="251.2" 
-                    strokeDashoffset={lastScanned ? 0 : 251.2} 
-                    strokeLinecap="round"
-                  />
-                </svg>
-                <div className="absolute flex flex-col items-center">
-                  <span className="text-base font-black text-[#07221A]">{lastScanned ? '100%' : '0%'}</span>
-                  <span className="text-[8px] font-bold text-[#5C7F75] uppercase">{lastScanned ? 'Connected' : 'Standby'}</span>
-                </div>
-              </div>
-
-              {/* Status List Legends */}
-              <div className="space-y-1.5 text-xs font-semibold min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#20E79A] shadow-[0_0_6px_#20E79A] shrink-0" />
-                  <span className="text-[#07221A] truncate">{lastScanned ? '1 Active Tag' : '0 Active Tags'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-slate-300 shrink-0" />
-                  <span className="text-[#07221A] font-mono truncate">{lastScanned ? lastScanned.tagId : 'No Devices'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-2.5 h-2.5 rounded-full bg-[#13493B] shrink-0" />
-                  <span className="text-[#07221A] truncate">{scanHistory.length} Recorded Scan{scanHistory.length === 1 ? '' : 's'}</span>
-                </div>
-              </div>
-            </div>
-
-            <div className="text-[10px] text-[#5C7F75] font-semibold text-center border-t border-[#13493B]/10 pt-3 space-y-1">
+            <div className="text-[10.5px] text-[#5C7F75] font-semibold text-center border-t border-[#13493B]/10 pt-3">
               <p>{lastScanned ? `Last verified: ${lastScanned.itemName} (${lastScanned.tagId})` : 'Awaiting first RFID/QR scan.'}</p>
             </div>
           </motion.div>
@@ -901,32 +972,35 @@ export const DashboardPage: React.FC = () => {
           {/* Quick Actions Grid with Neomorphic tactile buttons */}
           <motion.div 
             variants={itemVariants}
-            className="glass-card p-4 sm:p-5 depth-2 space-y-3.5"
+            className="glass-card p-4 sm:p-6 depth-2 flex flex-col justify-between gap-4"
           >
-            <h3 className="text-sm font-black text-[#07221A]">Quick Actions</h3>
-            <div className="grid grid-cols-2 gap-2.5 sm:gap-3">
+            <div>
+              <h3 className="text-sm font-black text-[#07221A]">Quick Actions</h3>
+              <p className="text-[11px] text-[#5C7F75] font-semibold mt-0.5">Instant navigation to telemetry tools and controls.</p>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               {/* Add Device for Admin or Live Telemetry for User */}
               {isAdmin ? (
                 <button 
                   type="button"
                   onClick={() => navigate('/admin/devices')}
-                  className="neo-btn p-3 min-h-[72px] rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer group hover:border-[#20E79A]/40 active:scale-97 transition-transform"
+                  className="neo-btn p-4 min-h-[88px] rounded-2xl flex flex-col items-center justify-center gap-2.5 cursor-pointer group hover:border-[#20E79A]/40 active:scale-97 transition-transform"
                 >
-                  <div className="w-8 h-8 rounded-full bg-[#20E79A] text-white flex items-center justify-center glow-emerald shadow-sm">
+                  <div className="w-9 h-9 rounded-full bg-[#20E79A] text-white flex items-center justify-center glow-emerald shadow-sm">
                     <Plus className="w-4 h-4" />
                   </div>
-                  <span className="text-[10px] font-black text-[#07221A]">Add Device</span>
+                  <span className="text-[10.5px] font-black text-[#07221A]">Add Device</span>
                 </button>
               ) : (
                 <button 
                   type="button"
                   onClick={() => navigate(lastScanned ? `/live-data/${lastScanned.itemId}` : '/live-data')}
-                  className="neo-btn p-3 min-h-[72px] rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer group hover:border-[#20E79A]/40 active:scale-97 transition-transform"
+                  className="neo-btn p-4 min-h-[88px] rounded-2xl flex flex-col items-center justify-center gap-2.5 cursor-pointer group hover:border-[#20E79A]/40 active:scale-97 transition-transform"
                 >
-                  <div className="w-8 h-8 rounded-full bg-[#20E79A] text-white flex items-center justify-center glow-emerald shadow-sm">
+                  <div className="w-9 h-9 rounded-full bg-[#20E79A] text-white flex items-center justify-center glow-emerald shadow-sm">
                     <Activity className="w-4 h-4" />
                   </div>
-                  <span className="text-[10px] font-black text-[#07221A]">Live Telemetry</span>
+                  <span className="text-[10.5px] font-black text-[#07221A]">Live Telemetry</span>
                 </button>
               )}
 
@@ -934,147 +1008,37 @@ export const DashboardPage: React.FC = () => {
               <button 
                 type="button"
                 onClick={() => navigate('/history')}
-                className="neo-btn p-3 min-h-[72px] rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer group hover:border-[#3B82F6]/40 active:scale-97 transition-transform"
+                className="neo-btn p-4 min-h-[88px] rounded-2xl flex flex-col items-center justify-center gap-2.5 cursor-pointer group hover:border-[#3B82F6]/40 active:scale-97 transition-transform"
               >
-                <div className="w-8 h-8 rounded-full bg-[#3B82F6] text-white flex items-center justify-center shadow-[0_0_12px_rgba(59,130,246,0.5)]">
+                <div className="w-9 h-9 rounded-full bg-[#3B82F6] text-white flex items-center justify-center shadow-[0_0_12px_rgba(59,130,246,0.5)]">
                   <Package className="w-4 h-4" />
                 </div>
-                <span className="text-[10px] font-black text-[#07221A]">Manage Products</span>
+                <span className="text-[10.5px] font-black text-[#07221A]">Manage Products</span>
               </button>
 
               {/* View Reports */}
               <button 
                 type="button"
                 onClick={() => navigate('/analytics')}
-                className="neo-btn p-3 min-h-[72px] rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer group hover:border-[#FF5A67]/40 active:scale-97 transition-transform"
+                className="neo-btn p-4 min-h-[88px] rounded-2xl flex flex-col items-center justify-center gap-2.5 cursor-pointer group hover:border-[#FF5A67]/40 active:scale-97 transition-transform"
               >
-                <div className="w-8 h-8 rounded-full bg-[#FF5A67] text-white flex items-center justify-center shadow-[0_0_12px_rgba(255,90,103,0.5)]">
+                <div className="w-9 h-9 rounded-full bg-[#FF5A67] text-white flex items-center justify-center shadow-[0_0_12px_rgba(255,90,103,0.5)]">
                   <BarChart3 className="w-4 h-4" />
                 </div>
-                <span className="text-[10px] font-black text-[#07221A]">View Reports</span>
+                <span className="text-[10.5px] font-black text-[#07221A]">View Reports</span>
               </button>
 
               {/* System Settings */}
               <button 
                 type="button"
                 onClick={() => navigate('/settings')}
-                className="neo-btn p-3 min-h-[72px] rounded-2xl flex flex-col items-center justify-center gap-2 cursor-pointer group hover:border-[#13493B]/40 active:scale-97 transition-transform"
+                className="neo-btn p-4 min-h-[88px] rounded-2xl flex flex-col items-center justify-center gap-2.5 cursor-pointer group hover:border-[#13493B]/40 active:scale-97 transition-transform"
               >
-                <div className="w-8 h-8 rounded-full bg-[#13493B] text-white flex items-center justify-center shadow-sm">
+                <div className="w-9 h-9 rounded-full bg-[#13493B] text-white flex items-center justify-center shadow-sm">
                   <Sliders className="w-4 h-4 text-[#20E79A]" />
                 </div>
-                <span className="text-[10px] font-black text-[#07221A]">System Settings</span>
+                <span className="text-[10.5px] font-black text-[#07221A]">System Settings</span>
               </button>
-            </div>
-          </motion.div>
-
-          {/* Last Scanned Product */}
-          <motion.div 
-            variants={itemVariants}
-            className="glass-card p-4 sm:p-5 depth-2 space-y-3.5"
-          >
-            <div className="flex justify-between items-center">
-              <h3 className="text-sm font-black text-[#07221A]">Last Scanned Product</h3>
-              {lastScanned && (
-                <button 
-                  type="button"
-                  onClick={() => navigate(`/live-data/${lastScanned.itemId}`)}
-                  className="text-xs font-bold text-[#20E79A] hover:underline flex items-center gap-0.5 cursor-pointer"
-                >
-                  <span>View Details</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </button>
-              )}
-            </div>
-
-            {lastScanned ? (
-              <div className="flex items-center gap-3.5 neo-panel p-3.5 rounded-2xl border border-[#13493B]/10">
-                <div className="w-16 h-16 rounded-xl overflow-hidden shrink-0 border border-[#13493B]/10 bg-white shadow-sm">
-                  <img 
-                    src={lastScanned.itemImage || "/colddrinks.jpg"} 
-                    alt={lastScanned.itemName}
-                    referrerPolicy="no-referrer"
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-                <div className="min-w-0 flex-1 space-y-1">
-                  <div className="flex items-center gap-1.5 justify-between">
-                    <span className="font-extrabold text-xs text-[#07221A] truncate">{lastScanned.itemName}</span>
-                    <span className={`px-2 py-0.5 rounded-full text-[8px] font-black border shrink-0 ${
-                      lastScanned.status === 'Fresh'
-                        ? 'bg-[#20E79A]/15 text-[#07221A] border-[#20E79A]/30'
-                        : lastScanned.status === 'Warning' || lastScanned.status === 'At Risk'
-                        ? 'bg-[#FFAA00]/15 text-[#FFAA00] border-[#FFAA00]/30'
-                        : 'bg-[#FF5A67]/15 text-[#FF5A67] border-[#FF5A67]/30'
-                    }`}>
-                      {lastScanned.freshnessScore}% • {lastScanned.status}
-                    </span>
-                  </div>
-                  <p className="text-[10px] font-semibold text-[#5C7F75] leading-none">
-                    {lastScanned.category || (lastScanned.itemName.toLowerCase().includes('meat') ? 'Meat Products' : 'Dairy Products')}
-                  </p>
-                  <p className="text-[9px] text-[#07221A] font-mono leading-none pt-1">Tag: {lastScanned.tagId}</p>
-                  <div className="flex items-center gap-1.5 pt-1">
-                    <span className="w-1.5 h-1.5 bg-[#20E79A] rounded-full shrink-0" />
-                    <span className="text-[9.5px] font-extrabold text-[#07221A] tabular-nums">
-                      {lastScanned.temperature}°C • {lastScanned.humidity}% • {lastScanned.gas} ppm
-                    </span>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center p-6 neo-panel rounded-2xl border border-[#13493B]/10 text-center space-y-2">
-                <Package className="w-8 h-8 text-[#5C7F75]" />
-                <span className="text-xs font-bold text-[#07221A]">No Product Scanned Yet</span>
-                <p className="text-[10px] text-[#5C7F75] max-w-[200px]">
-                  Scan an RFID or QR tag to inspect freshness and populate telemetry.
-                </p>
-                {isAdmin && (
-                  <button
-                    type="button"
-                    onClick={() => navigate('/scan')}
-                    className="mt-2 px-4 py-2 neo-btn-primary text-xs font-bold rounded-xl cursor-pointer glow-emerald"
-                  >
-                    Scan Product
-                  </button>
-                )}
-              </div>
-            )}
-          </motion.div>
-
-          {/* Slogan Promo Card with Dark Forest Image Underlay & Glow */}
-          <motion.div 
-            variants={itemVariants}
-            onClick={() => navigate('/about')}
-            className="relative rounded-[28px] overflow-hidden aspect-[16/10] bg-gradient-to-t from-[#041410] to-[#07221A] border border-[#20E79A]/30 flex flex-col justify-between p-5 text-left shadow-lg cursor-pointer glow-emerald"
-          >
-            {/* Dark evergreens background */}
-            <div 
-              className="absolute inset-0 bg-cover bg-center opacity-45 mix-blend-overlay pointer-events-none"
-              style={{ backgroundImage: `url("${farmLandscapeImg}")` }}
-            />
-            {/* Subtle bottom green gradient */}
-            <div className="absolute inset-0 bg-gradient-to-t from-[#041410]/90 via-transparent to-transparent pointer-events-none" />
-
-            {/* Top tiny leaf logo */}
-            <div className="relative z-10 text-[#20E79A] glow-icon-emerald">
-              <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6">
-                <path d="M12 2C12 2 8 5 6 9C4 13 6 17 9 18C10 16 11 13 12 10C13 13 14 16 15 18C18 17 20 13 18 9C16 5 12 2 12 2Z" />
-              </svg>
-            </div>
-
-            {/* Slogan copy */}
-            <div className="relative z-10 space-y-2">
-              <h4 className="text-base font-serif italic text-white leading-tight">
-                Safer Food <br />
-                Healthier People <br />
-                <span className="text-[#20E79A] font-serif font-black drop-shadow-[0_0_10px_rgba(32,231,154,0.5)]">A Brighter Tomorrow</span>
-              </h4>
-            </div>
-
-            {/* Arrow Button on the bottom-right */}
-            <div className="absolute bottom-4 right-4 z-10 w-9 h-9 rounded-full bg-white flex items-center justify-center text-[#07221A] shadow-md group hover:bg-[#20E79A] hover:text-white transition-all glow-emerald">
-              <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
             </div>
           </motion.div>
         </div>

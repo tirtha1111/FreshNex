@@ -155,8 +155,20 @@ function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
   const temperature = Number(target.temperature ?? target.temp ?? target.t ?? 3.5);
   const humidity = Number(target.humidity ?? target.hum ?? target.h ?? 58.0);
   const mq135_raw = Number(target.mq135_raw ?? target.gas ?? target.mq135 ?? 110);
-  const impact = Number(target.impact ?? target.shock ?? target.vibration ?? 0.12);
-  const light = Number(target.light ?? target.lux ?? target.ldr ?? 18);
+
+  // Compute live impact/acceleration from Firebase Realtime Database (acceleration_change, accel_x/y/z, or impact)
+  let rawImpactVal = target.acceleration_change ?? target.acceleration ?? target.impact ?? target.shock ?? target.vibration;
+  if (rawImpactVal === undefined && (target.accel_x !== undefined || target.accel_y !== undefined || target.accel_z !== undefined)) {
+    const ax = Number(target.accel_x || 0);
+    const ay = Number(target.accel_y || 0);
+    const az = Number(target.accel_z || 0);
+    // Vector magnitude normalized relative to 1G gravity
+    const mag = Math.sqrt(ax * ax + ay * ay + az * az);
+    rawImpactVal = Math.abs(mag - 9.8) / 9.8;
+  }
+  const impact = Number(rawImpactVal ?? 0.08);
+
+  const light = Number(target.light_lux ?? target.light ?? target.lux ?? target.ldr ?? 18);
   const gpsLat = Number(
     target.gpsLat ?? target.lat ?? target.latitude ?? target.gps?.lat ?? target.neo6m?.lat ?? 22.5726
   );
@@ -170,31 +182,32 @@ function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
       88.3639
   );
   const gpsSats = Number(
-    target.gpsSats ?? target.sats ?? target.satellites ?? target.gps?.sats ?? target.neo6m?.sats ?? 8
+    target.gpsSats ?? target.sats ?? target.satellites ?? target.gps?.sats ?? target.neo6m?.sats ?? (target.gps_satellites ?? 8)
   );
 
   const finalTemp = isNaN(temperature) ? 3.5 : +temperature.toFixed(1);
   const finalHum = isNaN(humidity) ? 58.0 : +humidity.toFixed(1);
   const finalGas = isNaN(mq135_raw) ? 110 : Math.round(mq135_raw);
-  const finalImpact = isNaN(impact) ? 0.12 : +impact.toFixed(2);
-  const finalLight = isNaN(light) ? 18 : Math.round(light);
+  const finalImpact = isNaN(impact) ? 0.08 : +impact.toFixed(3);
+  const finalLight = isNaN(light) ? 18 : +light.toFixed(1);
   const finalLat = isNaN(gpsLat) ? 22.5726 : +gpsLat.toFixed(4);
   const finalLng = isNaN(gpsLng) ? 88.3639 : +gpsLng.toFixed(4);
   const finalSats = isNaN(gpsSats) ? 8 : Math.round(gpsSats);
 
-  const product = target.product || target.name || 'Cold Drinks';
+  const product = target.product_name || target.product || target.name || 'Cold Drinks';
   const moistureCalc = calculateMoisture(finalTemp, finalHum);
   const phCalc = calculatePH(finalTemp, finalHum, moistureCalc.absoluteMoisture, {
     category: product,
     gas: finalGas,
   });
 
-  const last_update = extractLatestTimestamp(target);
+  const extractedTs = extractLatestTimestamp(target);
+  const last_update = Math.max(extractedTs, Date.now());
   const online =
     target.online !== undefined
       ? Boolean(target.online)
       : target.status
-      ? target.status.toLowerCase() === 'online'
+      ? target.status.toLowerCase() !== 'offline'
       : true;
 
   const temperature_min = target.temperature_min ?? rawDevice.temperature_min;
@@ -355,7 +368,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
       };
-      onValue(devicesRef, handleDevices);
+      onValue(devicesRef, handleDevices, (err) => {
+        if (!err?.message?.includes('PERMISSION_DENIED')) {
+          console.warn('Devices RTDB listener notice:', err?.message || err);
+        }
+      });
       cleanups.push(() => off(devicesRef, 'value', handleDevices));
     } catch (e) {
       console.warn('Devices RTDB listener warning:', e);
@@ -381,7 +398,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
       };
-      onValue(profilesRef, handleProfiles);
+      onValue(profilesRef, handleProfiles, (err) => {
+        if (!err?.message?.includes('PERMISSION_DENIED')) {
+          console.warn('productProfiles RTDB notice:', err?.message || err);
+        }
+      });
       cleanups.push(() => off(profilesRef, 'value', handleProfiles));
     } catch (e) {
       console.warn('productProfiles RTDB listener warning:', e);
@@ -405,7 +426,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setAlertsList([]);
         }
       };
-      onValue(alertsRef, handleAlerts);
+      onValue(alertsRef, handleAlerts, (err) => {
+        if (!err?.message?.includes('PERMISSION_DENIED')) {
+          console.warn('alerts RTDB notice:', err?.message || err);
+        }
+      });
       cleanups.push(() => off(alertsRef, 'value', handleAlerts));
     } catch (e) {
       console.warn('alerts RTDB listener warning:', e);
@@ -434,7 +459,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
       };
-      onValue(historyRef, handleHistory);
+      onValue(historyRef, handleHistory, (err) => {
+        if (!err?.message?.includes('PERMISSION_DENIED')) {
+          console.warn('history RTDB notice:', err?.message || err);
+        }
+      });
       cleanups.push(() => off(historyRef, 'value', handleHistory));
     } catch (e) {
       console.warn('history RTDB listener warning:', e);
@@ -458,7 +487,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }
         }
       };
-      onValue(allUsersRef, handleUsers);
+      onValue(allUsersRef, handleUsers, (err) => {
+        if (!err?.message?.includes('PERMISSION_DENIED')) {
+          console.warn('users RTDB notice:', err?.message || err);
+        }
+      });
       cleanups.push(() => off(allUsersRef, 'value', handleUsers));
     } catch (e) {
       console.warn('users RTDB listener warning:', e);
@@ -484,7 +517,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 setUserScans(list);
               }
             };
-            onValue(scansRef, handleScans);
+            onValue(scansRef, handleScans, (err) => {
+              if (!err?.message?.includes('PERMISSION_DENIED')) {
+                console.warn('userScans RTDB notice:', err?.message || err);
+              }
+            });
             cleanups.push(() => off(scansRef, 'value', handleScans));
           }
           setIsLoading(false);
@@ -667,6 +704,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateDeviceData = async (deviceId: string, data: Partial<DeviceData>) => {
     let mergedDevice: DeviceData | null = null;
+    const now = Date.now();
 
     // 1. Immediately update local state so UI updates without lag
     setDevicesMap((prev) => {
@@ -678,8 +716,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       mergedDevice = {
         ...existing,
         ...data,
-        last_update: Date.now(),
-      };
+        last_update: now,
+        website_updated_at: now,
+      } as DeviceData;
       const updated = {
         ...prev,
         [deviceId]: mergedDevice,
@@ -690,12 +729,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return updated;
     });
 
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('freshnex_device_updated', {
+          detail: { deviceId, timestamp: now, data },
+        })
+      );
+    }
+
     // 2. Sync to Firebase Realtime Database
     const rtdb = getDirectDatabase();
     if (rtdb) {
       try {
         const deviceRef = ref(rtdb, `devices/${deviceId}`);
-        await dbUpdate(deviceRef, { ...data, last_update: Date.now() });
+        await dbUpdate(deviceRef, {
+          ...data,
+          last_update: now,
+          website_updated_at: now,
+        });
       } catch (err) {
         console.warn('Realtime DB updateDeviceData warning:', err);
       }
@@ -713,6 +764,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const updateProductProfile = async (profile: ProductProfile) => {
+    const now = Date.now();
     // 1. Immediately update local state
     setProductProfiles((prev) => {
       const idx = prev.findIndex(
@@ -730,6 +782,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       } catch {}
       return updated;
     });
+
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(
+        new CustomEvent('freshnex_device_updated', {
+          detail: { product: profile.name, timestamp: now },
+        })
+      );
+    }
 
     // 2. Push to Firebase RTDB & Firestore
     const rtdb = getDirectDatabase();

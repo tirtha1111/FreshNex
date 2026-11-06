@@ -19,6 +19,10 @@ export function parseTimestamp(val: any): number {
   // 1. Direct number check
   if (typeof val === 'number') {
     if (isNaN(val) || val <= 0) return Date.now();
+    // Values below 1600000000 (Sep 2020 in UNIX seconds) are hardware millis() uptime counters from ESP32
+    if (val < 1600000000) {
+      return Date.now();
+    }
     // 10-digit seconds timestamp (e.g. 1758784800) -> convert to milliseconds
     if (val < 10000000000) {
       return val * 1000;
@@ -34,6 +38,9 @@ export function parseTimestamp(val: any): number {
     // Numeric string check
     const num = Number(trimmed);
     if (!isNaN(num) && num > 0) {
+      if (num < 1600000000) {
+        return Date.now();
+      }
       if (num < 10000000000) {
         return num * 1000;
       }
@@ -74,8 +81,8 @@ export function parseTimestamp(val: any): number {
 
 /**
  * Extracts the latest valid timestamp from any telemetry / device payload or timestamp input.
- * Inspects all possible timestamp fields (last_seen, last_update, timestamp, time, updated_at, etc.)
- * and returns the most recent timestamp.
+ * Inspects all possible timestamp fields (website_updated_at, last_response_at, last_seen, last_update, timestamp, etc.)
+ * and returns the most recent wall-clock timestamp.
  */
 export function extractLatestTimestamp(payload: any, fallback?: number): number {
   if (payload === null || payload === undefined) {
@@ -96,10 +103,12 @@ export function extractLatestTimestamp(payload: any, fallback?: number): number 
       return parseTimestamp(payload);
     }
 
-    // Collect all candidate timestamps from common hardware / cloud keys
+    // Collect all candidate timestamps from common hardware / website / cloud keys
     const candidates: number[] = [];
 
     const keysToCheck = [
+      'website_updated_at',
+      'last_response_at',
       'last_seen',
       'lastSeen',
       'last_response',
@@ -125,8 +134,9 @@ export function extractLatestTimestamp(payload: any, fallback?: number): number 
       }
     }
 
-    // Also check if payload has a nested child object (e.g. payload[lastKey] when RTDB stores nested push keys)
-    const childKeys = Object.keys(payload);
+    // Also check if payload has a nested child object (e.g. payload[lastKey] when RTDB stores nested push keys),
+    // skipping non-telemetry control objects such as 'commands'
+    const childKeys = Object.keys(payload).filter((k) => k !== 'commands');
     if (childKeys.length > 0) {
       const lastKey = childKeys[childKeys.length - 1];
       if (typeof payload[lastKey] === 'object' && payload[lastKey] !== null) {

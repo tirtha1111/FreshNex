@@ -358,7 +358,7 @@ export const ScanPage: React.FC = () => {
           {/* Floating Detection Status */}
           <motion.div 
             animate={{ y: [0, -3, 0] }}
-            transition={{ duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
+            transition={{ type: 'tween', duration: 2.5, repeat: Infinity, ease: 'easeInOut' }}
             className="absolute bottom-4 bg-[#07221A]/90 backdrop-blur-md px-4 py-1.5 rounded-full border border-[#20E79A]/30 flex items-center gap-2 shadow-xl"
           >
             <Radio className="w-3.5 h-3.5 text-[#20E79A] animate-pulse" />

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { FoodItem, SensorData, ScanHistoryRecord } from '../types';
-import { DEFAULT_ITEMS, DEFAULT_SENSOR_DATA, DEFAULT_SCAN_HISTORY } from '../data/initialData';
+import { DEFAULT_ITEMS, DEFAULT_SENSOR_DATA, DEFAULT_SCAN_HISTORY, resolveFactualProduct } from '../data/initialData';
 import { calculateFreshness, FreshnessReport } from '../utils/freshnessEngine';
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
@@ -97,13 +97,30 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     };
   }, []);
 
-  // Filter scan history and alerts for product users so they only see their assigned product
+  // Filter scan history and alerts for product users so they only see their assigned product,
+  // and ensure every scan record carries its factual product image & name
   const filteredScanHistory = React.useMemo(() => {
-    let list = scanHistory;
+    let list = scanHistory.map((s) => {
+      const factual = resolveFactualProduct(s.itemId || s.tagId || s.itemName, s.itemImage);
+      const isGenericOrColdDrinks =
+        !s.itemImage ||
+        s.itemImage === '/colddrinks.jpg' ||
+        s.itemName?.toLowerCase().includes('monitored unit') ||
+        s.itemName?.toLowerCase() === 'cold drinks';
+      return {
+        ...s,
+        itemId: factual.id,
+        itemName: isGenericOrColdDrinks ? factual.name : (s.itemName || factual.name),
+        itemImage: isGenericOrColdDrinks ? factual.image : (s.itemImage || factual.image),
+        category: (s as any).category || factual.category,
+      };
+    });
     if (!isAdmin && (assignedName || assignedTag)) {
-      list = scanHistory.filter(
+      const targetFactual = resolveFactualProduct(assignedTag || assignedName);
+      list = list.filter(
         (s) =>
-          s.itemName.toLowerCase().includes(assignedName.toLowerCase()) ||
+          s.itemId.toUpperCase() === targetFactual.id.toUpperCase() ||
+          s.itemName.toLowerCase().includes(targetFactual.name.toLowerCase()) ||
           s.tagId.toLowerCase().includes(assignedTag.toLowerCase()) ||
           s.itemId.toLowerCase().includes(assignedTag.toLowerCase())
       );
@@ -307,10 +324,14 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
   // Seed default scan history and active item for assigned product user if logged in with unique code
   useEffect(() => {
     if (!isAdmin && (assignedName || assignedTag)) {
-      const prodName = assignedName || 'Cold Drinks';
-      const tagId = assignedTag || 'COLD_DRINKS';
+      const factualItem = resolveFactualProduct(assignedTag || assignedName);
+      const tagId = factualItem.id;
+      const prodName = factualItem.name;
+      const initSensor = DEFAULT_SENSOR_DATA[tagId] || DEFAULT_SENSOR_DATA['APPLE'];
+
       const hasItem = scanHistory.some(
         (s) =>
+          s.itemId.toUpperCase() === tagId.toUpperCase() ||
           s.itemName.toLowerCase().includes(prodName.toLowerCase()) ||
           s.tagId.toLowerCase().includes(tagId.toLowerCase())
       );
@@ -319,18 +340,18 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
           id: `scan-default-${tagId}-${Math.random().toString(36).substring(2, 8)}`,
           itemId: tagId,
           itemName: prodName,
-          tagId: tagId.startsWith('#') ? tagId : `#${tagId}`,
-          itemImage: '/colddrinks.jpg',
-          temperature: 3.5,
-          humidity: 58.2,
-          moisture: 4.2,
-          ph: 4.2,
-          gas: 110,
-          impact: 0.12,
-          light: 18,
-          gpsLat: 22.5726,
-          gpsLng: 88.3639,
-          gpsSats: 8,
+          tagId: factualItem.tagId,
+          itemImage: factualItem.image,
+          temperature: initSensor.temperature,
+          humidity: initSensor.humidity,
+          moisture: initSensor.moisture ?? 6.5,
+          ph: initSensor.ph ?? 4.1,
+          gas: initSensor.gas,
+          impact: initSensor.impact ?? 0.08,
+          light: initSensor.light ?? 25,
+          gpsLat: initSensor.gpsLat ?? 22.5726,
+          gpsLng: initSensor.gpsLng ?? 88.3639,
+          gpsSats: initSensor.gpsSats ?? 9,
           freshnessScore: 98,
           status: 'Fresh',
           timestamp: Date.now(),
@@ -338,33 +359,18 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         setScanHistory((prev) => [defaultRecord, ...prev]);
       }
 
-      if (!activeItem) {
-        const itemObj = DEFAULT_ITEMS[tagId] || DEFAULT_ITEMS['COLD_DRINKS'] || {
-          id: tagId,
-          name: prodName,
-          category: 'Beverages',
-          image: '/colddrinks.jpg',
-          batchId: 'BATCH-102',
-          tagId: tagId.startsWith('#') ? tagId : `#${tagId}`,
-          description: `${prodName} package monitored in real-time.`,
-          optimalTemp: '1 - 5°C',
-          optimalHumidity: '50 - 70%',
-          maxGas: 150,
-        };
-        setActiveItem(itemObj as any);
-        const initSensor = DEFAULT_SENSOR_DATA[tagId] || DEFAULT_SENSOR_DATA['COLD_DRINKS'] || {
-          temperature: 3.5,
-          humidity: 58,
-          gas: 110,
-          impact: 0.12,
-          light: 18,
-          gpsLat: 22.5726,
-          gpsLng: 88.3639,
-          gpsSats: 8,
-          timestamp: Date.now(),
-        };
-        handleSensorTelemetry(initSensor, itemObj as any);
+      if (!activeItem || activeItem.id.toUpperCase() !== tagId.toUpperCase()) {
+        setActiveItem(factualItem as any);
+        handleSensorTelemetry(initSensor, factualItem as any);
       }
+    } else if (isAdmin && !activeItem) {
+      const initialAdminItem =
+        scanHistory.length > 0
+          ? resolveFactualProduct(scanHistory[0].itemId || scanHistory[0].tagId, scanHistory[0].itemImage)
+          : DEFAULT_ITEMS['APPLE'];
+      setActiveItem(initialAdminItem as any);
+      const initSensor = DEFAULT_SENSOR_DATA[initialAdminItem.id] || DEFAULT_SENSOR_DATA['APPLE'];
+      handleSensorTelemetry(initSensor, initialAdminItem as any);
     }
   }, [isAdmin, assignedName, assignedTag, scanHistory, activeItem, handleSensorTelemetry]);
 

@@ -217,6 +217,7 @@ export const AdminDevices: React.FC = () => {
   };
 
   const [realtimeStatus, setRealtimeStatus] = useState<'online' | 'offline' | undefined>(undefined);
+  const [, setTick] = useState(0);
   const [liveSensor, setLiveSensor] = useState({
     temperature: 4.2,
     humidity: 62.0,
@@ -229,7 +230,7 @@ export const AdminDevices: React.FC = () => {
     timestamp: Date.now()
   });
 
-  // Subscribe to real-time status and sensor data
+  // Subscribe to real-time status, sensor data, and website configuration changes
   useEffect(() => {
     if (!activeDeviceId) {
       setRealtimeStatus(undefined);
@@ -241,38 +242,56 @@ export const AdminDevices: React.FC = () => {
 
     const dev = devicesMap[activeDeviceId];
     if (dev) {
-      setLiveSensor({
-        temperature: dev.temperature ?? 4.2,
-        humidity: dev.humidity ?? 62.0,
-        mq135_raw: dev.mq135_raw ?? 120,
-        impact: dev.impact ?? 0.12,
-        light: dev.light ?? 18,
-        gpsLat: dev.gpsLat ?? 22.5726,
-        gpsLng: dev.gpsLng ?? 88.3639,
-        gpsSats: dev.gpsSats ?? 8,
-        timestamp: extractLatestTimestamp(dev)
-      });
+      setLiveSensor((prev) => ({
+        temperature: dev.temperature ?? prev.temperature ?? 4.2,
+        humidity: dev.humidity ?? prev.humidity ?? 62.0,
+        mq135_raw: dev.mq135_raw ?? prev.mq135_raw ?? 120,
+        impact: dev.impact ?? prev.impact ?? 0.12,
+        light: dev.light ?? prev.light ?? 18,
+        gpsLat: dev.gpsLat ?? prev.gpsLat ?? 22.5726,
+        gpsLng: dev.gpsLng ?? prev.gpsLng ?? 88.3639,
+        gpsSats: dev.gpsSats ?? prev.gpsSats ?? 8,
+        timestamp: Date.now()
+      }));
     }
 
     const unsubSensor = FirebaseService.subscribeToSensorData(activeDeviceId, (data) => {
       if (data) {
-        setLiveSensor({
-          temperature: data.temperature ?? dev?.temperature ?? 4.2,
-          humidity: data.humidity ?? dev?.humidity ?? 62.0,
-          mq135_raw: (data as any).gas ?? (data as any).mq135_raw ?? dev?.mq135_raw ?? 120,
-          impact: data.impact ?? dev?.impact ?? 0.12,
-          light: data.light ?? dev?.light ?? 18,
-          gpsLat: data.gpsLat ?? dev?.gpsLat ?? 22.5726,
-          gpsLng: data.gpsLng ?? dev?.gpsLng ?? 88.3639,
-          gpsSats: data.gpsSats ?? dev?.gpsSats ?? 8,
-          timestamp: extractLatestTimestamp(data)
-        });
+        setLiveSensor((prev) => ({
+          temperature: data.temperature ?? dev?.temperature ?? prev.temperature ?? 4.2,
+          humidity: data.humidity ?? dev?.humidity ?? prev.humidity ?? 62.0,
+          mq135_raw: (data as any).gas ?? (data as any).mq135_raw ?? dev?.mq135_raw ?? prev.mq135_raw ?? 120,
+          impact: data.impact ?? dev?.impact ?? prev.impact ?? 0.12,
+          light: data.light ?? dev?.light ?? prev.light ?? 18,
+          gpsLat: data.gpsLat ?? dev?.gpsLat ?? prev.gpsLat ?? 22.5726,
+          gpsLng: data.gpsLng ?? dev?.gpsLng ?? prev.gpsLng ?? 88.3639,
+          gpsSats: data.gpsSats ?? dev?.gpsSats ?? prev.gpsSats ?? 8,
+          timestamp: Date.now()
+        }));
       }
     });
+
+    const handleWebsiteUpdate = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      setLiveSensor((prev) => ({
+        ...prev,
+        timestamp: detail?.timestamp || Date.now()
+      }));
+    };
+
+    window.addEventListener('freshnex_device_updated', handleWebsiteUpdate);
+    window.addEventListener('freshnex_thresholds_updated', handleWebsiteUpdate);
+
+    const ticker = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 1000);
 
     return () => {
       unsubStatus();
       unsubSensor();
+      window.removeEventListener('freshnex_device_updated', handleWebsiteUpdate);
+      window.removeEventListener('freshnex_thresholds_updated', handleWebsiteUpdate);
+      clearInterval(ticker);
     };
   }, [activeDeviceId, devicesMap]);
 
@@ -328,10 +347,14 @@ export const AdminDevices: React.FC = () => {
     : null;
 
   const rawResponseTimestamp = Math.max(
-    extractLatestTimestamp(liveSensor, 0),
+    liveSensor.timestamp || 0,
     extractLatestTimestamp(activeDevice, 0)
   ) || Date.now();
-  const { dateStr: formattedResponseDate, timeStr: formattedResponseTime } = formatRealtimeDateTime(rawResponseTimestamp);
+  const {
+    dateStr: formattedResponseDate,
+    timeStr: formattedResponseTime,
+    relativeStr: formattedRelativeTime
+  } = formatRealtimeDateTime(rawResponseTimestamp);
 
   const currentThresholdDisplay = useMemo(() => {
     if (!activeDevice) return { tempMin: 2.0, tempMax: 6.0, humMin: 50, humMax: 70, mq135_threshold: 1500 };
@@ -639,7 +662,12 @@ export const AdminDevices: React.FC = () => {
                   <Clock className="w-5 h-5 text-[#20E79A]" />
                 </div>
                 <div className="min-w-0">
-                  <span className="text-[10px] font-extrabold uppercase text-[#13493B] block truncate">Last Response</span>
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[10px] font-extrabold uppercase text-[#13493B] block truncate">Last Response</span>
+                    <span className="text-[8.5px] font-extrabold text-emerald-800 bg-white/90 px-1.5 py-0.2 rounded border border-emerald-200 tabular-nums">
+                      {formattedRelativeTime}
+                    </span>
+                  </div>
                   <div className="mt-0.5">
                     <span className="text-xs font-black text-[#07221A] block truncate">{formattedResponseDate}</span>
                     <span className="text-[10px] font-mono font-bold text-[#5C7F75] block truncate">{formattedResponseTime}</span>
@@ -660,6 +688,9 @@ export const AdminDevices: React.FC = () => {
                     <Clock className="w-3 h-3 text-[#20E79A]" />
                     <span className="text-[#5C7F75]">Last Response:</span>
                     <span>{formattedResponseDate}, {formattedResponseTime}</span>
+                    <span className="text-[9px] font-extrabold text-emerald-800 bg-white/90 px-1.5 py-0.2 rounded-md border border-emerald-200">
+                      {formattedRelativeTime}
+                    </span>
                   </span>
                   <span className="text-[10px] font-bold text-[#20E79A] bg-[#EBFBF4] px-2 py-0.5 rounded-full">Real-time Stream</span>
                 </div>
@@ -790,7 +821,7 @@ export const AdminDevices: React.FC = () => {
                 >
                   <div>
                     <span className="text-[10px] font-extrabold text-[#5C7F75] uppercase block tracking-wider">Light Sensor</span>
-                    <span className="text-2xl sm:text-3xl font-black text-[#07221A]">{Math.round(activeDevice.light ?? 18)} <span className="text-sm font-bold text-[#5C7F75]">lx</span></span>
+                    <span className="text-2xl sm:text-3xl font-black text-[#07221A]">{Number(activeDevice.light ?? 18).toFixed(1)} <span className="text-sm font-bold text-[#5C7F75]">lx</span></span>
                     <span className="text-[10px] font-mono text-[#5C7F75] font-semibold block mt-0.5">Seal Integrity</span>
                   </div>
                   <div className="w-12 h-12 rounded-2xl bg-yellow-50 text-yellow-600 border border-yellow-200 flex items-center justify-center shrink-0 shadow-xs">

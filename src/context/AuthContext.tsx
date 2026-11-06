@@ -18,6 +18,7 @@ import {
 } from '../firebase/firebase';
 import { getDirectDatabase, getDirectFirestore } from '../services/firebaseService';
 import { UserProfile, UserSettings } from '../types';
+import { resolveFactualProduct } from '../data/initialData';
 
 interface AuthContextType {
   currentUser: User | null;
@@ -146,7 +147,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
     try {
       const stored = localStorage.getItem('freshnex_profile');
-      if (stored) return JSON.parse(stored);
+      if (stored) {
+        const parsed: UserProfile = JSON.parse(stored);
+        if (parsed.role === 'user' && parsed.assignedProductId) {
+          const factual = resolveFactualProduct(parsed.assignedProductId);
+          parsed.assignedProductId = factual.id;
+          parsed.assignedProductName = factual.name;
+          parsed.name = `${factual.name} Access`;
+        }
+        return parsed;
+      }
     } catch (e) {
       console.warn(e);
     }
@@ -203,7 +213,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     };
 
-    onValue(settingsRef, handleSettingsVal);
+    onValue(settingsRef, handleSettingsVal, (err) => {
+      if (!err?.message?.includes('PERMISSION_DENIED')) {
+        console.warn('userSettings RTDB notice:', err?.message || err);
+      }
+    });
     return () => {
       off(settingsRef, 'value', handleSettingsVal);
     };
@@ -395,28 +409,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     if (!cleanTag) {
       setIsLoading(false);
-      const msg = 'Please enter a valid unique product Tag ID (e.g. COLD_DRINKS or MEAT).';
+      const msg = 'Please enter a valid unique product Tag ID (e.g. APPLE or MILK).';
       setAuthError(msg);
       throw new Error(msg);
     }
 
-    let productName = 'Cold Drinks';
-    if (cleanTag === 'MEAT' || cleanTag.includes('MEAT') || cleanTag.includes('UNCONFIGURED')) {
-      productName = 'Meat Package';
-    } else if (
-      cleanTag === 'COLD_DRINKS' ||
-      cleanTag === 'DRINKS' ||
-      cleanTag === 'KETCHUP' ||
-      cleanTag.includes('KETCHUP') ||
-      cleanTag === 'MILK' ||
-      cleanTag.includes('MILK') ||
-      cleanTag.includes('YGS') ||
-      cleanTag.includes('124')
-    ) {
-      productName = 'Cold Drinks';
-    } else {
-      productName = `Monitored Unit (${cleanTag})`;
-    }
+    const factualProduct = resolveFactualProduct(cleanTag);
+    const productName = factualProduct.name;
 
     const mockUser = {
       uid: `product_user_${cleanTag.toLowerCase()}`,

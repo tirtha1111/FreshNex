@@ -937,26 +937,6 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
           </div>
         </div>
       )}
-
-      {/* 4. Educational Working Principle Callout */}
-      <div className="p-3.5 rounded-2xl bg-[#EBFBF4] border border-[#20E79A]/30 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs">
-        <div className="flex items-start gap-2 text-[#07221A]">
-          <Info className="w-4 h-4 text-[#20E79A] shrink-0 mt-0.5" />
-          <span className="text-[11px] font-semibold leading-relaxed">
-            <strong className="font-black text-[#07221A]">How Environmental Fluctuations Impact Freshness:</strong> The FreshNex Multi-Component Quality Index (MCQI) evaluates deviations in Temperature ($W_T$), Humidity ($W_H$), and Gas ($W_G$). When thermal abuse and VOC spikes co-occur, the Arrhenius synergy multiplier compounds the quality loss.
-          </span>
-        </div>
-
-        {isAdmin && onOpenThresholdModal && (
-          <button
-            type="button"
-            onClick={onOpenThresholdModal}
-            className="px-3.5 py-2 rounded-xl neo-btn text-[10px] font-black text-[#07221A] shrink-0 cursor-pointer hover:bg-white self-end sm:self-center"
-          >
-            Adjust Rules
-          </button>
-        )}
-      </div>
     </div>
   );
 };

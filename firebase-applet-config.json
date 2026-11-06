@@ -4,6 +4,7 @@
   "apiKey": "AIzaSyCyM0wApLbwJ-W5uZajMfHqrEK1CgD53Wk",
   "authDomain": "freshnex-9bf3f.firebaseapp.com",
   "firestoreDatabaseId": "ai-studio-freshnex-49eab42e-b36e-4f53-a64b-4f4bda5f7eec",
+  "databaseURL": "https://freshnex-9bf3f-default-rtdb.firebaseio.com",
   "storageBucket": "freshnex-9bf3f.firebasestorage.app",
   "messagingSenderId": "80795813209",
   "measurementId": "",

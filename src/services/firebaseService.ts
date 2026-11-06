@@ -64,17 +64,13 @@ export function subscribeToDeviceStatus(
   callback: (status: 'online' | 'offline' | undefined) => void
 ): () => void {
   const cleanId = deviceId ? deviceId.trim().toUpperCase().replace(/^#/, '') : '';
-  const isMilk =
-    cleanId === 'MILK' ||
-    cleanId.includes('MILK') ||
-    cleanId.includes('000126');
 
   const targetDevId =
-    cleanId === 'MILK' || cleanId.includes('MILK') || cleanId.includes('000126')
-      ? 'YGS-FD-000126'
-      : cleanId === 'APPLE' || cleanId.includes('APPLE') || cleanId.includes('000125')
-      ? 'YGS-FD-000125'
-      : cleanId;
+    cleanId.includes('112233') || cleanId.includes('MEAT')
+      ? 'YGS-FD-112233'
+      : cleanId.startsWith('YGS-FD-') && cleanId !== 'YGS-FD-000126' && cleanId !== 'YGS-FD-000125'
+      ? cleanId
+      : 'YGS-FD-000124';
 
   let lastUpdateTime = Date.now();
   let lastReportedStatus: 'online' | 'offline' | undefined = undefined;
@@ -111,7 +107,7 @@ export function subscribeToDeviceStatus(
           'last_seen' in val
         )
       ) {
-        const keys = Object.keys(val);
+        const keys = Object.keys(val).filter((k) => k !== 'commands');
         if (keys.length > 0) {
           const lastKey = keys[keys.length - 1];
           if (typeof val[lastKey] === 'object' && val[lastKey] !== null) {
@@ -155,7 +151,9 @@ export async function getItemById(itemId: string): Promise<FoodItem | null> {
   if (
     cleanId === 'MILK' ||
     cleanId === 'YGS-FD-000126' ||
+    cleanId === 'YGS-FD-000124' ||
     cleanId.includes('000126') ||
+    cleanId.includes('000124') ||
     cleanId.includes('MILK')
   ) {
     return DEFAULT_ITEMS['MILK'];
@@ -194,12 +192,14 @@ export function parseFullSensorPayload(
       'hum' in val ||
       'gas' in val ||
       'mq135_raw' in val ||
+      'acceleration_change' in val ||
+      'light_lux' in val ||
       'impact' in val ||
       'light' in val ||
       'gpsLat' in val
     )
   ) {
-    const keys = Object.keys(val);
+    const keys = Object.keys(val).filter((k) => k !== 'commands');
     if (keys.length > 0) {
       const lastKey = keys[keys.length - 1];
       if (typeof val[lastKey] === 'object' && val[lastKey] !== null) {
@@ -228,18 +228,32 @@ export function parseFullSensorPayload(
       target.voc ??
       defaultGas
   );
-  const impactRaw = Number(
+
+  let rawImpactCandidate =
+    target.acceleration_change ??
+    target.acceleration ??
     target.impact ??
-      target.impact_g ??
-      target.shock ??
-      target.vibration ??
-      target.g_force ??
-      target.accel ??
-      defaultImpact
-  );
+    target.impact_g ??
+    target.shock ??
+    target.vibration ??
+    target.g_force ??
+    target.accel;
+
+  if (
+    rawImpactCandidate === undefined &&
+    (target.accel_x !== undefined || target.accel_y !== undefined || target.accel_z !== undefined)
+  ) {
+    const ax = Number(target.accel_x || 0);
+    const ay = Number(target.accel_y || 0);
+    const az = Number(target.accel_z || 0);
+    const mag = Math.sqrt(ax * ax + ay * ay + az * az);
+    rawImpactCandidate = Math.abs(mag - 9.8) / 9.8;
+  }
+
+  const impactRaw = Number(rawImpactCandidate ?? defaultImpact);
   const lightRaw = Number(
-    target.light ??
-      target.light_lux ??
+    target.light_lux ??
+      target.light ??
       target.lux ??
       target.ldr ??
       target.illuminance ??
@@ -271,6 +285,7 @@ export function parseFullSensorPayload(
   );
   const gpsSatsRaw = Number(
     target.gpsSats ??
+      target.gps_satellites ??
       target.gps_sats ??
       target.sats ??
       target.satellites ??
@@ -281,13 +296,13 @@ export function parseFullSensorPayload(
       defaultSats
   );
 
-  const timestamp = extractLatestTimestamp(target);
+  const timestamp = isReal ? Date.now() : extractLatestTimestamp(target);
 
   const finalTemp = isNaN(temperature) ? defaultTemp : +temperature.toFixed(1);
-  const finalHum = isNaN(humidity) ? defaultHum : Math.round(humidity);
+  const finalHum = isNaN(humidity) ? defaultHum : +humidity.toFixed(1);
   const finalGas = isNaN(gas) ? defaultGas : Math.round(gas);
-  const finalImpact = isNaN(impactRaw) ? defaultImpact : +impactRaw.toFixed(2);
-  const finalLight = isNaN(lightRaw) ? defaultLight : Math.round(lightRaw);
+  const finalImpact = isNaN(impactRaw) ? defaultImpact : +impactRaw.toFixed(3);
+  const finalLight = isNaN(lightRaw) ? defaultLight : +lightRaw.toFixed(1);
   const finalLat = isNaN(gpsLatRaw) ? defaultLat : +gpsLatRaw.toFixed(4);
   const finalLng = isNaN(gpsLngRaw) ? defaultLng : +gpsLngRaw.toFixed(4);
   const finalSats = isNaN(gpsSatsRaw) ? defaultSats : Math.round(gpsSatsRaw);
@@ -336,10 +351,10 @@ export async function syncSensorTelemetryToFirebase(
   data: Partial<SensorData> & { product?: string; online?: boolean }
 ): Promise<void> {
   const cleanId =
-    deviceId === 'MILK' || deviceId.includes('000126')
-      ? 'YGS-FD-000126'
+    deviceId === 'MILK' || deviceId.includes('000126') || deviceId.includes('000124')
+      ? 'YGS-FD-000124'
       : deviceId === 'APPLE' || deviceId.includes('000125')
-      ? 'YGS-FD-000125'
+      ? 'YGS-FD-000124'
       : deviceId.trim().replace(/^#/, '');
 
   const temp = data.temperature ?? 3.5;
@@ -446,10 +461,13 @@ export function subscribeToSensorData(
     activeCleanups.forEach((c) => c());
     activeCleanups = [];
 
+    // Primary hardware node in Firebase RTDB is YGS-FD-000124
     const deviceIdToListen =
-      cleanId === 'MILK' || cleanId.includes('MILK') || cleanId.includes('000126')
-        ? 'YGS-FD-000126'
-        : 'YGS-FD-000125';
+      cleanId.startsWith('YGS-FD-') &&
+      cleanId !== 'YGS-FD-000126' &&
+      cleanId !== 'YGS-FD-000125'
+        ? cleanId
+        : 'YGS-FD-000124';
 
     const db = getDirectDatabase();
     let gotRealData = false;
@@ -464,23 +482,6 @@ export function subscribeToSensorData(
             gotRealData = true;
             const rawVal = snapshot.val();
             processSensorPayload(rawVal, true);
-
-            // If impact, light, or NEO-6M GPS fields are not yet seeded on the Firebase node, enrich them non-destructively
-            if (
-              rawVal &&
-              typeof rawVal === 'object' &&
-              (rawVal.impact === undefined ||
-                rawVal.light === undefined ||
-                rawVal.gpsLat === undefined)
-            ) {
-              update(deviceRef, {
-                impact: rawVal.impact ?? 0.12,
-                light: rawVal.light ?? 18,
-                gpsLat: rawVal.gpsLat ?? 22.5726,
-                gpsLng: rawVal.gpsLng ?? 88.3639,
-                gpsSats: rawVal.gpsSats ?? 8,
-              }).catch(() => {});
-            }
           }
         };
 
@@ -492,10 +493,14 @@ export function subscribeToSensorData(
         };
 
         const unsubDev = onValue(deviceRef, handleDevVal, (err) => {
-          console.warn(`Realtime device listener warning for ${deviceIdToListen}:`, err);
+          if (!err?.message?.includes('PERMISSION_DENIED')) {
+            console.warn(`Realtime device listener warning for ${deviceIdToListen}:`, err);
+          }
         });
         const unsubSensor = onValue(sensorRef, handleSensorVal, (err) => {
-          console.warn(`Realtime sensor listener warning for ${deviceIdToListen}:`, err);
+          if (!err?.message?.includes('PERMISSION_DENIED')) {
+            console.warn(`Realtime sensor listener warning for ${deviceIdToListen}:`, err);
+          }
         });
 
         let unsubscribed = false;

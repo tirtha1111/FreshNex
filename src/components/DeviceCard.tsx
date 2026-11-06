@@ -30,6 +30,7 @@ interface Props {
 
 export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiClick }) => {
   const [realtimeStatus, setRealtimeStatus] = useState<'online' | 'offline' | undefined>('online');
+  const [, setTick] = useState(0);
   const [liveSensor, setLiveSensor] = useState({
     temperature: dev.temperature ?? 4.2,
     humidity: dev.humidity ?? 62.0,
@@ -39,9 +40,37 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
     gpsLat: dev.gpsLat ?? 22.5726,
     gpsLng: dev.gpsLng ?? 88.3639,
     gpsSats: dev.gpsSats ?? 8,
-    timestamp: extractLatestTimestamp(dev),
+    timestamp: Date.now(),
   });
 
+  // Sync immediately when parent dev prop changes (from Firebase AppContext listener or website config update)
+  useEffect(() => {
+    setLiveSensor((prev) => ({
+      temperature: dev.temperature ?? prev.temperature ?? 4.2,
+      humidity: dev.humidity ?? prev.humidity ?? 62.0,
+      mq135_raw: dev.mq135_raw ?? prev.mq135_raw ?? 120,
+      impact: dev.impact ?? prev.impact ?? 0.12,
+      light: dev.light ?? prev.light ?? 18,
+      gpsLat: dev.gpsLat ?? prev.gpsLat ?? 22.5726,
+      gpsLng: dev.gpsLng ?? prev.gpsLng ?? 88.3639,
+      gpsSats: dev.gpsSats ?? prev.gpsSats ?? 8,
+      timestamp: Date.now(),
+    }));
+  }, [
+    dev.temperature,
+    dev.humidity,
+    dev.mq135_raw,
+    dev.impact,
+    dev.light,
+    dev.gpsLat,
+    dev.gpsLng,
+    dev.gpsSats,
+    dev.product,
+    dev.last_update,
+    (dev as any).website_updated_at,
+  ]);
+
+  // Subscribe to direct Firebase WebSocket stream & website update events
   useEffect(() => {
     const unsubStatus = FirebaseService.subscribeToDeviceStatus(dev.device_id, (status) => {
       setRealtimeStatus(status);
@@ -49,25 +78,56 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
 
     const unsubSensor = FirebaseService.subscribeToSensorData(dev.device_id, (data) => {
       if (data) {
-        setLiveSensor({
-          temperature: data.temperature ?? dev.temperature ?? 4.2,
-          humidity: data.humidity ?? dev.humidity ?? 62.0,
-          mq135_raw: (data as any).gas ?? (data as any).mq135_raw ?? dev.mq135_raw ?? 120,
-          impact: data.impact ?? dev.impact ?? 0.12,
-          light: data.light ?? dev.light ?? 18,
-          gpsLat: data.gpsLat ?? dev.gpsLat ?? 22.5726,
-          gpsLng: data.gpsLng ?? dev.gpsLng ?? 88.3639,
-          gpsSats: data.gpsSats ?? dev.gpsSats ?? 8,
-          timestamp: extractLatestTimestamp(data),
-        });
+        setLiveSensor((prev) => ({
+          temperature: data.temperature ?? dev.temperature ?? prev.temperature ?? 4.2,
+          humidity: data.humidity ?? dev.humidity ?? prev.humidity ?? 62.0,
+          mq135_raw:
+            (data as any).gas ??
+            (data as any).mq135_raw ??
+            dev.mq135_raw ??
+            prev.mq135_raw ??
+            120,
+          impact: data.impact ?? dev.impact ?? prev.impact ?? 0.12,
+          light: data.light ?? dev.light ?? prev.light ?? 18,
+          gpsLat: data.gpsLat ?? dev.gpsLat ?? prev.gpsLat ?? 22.5726,
+          gpsLng: data.gpsLng ?? dev.gpsLng ?? prev.gpsLng ?? 88.3639,
+          gpsSats: data.gpsSats ?? dev.gpsSats ?? prev.gpsSats ?? 8,
+          timestamp: Date.now(),
+        }));
       }
     });
+
+    const handleWebsiteUpdate = (e: Event) => {
+      const detail = (e as CustomEvent)?.detail;
+      if (
+        !detail ||
+        !detail.deviceId ||
+        detail.deviceId === dev.device_id ||
+        detail.product === dev.product
+      ) {
+        setLiveSensor((prev) => ({
+          ...prev,
+          timestamp: detail?.timestamp || Date.now(),
+        }));
+      }
+    };
+
+    window.addEventListener('freshnex_device_updated', handleWebsiteUpdate);
+    window.addEventListener('freshnex_thresholds_updated', handleWebsiteUpdate);
+
+    // 1-second live clock ticker so relative time & Last Response stay accurate in real time
+    const ticker = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 1000);
 
     return () => {
       unsubStatus();
       unsubSensor();
+      window.removeEventListener('freshnex_device_updated', handleWebsiteUpdate);
+      window.removeEventListener('freshnex_thresholds_updated', handleWebsiteUpdate);
+      clearInterval(ticker);
     };
-  }, [dev.device_id]);
+  }, [dev.device_id, dev.product]);
 
   const liveMoisture = calculateMoisture(liveSensor.temperature, liveSensor.humidity);
   const livePH = calculatePH(
@@ -80,9 +140,16 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
     }
   );
 
-  const { dateStr: formattedDate, timeStr: formattedTime } = formatRealtimeDateTime(
-    Math.max(extractLatestTimestamp(liveSensor, 0), extractLatestTimestamp(dev, 0)) || Date.now()
-  );
+  const latestTs =
+    Math.max(
+      liveSensor.timestamp || 0,
+      extractLatestTimestamp(dev, 0)
+    ) || Date.now();
+  const {
+    dateStr: formattedDate,
+    timeStr: formattedTime,
+    relativeStr,
+  } = formatRealtimeDateTime(latestTs);
 
   return (
     <motion.div
@@ -201,15 +268,20 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
             </span>
           </div>
 
-          <div className="flex items-center justify-between text-[10px] bg-[#F4F7F6] px-2.5 py-1.5 rounded-xl border border-[#13493B]/8 shadow-xs">
+          <div className="flex items-center justify-between text-[10px] bg-[#EBFBF4]/80 px-2.5 py-1.5 rounded-xl border border-[#20E79A]/30 shadow-xs">
             <div className="flex items-center gap-1.5 truncate min-w-0">
-              <Clock className="w-3.5 h-3.5 text-[#20E79A] shrink-0" />
-              <span className="font-bold text-[#5C7F75] shrink-0">Last Response:</span>
-              <span className="font-mono font-bold text-[#07221A] truncate">
+              <Clock className="w-3.5 h-3.5 text-[#13493B] shrink-0" />
+              <span className="font-bold text-[#13493B] shrink-0">Last Response:</span>
+              <span className="font-mono font-black text-[#07221A] truncate">
                 {formattedDate}, {formattedTime}
               </span>
             </div>
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0 ml-1.5" />
+            <div className="flex items-center gap-1 shrink-0 ml-1.5">
+              <span className="text-[9px] font-extrabold text-emerald-800 bg-white/90 px-1.5 py-0.5 rounded-md border border-emerald-200 tabular-nums">
+                {relativeStr}
+              </span>
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+            </div>
           </div>
         </div>
       </div>
