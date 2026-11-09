@@ -217,7 +217,6 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
           { namePrefix: 'FreshNex' },
           { namePrefix: 'ESP32' },
           { name: expectedProvName },
-          { name: 'PROV_YGSFD000124' },
         ],
         optionalServices: ESP_PROV_SERVICE_UUIDS
       });
@@ -230,8 +229,6 @@ export const ChangeWifiModal: React.FC<ChangeWifiModalProps> = ({
       // Verify device match
       const cleanDevName = devName.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
       const isMatch = cleanDevName.includes(cleanTargetId) || 
-                      cleanTargetId.includes('000124') || 
-                      cleanTargetId.includes('112233') ||
                       cleanDevName.includes('PROV');
 
       if (!isMatch) {

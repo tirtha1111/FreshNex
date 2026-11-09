@@ -11,19 +11,20 @@ import { SignUpPage } from './pages/SignUpPage';
 import { ForgotPasswordPage } from './pages/ForgotPasswordPage';
 import { AboutPage } from './pages/AboutPage';
 
-import { DashboardPage } from './pages/DashboardPage';
 import { ScanPage } from './pages/ScanPage';
+import { DashboardPage } from './pages/DashboardPage';
 import { LiveDataPage } from './pages/LiveDataPage';
 import { AlertsPage } from './pages/AlertsPage';
 import { HistoryPage } from './pages/HistoryPage';
 import { AnalyticsPage } from './pages/AnalyticsPage';
 import { ProfilePage } from './pages/ProfilePage';
 import { SettingsPage } from './pages/SettingsPage';
+import { ThresholdsPage } from './pages/ThresholdsPage';
 import { AdminDevices } from './components/AdminDevices';
 
 // Protected Route Guard
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { currentUser, isDemoMode, isLoading } = useAuth();
+  const { currentUser, isLoading } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -45,6 +46,12 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
   return <>{children}</>;
 };
 
+const RoleDefaultRedirect: React.FC = () => {
+  const { userProfile } = useAuth();
+  const isAdmin = userProfile?.role === 'admin';
+  return <Navigate to={isAdmin ? '/devices' : '/dashboard'} replace />;
+};
+
 const AppRoutes: React.FC = () => {
   return (
     <Routes>
@@ -63,7 +70,11 @@ const AppRoutes: React.FC = () => {
           </ProtectedRoute>
         }
       >
+        <Route index element={<RoleDefaultRedirect />} />
         <Route path="/dashboard" element={<DashboardPage />} />
+        <Route path="/devices" element={<AdminDevices />} />
+        <Route path="/admin/devices" element={<Navigate to="/devices" replace />} />
+        <Route path="/thresholds" element={<ThresholdsPage />} />
         <Route path="/scan" element={<ScanPage />} />
         <Route path="/live-data" element={<LiveDataPage />} />
         <Route path="/live-data/:itemId" element={<LiveDataPage />} />
@@ -72,8 +83,6 @@ const AppRoutes: React.FC = () => {
         <Route path="/analytics" element={<AnalyticsPage />} />
         <Route path="/profile" element={<ProfilePage />} />
         <Route path="/settings" element={<SettingsPage />} />
-        <Route path="/admin/devices" element={<AdminDevices />} />
-        <Route path="/devices" element={<AdminDevices />} />
       </Route>
 
       {/* Fallback to Login */}

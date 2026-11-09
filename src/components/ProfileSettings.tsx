@@ -310,8 +310,8 @@ export const ProfileSettings: React.FC = () => {
               <p className="font-bold text-[#FFAA00]">How to Connect Your Hardware:</p>
               <ol className="list-decimal pl-4 space-y-1 text-[11px]">
                 <li>Flash your ESP32 with Wi-Fi & Firebase Realtime Database SDK.</li>
-                <li>Publish sensor values to <code className="text-[#FFAA00] font-mono">devices/YGS-FD-000124</code>.</li>
-                <li>Print QR code containing string: <code className="text-[#FFAA00] font-mono">YGS-FD-000124</code>.</li>
+                <li>Publish sensor values to <code className="text-[#FFAA00] font-mono">devices/YGS-FD-001</code>.</li>
+                <li>Print QR code containing string: <code className="text-[#FFAA00] font-mono">YGS-FD-001</code>.</li>
                 <li>Scan using the in-app camera scanner to view real-time streams!</li>
               </ol>
             </div>

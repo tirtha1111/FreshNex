@@ -9,6 +9,8 @@ import {
   SensorAlert,
   UserSettings,
 } from '../types';
+
+export type { DeviceData };
 import {
   auth,
   isFirebaseConfigured,
@@ -20,6 +22,7 @@ import { extractLatestTimestamp } from '../utils/dateUtils';
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
 import { saveProductThresholdToFirebase } from '../services/alertThresholdService';
+import { socketTelemetryService } from '../services/socketService';
 
 import {
   ref,
@@ -84,51 +87,28 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// Initial default prototype devices with all 9 sensor parameters
-const PROTOTYPE_COLD_DRINKS: DeviceData = {
-  device_id: 'YGS-FD-000124',
-  product: 'Cold Drinks',
-  temperature: 3.5,
-  humidity: 58.2,
-  mq135_raw: 110,
-  moisture: 4.2,
-  dewPoint: -3.0,
-  ph: 4.2,
-  impact: 0.12,
-  light: 18,
-  gpsLat: 22.5726,
-  gpsLng: 88.3639,
-  gpsSats: 8,
-  online: true,
-  last_update: Date.now(),
-};
-
-const PROTOTYPE_MEAT: DeviceData = {
-  device_id: 'YGS-FD-112233',
-  product: 'Meat',
-  temperature: 3.5,
-  humidity: 68.0,
-  mq135_raw: 980,
-  moisture: 4.9,
-  dewPoint: -1.8,
-  ph: 5.8,
-  impact: 0.15,
-  light: 12,
-  gpsLat: 22.5726,
-  gpsLng: 88.3639,
-  gpsSats: 7,
-  online: true,
-  last_update: Date.now(),
-};
-
 // Normalization helper for ESP32 hardware telemetry payloads from Realtime Database (all 9 parameters)
 function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
+  const defaultFallback: DeviceData = {
+    device_id: deviceId,
+    product: 'IoT Node',
+    temperature: 4.0,
+    humidity: 60.0,
+    mq135_raw: 120,
+    moisture: 4.0,
+    dewPoint: -2.0,
+    ph: 5.5,
+    impact: 0.1,
+    light: 15,
+    gpsLat: 22.5726,
+    gpsLng: 88.3639,
+    gpsSats: 8,
+    online: true,
+    last_update: Date.now(),
+  };
+
   if (!rawDevice || typeof rawDevice !== 'object') {
-    return {
-      ...PROTOTYPE_COLD_DRINKS,
-      device_id: deviceId,
-      last_update: Date.now(),
-    };
+    return defaultFallback;
   }
 
   let target = rawDevice;
@@ -194,7 +174,17 @@ function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
   const finalLng = isNaN(gpsLng) ? 88.3639 : +gpsLng.toFixed(4);
   const finalSats = isNaN(gpsSats) ? 8 : Math.round(gpsSats);
 
-  const product = target.product_name || target.product || target.name || 'Cold Drinks';
+  const rawId = (deviceId || '').toUpperCase();
+  let defaultProduct = 'Apple';
+  if (rawId.includes('124') || rawId.includes('MILK')) {
+    defaultProduct = 'Milk';
+  } else if (rawId.includes('001') || rawId.includes('APPLE')) {
+    defaultProduct = 'Apple';
+  }
+  const rawProd = target.product_name || target.product || target.name;
+  const product = (!rawProd || rawProd === 'Cold Drinks' || rawProd === 'Meat' || rawProd === 'IoT Node')
+    ? defaultProduct
+    : rawProd;
   const moistureCalc = calculateMoisture(finalTemp, finalHum);
   const phCalc = calculatePH(finalTemp, finalHum, moistureCalc.absoluteMoisture, {
     category: product,
@@ -246,27 +236,72 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [configVersion, setConfigVersion] = useState<number>(0);
 
   const [devicesMap, setDevicesMap] = useState<Record<string, DeviceData>>(() => {
-    const defaults: Record<string, DeviceData> = {
-      'YGS-FD-000124': PROTOTYPE_COLD_DRINKS,
-      'YGS-FD-112233': PROTOTYPE_MEAT,
+    const defaultHardware: Record<string, DeviceData> = {
+      'YGS-FD-001': {
+        device_id: 'YGS-FD-001',
+        product: 'Apple',
+        temperature: 3.5,
+        humidity: 88.0,
+        mq135_raw: 95,
+        moisture: 6.5,
+        dewPoint: 2.1,
+        ph: 4.1,
+        impact: 0.08,
+        light: 25,
+        gpsLat: 22.5726,
+        gpsLng: 88.3639,
+        gpsSats: 9,
+        temperature_min: 0.0,
+        temperature_max: 4.0,
+        humidity_min: 85,
+        humidity_max: 95,
+        mq135_threshold: 1200,
+        online: true,
+        last_update: Date.now(),
+      },
+      'YGS-FD-124': {
+        device_id: 'YGS-FD-124',
+        product: 'Milk',
+        temperature: 2.8,
+        humidity: 70.0,
+        mq135_raw: 120,
+        moisture: 5.1,
+        dewPoint: -1.2,
+        ph: 6.6,
+        impact: 0.10,
+        light: 15,
+        gpsLat: 22.5726,
+        gpsLng: 88.3639,
+        gpsSats: 8,
+        temperature_min: 1.0,
+        temperature_max: 4.0,
+        humidity_min: 65,
+        humidity_max: 75,
+        mq135_threshold: 900,
+        online: true,
+        last_update: Date.now(),
+      },
     };
+
     try {
       const stored = localStorage.getItem('freshnex_devices_map');
       if (stored) {
-        return { ...defaults, ...JSON.parse(stored) };
+        const parsed = JSON.parse(stored);
+        delete parsed['YGS-FD-000124'];
+        delete parsed['YGS-FD-112233'];
+        if (parsed['YGS-FD-001']) {
+          parsed['YGS-FD-001'].product = 'Apple';
+        }
+        if (parsed['YGS-FD-124']) {
+          parsed['YGS-FD-124'].product = 'Milk';
+        }
+        return { ...defaultHardware, ...parsed };
       }
     } catch {}
-    return defaults;
+    return defaultHardware;
   });
 
-  const [userScans, setUserScans] = useState<UserScanItem[]>([
-    {
-      id: 'scan_default_1',
-      device_id: 'YGS-FD-000124',
-      product: 'Cold Drinks',
-      scanned_at: Date.now() - 3600000,
-    },
-  ]);
+  const [userScans, setUserScans] = useState<UserScanItem[]>([]);
   const [userRole, setUserRole] = useState<Role>('user');
   const [currentUser, setCurrentUser] = useState<any>(null);
   const [userRecord, setUserRecord] = useState<UserRecord | null>(null);
@@ -274,29 +309,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [productProfiles, setProductProfiles] = useState<ProductProfile[]>(() => {
     const defaultProfiles: ProductProfile[] = [
       {
-        id: 'p_cold_drinks',
-        name: 'Cold Drinks',
-        temperature_min: 1.0,
-        temperature_max: 5.0,
-        humidity_min: 50,
-        humidity_max: 70,
-        mq135_threshold: 1500,
+        id: 'p_apple',
+        name: 'Apple',
+        temperature_min: 0.0,
+        temperature_max: 4.0,
+        humidity_min: 85,
+        humidity_max: 95,
+        mq135_threshold: 1200,
       },
       {
-        id: 'p_meat',
-        name: 'Meat',
-        temperature_min: -2.0,
+        id: 'p_milk',
+        name: 'Milk',
+        temperature_min: 1.0,
         temperature_max: 4.0,
-        humidity_min: 60,
-        humidity_max: 80,
-        mq135_threshold: 1200,
+        humidity_min: 65,
+        humidity_max: 75,
+        mq135_threshold: 900,
       },
     ];
     try {
       const stored = localStorage.getItem('freshnex_product_profiles');
       if (stored) {
         const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          const filtered = parsed.filter(p => p.name !== 'Cold Drinks' && p.name !== 'Meat');
+          if (filtered.length > 0) return filtered;
+        }
       }
     } catch {}
     return defaultProfiles;
@@ -341,19 +379,46 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsFirebaseConnected(true);
     const cleanups: (() => void)[] = [];
 
+    // 0. Zero-lag WebSocket subscription from Backend Database Bridge
+    const unsubWsAll = socketTelemetryService.subscribeAllDevicesTelemetry((wsDevices) => {
+      if (!wsDevices || typeof wsDevices !== 'object') return;
+      setDevicesMap((prev) => {
+        const next = { ...prev };
+        Object.keys(wsDevices).forEach((devId) => {
+          if (devId !== 'YGS-FD-000124' && devId !== 'YGS-FD-112233') {
+            next[devId] = normalizeDeviceData(wsDevices[devId], devId);
+          }
+        });
+        return next;
+      });
+    });
+    cleanups.push(unsubWsAll);
+
+    ['YGS-FD-001', 'YGS-FD-124'].forEach((trackedId) => {
+      const unsubDevWs = socketTelemetryService.subscribeTelemetry(trackedId, (wsData) => {
+        if (!wsData) return;
+        setDevicesMap((prev) => ({
+          ...prev,
+          [trackedId]: normalizeDeviceData(wsData, trackedId),
+        }));
+      });
+      cleanups.push(unsubDevWs);
+    });
+
     // 1. Listen to Devices in devices/
     try {
       const devicesRef = ref(rtdb, 'devices');
       const handleDevices = (snapshot: any) => {
         if (snapshot.exists()) {
           const rawData = snapshot.val();
-          const normalizedMap: Record<string, DeviceData> = {
-            'YGS-FD-000124': PROTOTYPE_COLD_DRINKS,
-            'YGS-FD-112233': PROTOTYPE_MEAT,
-          };
+          const normalizedMap: Record<string, DeviceData> = {};
           if (rawData && typeof rawData === 'object') {
             Object.keys(rawData).forEach((devId) => {
-              normalizedMap[devId] = normalizeDeviceData(rawData[devId], devId);
+              if (devId !== 'YGS-FD-000124' && devId !== 'YGS-FD-112233') {
+                normalizedMap[devId] = normalizeDeviceData(rawData[devId], devId);
+                // Notify backend via WebSocket that data was received at the frontend to start/reset 30s timer
+                socketTelemetryService.reportFrontendDataReceived(devId, rawData[devId]);
+              }
             });
           }
           setDevicesMap(normalizedMap);
@@ -361,11 +426,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             localStorage.setItem('freshnex_devices_map', JSON.stringify(normalizedMap));
           } catch {}
         } else {
-          dbSet(ref(rtdb, 'devices/YGS-FD-000124'), PROTOTYPE_COLD_DRINKS).catch(() => {});
-          setDevicesMap({
-            'YGS-FD-000124': PROTOTYPE_COLD_DRINKS,
-            'YGS-FD-112233': PROTOTYPE_MEAT,
-          });
+          setDevicesMap({});
         }
       };
       onValue(devicesRef, handleDevices, (err) => {
@@ -646,21 +707,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       return devicesMap[deviceId];
     }
 
-    const cleanUpper = deviceId.toUpperCase();
-    if (
-      cleanUpper === 'YGS-FD-000124' ||
-      cleanUpper.includes('000124') ||
-      cleanUpper.includes('COLD') ||
-      cleanUpper.includes('DRINK') ||
-      cleanUpper.includes('MILK') ||
-      cleanUpper.includes('KETCHUP')
-    ) {
-      return devicesMap['YGS-FD-000124'] || PROTOTYPE_COLD_DRINKS;
-    }
-    if (cleanUpper === 'YGS-FD-112233' || cleanUpper.includes('112233') || cleanUpper.includes('MEAT')) {
-      return devicesMap['YGS-FD-112233'] || PROTOTYPE_MEAT;
-    }
-
     const rtdb = getDirectDatabase();
     if (!rtdb) return null;
 
@@ -709,9 +755,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 1. Immediately update local state so UI updates without lag
     setDevicesMap((prev) => {
       const existing = prev[deviceId] || {
-        ...PROTOTYPE_COLD_DRINKS,
         device_id: deviceId,
-        product: data.product || 'Cold Drinks',
+        product: data.product || 'Fresh Produce',
+        temperature: 4.0,
+        humidity: 65.0,
+        mq135_raw: 150,
+        impact: 0.05,
+        light: 15,
+        online: true,
+        last_update: now,
       };
       mergedDevice = {
         ...existing,
@@ -736,6 +788,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         })
       );
     }
+
+    // 1b. Push over WebSocket to backend (resets 30s online timer and broadcasts to all clients with zero lag)
+    socketTelemetryService.emitDeviceUpdate(deviceId, mergedDevice || data);
 
     // 2. Sync to Firebase Realtime Database
     const rtdb = getDirectDatabase();

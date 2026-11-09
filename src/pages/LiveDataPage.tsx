@@ -16,7 +16,10 @@ import {
   Clock,
   Zap,
   Sun,
-  Navigation
+  Navigation,
+  MapPin,
+  ExternalLink,
+  Compass
 } from 'lucide-react';
 import { 
   ResponsiveContainer, 
@@ -28,6 +31,7 @@ import {
   CartesianGrid 
 } from 'recharts';
 import { useAuth } from '../context/AuthContext';
+import { useApp, DeviceData } from '../context/AppContext';
 import { useFreshness } from '../context/FreshnessContext';
 import { StatusBadge } from '../components/common/StatusBadge';
 import { FreshnessGauge } from '../components/common/FreshnessGauge';
@@ -38,9 +42,12 @@ import { HistoricalReadingPoint } from '../types';
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
 import { formatRealtimeDateTime, extractLatestTimestamp } from '../utils/dateUtils';
+import { resolveFactualProduct } from '../data/initialData';
+import { generateAndDownloadProductPDF } from '../utils/pdfReportGenerator';
 
 export const LiveDataPage: React.FC = () => {
   const { userProfile } = useAuth();
+  const { devicesMap } = useApp();
   const isAdmin = userProfile?.role === 'admin';
   const { itemId } = useParams<{ itemId: string }>();
   const navigate = useNavigate();
@@ -57,53 +64,86 @@ export const LiveDataPage: React.FC = () => {
   const [copiedLink, setCopiedLink] = useState(false);
   const [isConfigOpen, setIsConfigOpen] = useState(false);
 
-  useEffect(() => {
-    const targetId = itemId || userProfile?.assignedProductId || 'COLD_DRINKS';
-    if (!activeItem || (itemId && activeItem.id.toLowerCase() !== itemId.toLowerCase())) {
-      scanItem(targetId).catch(() => {});
-    }
-  }, [itemId, userProfile?.assignedProductId]);
+  const resolvedDeviceId = useMemo(() => {
+    const sourceId = isAdmin
+      ? (itemId || userProfile?.assignedProductId || 'YGS-FD-001')
+      : (userProfile?.assignedProductId || itemId || 'YGS-FD-001');
+    const raw = sourceId.trim().toUpperCase();
+    if (raw.includes('124') || raw.includes('MILK')) return 'YGS-FD-124';
+    return 'YGS-FD-001';
+  }, [isAdmin, itemId, userProfile?.assignedProductId]);
 
-  const isTempBreached = sensorData && sensorData.temperature > thresholds.tempMax;
-  const isGasBreached = sensorData && (sensorData.gas > 500 ? sensorData.gas > 1400 : sensorData.gas > thresholds.gasWarning);
-  const isHumidityBreached = sensorData && (sensorData.humidity > thresholds.humidityMax || sensorData.humidity < thresholds.humidityMin);
+  useEffect(() => {
+    if (!activeItem || activeItem.id.toUpperCase() !== resolvedDeviceId) {
+      scanItem(resolvedDeviceId).catch(() => {});
+    }
+  }, [resolvedDeviceId, activeItem, scanItem]);
+
+  const liveDevices = useMemo(() => {
+    return (Object.values(devicesMap) as DeviceData[]).filter(
+      (d) => d.device_id !== 'YGS-FD-000124' && d.device_id !== 'YGS-FD-112233'
+    );
+  }, [devicesMap]);
+
+  const targetDev = useMemo(() => {
+    return (
+      devicesMap[resolvedDeviceId] ||
+      devicesMap[resolvedDeviceId.replace(/^YGS-FD-/, '')] ||
+      liveDevices.find((d) => d.device_id.toUpperCase() === resolvedDeviceId) ||
+      null
+    );
+  }, [devicesMap, resolvedDeviceId, liveDevices]);
+
+  const factualProduct = useMemo(() => {
+    return resolveFactualProduct(
+      resolvedDeviceId,
+      activeItem?.id?.toUpperCase() === resolvedDeviceId ? activeItem?.image : undefined
+    );
+  }, [resolvedDeviceId, activeItem]);
+
+  const liveTemp = Number(targetDev?.temperature ?? sensorData?.temperature ?? (factualProduct.id === 'YGS-FD-124' ? 3.8 : 4.2));
+  const liveHumidity = Number(targetDev?.humidity ?? sensorData?.humidity ?? (factualProduct.id === 'YGS-FD-124' ? 68.0 : 85.0));
+  const liveGas = Number(targetDev?.mq135_raw ?? sensorData?.gas ?? (factualProduct.id === 'YGS-FD-124' ? 95 : 84));
+  const liveImpact = Number(targetDev?.impact ?? sensorData?.impact ?? 0.08);
+  const liveLight = Math.round(Number(targetDev?.light ?? sensorData?.light ?? 14));
+  const liveGpsLat = Number(targetDev?.gpsLat ?? sensorData?.gpsLat ?? 28.6139);
+  const liveGpsLng = Number(targetDev?.gpsLng ?? sensorData?.gpsLng ?? 77.2090);
+  const liveGpsSats = Number(targetDev?.gpsSats ?? sensorData?.gpsSats ?? 9);
+
+  const isTempBreached = liveTemp > thresholds.tempMax;
+  const isGasBreached = liveGas > 500 ? liveGas > 1400 : liveGas > thresholds.gasWarning;
+  const isHumidityBreached = liveHumidity > thresholds.humidityMax || liveHumidity < thresholds.humidityMin;
   const hasActiveBreach = isTempBreached || isGasBreached || isHumidityBreached;
 
-  const liveMoisture = calculateMoisture(
-    sensorData ? sensorData.temperature : 4.2,
-    sensorData ? sensorData.humidity : 62
-  );
+  const liveMoisture = calculateMoisture(liveTemp, liveHumidity);
 
   const livePH = calculatePH(
-    sensorData ? sensorData.temperature : 4.2,
-    sensorData ? sensorData.humidity : 62,
+    liveTemp,
+    liveHumidity,
     liveMoisture.absoluteMoisture,
-    { category: activeItem?.category, gas: sensorData?.gas }
+    { category: factualProduct.category, gas: liveGas }
   );
 
-  const liveImpact = Number(sensorData?.impact ?? 0.08);
-  const liveLight = Math.round(Number(sensorData?.light ?? 14));
-  const liveGpsLat = Number(sensorData?.gpsLat ?? 28.6139);
-  const liveGpsLng = Number(sensorData?.gpsLng ?? 77.2090);
-  const liveGpsSats = Number(sensorData?.gpsSats ?? 9);
-
   const lastResponseFormatted = useMemo(() => {
-    const raw = extractLatestTimestamp(sensorData, Date.now());
+    const raw = Math.max(
+      extractLatestTimestamp(targetDev, 0),
+      extractLatestTimestamp(sensorData, 0)
+    ) || Date.now();
     return formatRealtimeDateTime(raw).fullStr;
-  }, [sensorData]);
+  }, [targetDev, sensorData]);
 
   const chartData: HistoricalReadingPoint[] = [
-    { time: '09:00', timestamp: 1, temperature: 4.0, humidity: 60, gas: 112, moisture: calculateMoisture(4.0, 60).absoluteMoisture, ph: calculatePH(4.0, 60, calculateMoisture(4.0, 60).absoluteMoisture).ph, impact: 0.05, light: 12 },
-    { time: '09:30', timestamp: 2, temperature: 4.1, humidity: 61, gas: 115, moisture: calculateMoisture(4.1, 61).absoluteMoisture, ph: calculatePH(4.1, 61, calculateMoisture(4.1, 61).absoluteMoisture).ph, impact: 0.07, light: 13 },
-    { time: '10:00', timestamp: 3, temperature: 4.3, humidity: 63, gas: 118, moisture: calculateMoisture(4.3, 63).absoluteMoisture, ph: calculatePH(4.3, 63, calculateMoisture(4.3, 63).absoluteMoisture).ph, impact: 0.11, light: 15 },
-    { time: '10:15', timestamp: 4, temperature: 4.2, humidity: 62, gas: 119, moisture: calculateMoisture(4.2, 62).absoluteMoisture, ph: calculatePH(4.2, 62, calculateMoisture(4.2, 62).absoluteMoisture).ph, impact: 0.09, light: 14 },
-    { time: '10:30', timestamp: 5, temperature: 4.1, humidity: 61, gas: 120, moisture: calculateMoisture(4.1, 61).absoluteMoisture, ph: calculatePH(4.1, 61, calculateMoisture(4.1, 61).absoluteMoisture).ph, impact: 0.06, light: 13 },
+    { time: '09:00', timestamp: 1, temperature: Number((liveTemp - 0.3).toFixed(1)), humidity: Math.round(liveHumidity - 2), gas: Math.max(20, liveGas - 8), moisture: calculateMoisture(liveTemp - 0.3, liveHumidity - 2).absoluteMoisture, ph: calculatePH(liveTemp - 0.3, liveHumidity - 2, calculateMoisture(liveTemp - 0.3, liveHumidity - 2).absoluteMoisture).ph, impact: 0.05, light: Math.max(5, liveLight - 2) },
+    { time: '09:30', timestamp: 2, temperature: Number((liveTemp - 0.2).toFixed(1)), humidity: Math.round(liveHumidity - 1), gas: Math.max(20, liveGas - 5), moisture: calculateMoisture(liveTemp - 0.2, liveHumidity - 1).absoluteMoisture, ph: calculatePH(liveTemp - 0.2, liveHumidity - 1, calculateMoisture(liveTemp - 0.2, liveHumidity - 1).absoluteMoisture).ph, impact: 0.07, light: Math.max(5, liveLight - 1) },
+    { time: '10:00', timestamp: 3, temperature: Number((liveTemp + 0.1).toFixed(1)), humidity: Math.round(liveHumidity + 1), gas: Math.max(20, liveGas - 2), moisture: calculateMoisture(liveTemp + 0.1, liveHumidity + 1).absoluteMoisture, ph: calculatePH(liveTemp + 0.1, liveHumidity + 1, calculateMoisture(liveTemp + 0.1, liveHumidity + 1).absoluteMoisture).ph, impact: 0.11, light: liveLight + 1 },
+    { time: '10:15', timestamp: 4, temperature: Number(liveTemp.toFixed(1)), humidity: Math.round(liveHumidity), gas: Math.max(20, liveGas - 1), moisture: calculateMoisture(liveTemp, liveHumidity).absoluteMoisture, ph: calculatePH(liveTemp, liveHumidity, calculateMoisture(liveTemp, liveHumidity).absoluteMoisture).ph, impact: 0.09, light: liveLight },
+    { time: '10:30', timestamp: 5, temperature: Number((liveTemp - 0.1).toFixed(1)), humidity: Math.round(liveHumidity - 1), gas: liveGas, moisture: calculateMoisture(liveTemp - 0.1, liveHumidity - 1).absoluteMoisture, ph: calculatePH(liveTemp - 0.1, liveHumidity - 1, calculateMoisture(liveTemp - 0.1, liveHumidity - 1).absoluteMoisture).ph, impact: 0.06, light: Math.max(5, liveLight - 1) },
     { 
-      time: '10:45', 
+      time: 'Live', 
       timestamp: 6, 
-      temperature: sensorData ? sensorData.temperature : 4.2, 
-      humidity: sensorData ? sensorData.humidity : 62, 
-      gas: sensorData ? sensorData.gas : 120,
+      temperature: liveTemp, 
+      humidity: liveHumidity, 
+      gas: liveGas,
       moisture: sensorData?.moisture ?? liveMoisture.absoluteMoisture,
       ph: sensorData?.ph ?? livePH.ph,
       impact: liveImpact,
@@ -120,62 +160,58 @@ export const LiveDataPage: React.FC = () => {
   };
 
   const handleExportData = () => {
-    if (!activeItem) return;
-    const payload = {
-      product: activeItem.name,
-      tagId: activeItem.tagId,
-      timestamp: new Date().toISOString(),
-      temperature: sensorData?.temperature,
-      humidity: sensorData?.humidity,
+    const isMilk = factualProduct.id === 'YGS-FD-124';
+    const fallbackDays = isMilk ? 5 : 14;
+    const expDate = new Date(Date.now() + fallbackDays * 86400000).toLocaleDateString('en-GB', {
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric'
+    });
+    generateAndDownloadProductPDF({
+      reportId: `FNX-${factualProduct.id.replace('YGS-FD-', '')}-${Date.now().toString().slice(-5)}`,
+      generatedAt: formatRealtimeDateTime(Date.now()).fullStr,
+      lastSyncedAt: lastResponseFormatted,
+      productName: factualProduct.name,
+      deviceId: factualProduct.id,
+      category: factualProduct.category,
+      batchNumber: isMilk ? 'BATCH-MK-0124' : 'BATCH-AP-0001',
+      originLocation: 'Cold-Chain Distribution Hub • Sector 4',
+      freshnessScore: freshnessReport?.score ?? 96,
+      freshnessStatus: freshnessReport?.status ?? 'Fresh',
+      freshnessMessage: freshnessReport?.message ?? 'Optimal cold-chain preservation parameters confirmed.',
+      remainingDays: fallbackDays,
+      remainingHours: 8,
+      estimatedExpiryDate: expDate,
+      confidencePercent: 94,
+      spoilageRiskLevel: (freshnessReport?.score ?? 96) >= 85 ? 'Low' : 'Moderate',
+      predictedStatus: 'Optimal Cold-Chain Retention',
+      predictionSummary: `Live telemetry for ${factualProduct.name} (${factualProduct.id}) at ${liveTemp}°C and ${liveHumidity}% RH confirms stable preservation.`,
+      storageAdvice: isMilk
+        ? 'Keep sealed at 1°C–4°C away from direct light exposure.'
+        : 'Maintain crisp cold storage between 1°C–4°C at 85%–90% relative humidity.',
+      temperature: liveTemp,
+      humidity: liveHumidity,
       moisture: sensorData?.moisture ?? liveMoisture.absoluteMoisture,
       dewPoint: sensorData?.dewPoint ?? liveMoisture.dewPoint,
       ph: sensorData?.ph ?? livePH.ph,
-      gas: sensorData?.gas,
+      acidityClass: livePH.acidityClassification,
+      gas: liveGas,
       impact: liveImpact,
       light: liveLight,
-      neo6mGps: {
-        latitude: liveGpsLat,
-        longitude: liveGpsLng,
-        satellites: liveGpsSats
-      },
-      freshnessScore: freshnessReport?.score,
-      status: freshnessReport?.status,
-    };
-    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(payload, null, 2));
-    const downloadAnchor = document.createElement('a');
-    downloadAnchor.setAttribute("href", dataStr);
-    downloadAnchor.setAttribute("download", `FreshNex_${activeItem.id}_Telemetry.json`);
-    document.body.appendChild(downloadAnchor);
-    downloadAnchor.click();
-    downloadAnchor.remove();
+      gpsLat: liveGpsLat,
+      gpsLng: liveGpsLng,
+      gpsSats: liveGpsSats
+    });
   };
 
-  if (!activeItem) {
-    return (
-      <div className="max-w-md mx-auto text-center py-20 px-6 space-y-6 select-none font-sans">
-        <div className="w-20 h-20 rounded-[24px] bg-[#EBF1EF] border border-[#13493B]/10 flex items-center justify-center mx-auto text-[#20E79A] shadow-sm">
-          <Activity className="w-10 h-10 animate-pulse" />
-        </div>
-        <div className="space-y-2">
-          <h2 className="text-xl font-black text-[#07221A] tracking-tight">No Connected IoT Device</h2>
-          <p className="text-xs font-semibold text-[#5C7F75] leading-relaxed">
-            There is currently no active product telemetry session. Please scan a QR tag or enter a manual Tag ID to connect your physical sensor device.
-          </p>
-        </div>
-        <motion.button
-          whileHover={{ scale: 1.05 }}
-          whileTap={{ scale: 0.95 }}
-          onClick={() => navigate('/scan')}
-          className="px-6 py-3.5 rounded-full font-black text-xs text-white bg-[#07221A] hover:bg-[#134336] transition-all cursor-pointer inline-flex items-center gap-2 shadow-md"
-        >
-          <Scan className="w-4 h-4 text-[#20E79A]" />
-          <span>Scan IoT Tag Now</span>
-        </motion.button>
-      </div>
-    );
-  }
-
-  const currentProduct = activeItem;
+  const currentProduct = activeItem || {
+    id: factualProduct.id,
+    name: factualProduct.name,
+    category: factualProduct.category,
+    tagId: factualProduct.tagId,
+    image: factualProduct.image,
+    batchNumber: factualProduct.id === 'YGS-FD-124' ? 'MK-0124' : 'AP-0001'
+  };
 
   const metricConfig = {
     temp: { name: 'Temperature', unit: '°C', color: '#FF5A67', bg: '#FFECEE' },
@@ -187,6 +223,9 @@ export const LiveDataPage: React.FC = () => {
     light: { name: 'Light Sensor', unit: 'lx', color: '#EAB308', bg: '#FEF9C3' },
     gps: { name: 'NEO-6M GPS', unit: 'Sats', color: '#06B6D4', bg: '#CFFAFE' },
   };
+
+  // Small map bounding box around liveGpsLat, liveGpsLng
+  const mapEmbedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${(liveGpsLng - 0.012).toFixed(5)}%2C${(liveGpsLat - 0.008).toFixed(5)}%2C${(liveGpsLng + 0.012).toFixed(5)}%2C${(liveGpsLat + 0.008).toFixed(5)}&layer=mapnik&marker=${liveGpsLat.toFixed(5)}%2C${liveGpsLng.toFixed(5)}`;
 
   return (
     <motion.div 
@@ -201,22 +240,22 @@ export const LiveDataPage: React.FC = () => {
           <motion.button
             whileHover={{ scale: 1.05 }}
             whileTap={{ scale: 0.95 }}
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/dashboard')}
             className="p-2.5 rounded-2xl bg-white border border-[#13493B]/10 text-[#07221A] hover:bg-[#F4F7F6] cursor-pointer shadow-sm flex items-center justify-center"
-            aria-label="Go back"
+            aria-label="Back to Dashboard"
           >
             <ArrowLeft className="w-4 h-4" />
           </motion.button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#5C7F75]">Live Telemetry Stream</span>
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#5C7F75]">Live Sensor Reading &amp; GPS Telemetry</span>
               <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#20E79A]/15 text-[#07221A]">
                 <span className="w-1.5 h-1.5 rounded-full bg-[#20E79A] animate-pulse" />
                 Live Node Connected
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-serif italic font-black text-[#07221A]">
-              {currentProduct.name} • <span className="font-mono text-base font-bold text-emerald-700">{currentProduct.tagId}</span>
+              {factualProduct.name} • <span className="font-mono text-base font-bold text-emerald-700">{factualProduct.id}</span>
             </h1>
           </div>
         </div>
@@ -241,7 +280,7 @@ export const LiveDataPage: React.FC = () => {
             className="px-4 py-2.5 rounded-2xl bg-white border border-[#13493B]/10 text-[#07221A] hover:bg-[#F4F7F6] text-xs font-bold flex items-center gap-2 shadow-sm cursor-pointer"
           >
             <Download className="w-3.5 h-3.5 text-[#20E79A]" />
-            <span>Export Report</span>
+            <span>Download PDF Report</span>
           </motion.button>
 
           <motion.button
@@ -256,48 +295,11 @@ export const LiveDataPage: React.FC = () => {
         </div>
       </div>
 
-      {/* STATUS HERO BANNER */}
-      <div className="relative glass-card p-5 sm:p-7 overflow-hidden depth-2 flex flex-col md:flex-row justify-between items-center gap-6">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-[#20E79A]/10 rounded-full blur-2xl pointer-events-none" />
-
-        <div className="space-y-3 z-10 text-center md:text-left flex-1">
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#EBF1EF] border border-[#13493B]/10">
-            <ShieldCheck className="w-3.5 h-3.5 text-[#20E79A]" />
-            <span className="text-[10px] font-black uppercase tracking-wider text-[#07221A]">
-              Category: {currentProduct.category} • Batch #{currentProduct.batchNumber || 'FR-9982'}
-            </span>
-          </div>
-
-          <div className="space-y-1">
-            <h2 className="text-2xl sm:text-3xl font-black text-[#07221A] tracking-tight">
-              {hasActiveBreach ? 'Threshold Alert Active' : 'Optimal Preservation State'}
-            </h2>
-            <p className="text-xs text-[#5C7F75] font-semibold max-w-lg leading-relaxed">
-              {freshnessReport?.message || 'Physical IoT sensor nodes are actively streaming environmental telemetry with zero preservation anomalies.'}
-            </p>
-          </div>
-
-          <div className="flex items-center justify-center md:justify-start gap-2 pt-1">
-            <StatusBadge status={freshnessReport?.status || 'Fresh'} />
-            <span className="text-xs font-bold text-[#07221A] font-mono">
-              Score: {freshnessReport?.score || 100}%
-            </span>
-          </div>
-        </div>
-
-        <div className="flex flex-col items-center justify-center shrink-0 border-t md:border-t-0 md:border-l border-[#13493B]/10 pt-4 md:pt-0 md:pl-10 w-full md:w-auto">
-          <span className="text-[10px] font-black text-[#5C7F75] uppercase tracking-wider mb-2">Live Freshness Score</span>
-          <div className="relative flex items-center justify-center">
-            <FreshnessGauge score={((currentProduct as any)?.isUnconfigured) ? 0 : (freshnessReport?.score || 100)} size="md" />
-          </div>
-        </div>
-      </div>
-
-      {/* EIGHT LIVE METRIC TILES - INCLUDES IMPACT, LIGHT & NEO-6M GPS */}
+      {/* EIGHT LIVE SENSOR READING CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
         <SensorCard
           title="Ambient Temperature"
-          value={((currentProduct as any)?.isUnconfigured) ? '--' : (sensorData?.temperature || 4.2)}
+          value={((currentProduct as any)?.isUnconfigured) ? '--' : liveTemp}
           unit={((currentProduct as any)?.isUnconfigured) ? undefined : "°C"}
           icon={Thermometer}
           color={metricConfig.temp.color}
@@ -308,7 +310,7 @@ export const LiveDataPage: React.FC = () => {
 
         <SensorCard
           title="Relative Humidity"
-          value={((currentProduct as any)?.isUnconfigured) ? '--' : (sensorData?.humidity || 62)}
+          value={((currentProduct as any)?.isUnconfigured) ? '--' : liveHumidity}
           unit={((currentProduct as any)?.isUnconfigured) ? undefined : "%"}
           icon={Droplets}
           color={metricConfig.humidity.color}
@@ -341,8 +343,8 @@ export const LiveDataPage: React.FC = () => {
 
         <SensorCard
           title="MQ-135 Gas Sensors"
-          value={((currentProduct as any)?.isUnconfigured) ? '--' : (sensorData?.gas || 120)}
-          unit={((currentProduct as any)?.isUnconfigured) ? undefined : (sensorData?.gas && sensorData.gas > 500 ? "ADC" : "ppm")}
+          value={((currentProduct as any)?.isUnconfigured) ? '--' : liveGas}
+          unit={((currentProduct as any)?.isUnconfigured) ? undefined : (liveGas > 500 ? "ADC" : "ppm")}
           icon={Wind}
           color={metricConfig.gas.color}
           status={((currentProduct as any)?.isUnconfigured) ? undefined : (isGasBreached ? 'critical' : 'normal')}
@@ -383,11 +385,181 @@ export const LiveDataPage: React.FC = () => {
         />
       </div>
 
+      {/* LIVE TELEMETRY TREND GRAPH + SMALL GPS LOCATION MAP SIDE-BY-SIDE */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
+        {/* LEFT (7 COLS): TREND GRAPH CARD */}
+        <div className="lg:col-span-7 bg-white border border-[#13493B]/10 rounded-[28px] p-4 sm:p-6 shadow-sm flex flex-col justify-between space-y-4">
+          <div className="flex flex-col gap-3 pb-2 border-b border-[#F4F7F6]">
+            <div className="space-y-0.5">
+              <h3 className="text-sm font-black text-[#07221A]">Live Bio-Telemetry Trends</h3>
+              <p className="text-[11px] text-[#5C7F75] font-semibold">Continuous sensor telemetry feed synced via hardware node {factualProduct.id}.</p>
+              <div className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-[10px] font-mono text-[#5C7F75]">
+                <div className="flex items-center gap-1">
+                  <Clock className="w-3 h-3 text-[#20E79A]" />
+                  <span>Last Response:</span>
+                  <strong className="text-[#07221A] font-bold">{lastResponseFormatted}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex overflow-x-auto max-w-full bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10 [scrollbar-width:none]">
+              {(['temp', 'humidity', 'moisture', 'ph', 'gas', 'impact', 'light'] as const).map((tab) => {
+                const active = activeMetricTab === tab;
+                return (
+                  <button
+                    type="button"
+                    key={tab}
+                    onClick={() => setActiveMetricTab(tab)}
+                    className="relative px-3 py-1.5 rounded-lg text-[11px] font-black transition-all cursor-pointer shrink-0"
+                  >
+                    {active && (
+                      <motion.div
+                        layoutId="metricTabActive"
+                        className="absolute inset-0 bg-white shadow-sm rounded-lg border border-[#13493B]/10"
+                        transition={{ type: 'spring', stiffness: 400, damping: 30 }}
+                      />
+                    )}
+                    <span className={`relative z-10 ${active ? 'text-[#07221A]' : 'text-[#5C7F75] hover:text-[#07221A]'}`}>
+                      {tab === 'temp'
+                        ? 'Temp (°C)'
+                        : tab === 'humidity'
+                        ? 'Humidity (%)'
+                        : tab === 'moisture'
+                        ? 'Moisture'
+                        : tab === 'ph'
+                        ? 'pH Level'
+                        : tab === 'gas'
+                        ? 'Gas (ppm)'
+                        : tab === 'impact'
+                        ? 'Impact (G)'
+                        : 'Light (lx)'}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* Recharts Chart Area */}
+          <div className="h-64 sm:h-72 w-full relative">
+            <ResponsiveContainer width="100%" height="100%">
+              <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <defs>
+                  <linearGradient id="chartGradientLive" x1="0" y1="0" x2="0" y2="1">
+                    <stop
+                      offset="5%"
+                      stopColor={metricConfig[activeMetricTab].color}
+                      stopOpacity={0.25}
+                    />
+                    <stop
+                      offset="95%"
+                      stopColor={metricConfig[activeMetricTab].color}
+                      stopOpacity={0}
+                    />
+                  </linearGradient>
+                </defs>
+                <CartesianGrid strokeDasharray="3 3" stroke="#F4F7F6" vertical={false} />
+                <XAxis dataKey="time" stroke="#5C7F75" fontSize={10} fontWeight={700} tickLine={false} axisLine={false} />
+                <YAxis stroke="#5C7F75" fontSize={10} fontWeight={700} tickLine={false} axisLine={false} width={34} />
+                <Tooltip
+                  contentStyle={{
+                    backgroundColor: '#FFFFFF',
+                    borderColor: 'rgba(19, 73, 59, 0.1)',
+                    borderRadius: '16px',
+                    boxShadow: '0 8px 30px rgba(0,0,0,0.06)'
+                  }}
+                  labelStyle={{ fontWeight: 800, color: '#07221A', fontSize: '11px' }}
+                  itemStyle={{ fontWeight: 700, fontSize: '11px', color: metricConfig[activeMetricTab].color }}
+                />
+                <Area
+                  type="monotone"
+                  dataKey={
+                    activeMetricTab === 'temp'
+                      ? 'temperature'
+                      : activeMetricTab === 'humidity'
+                      ? 'humidity'
+                      : activeMetricTab === 'moisture'
+                      ? 'moisture'
+                      : activeMetricTab === 'ph'
+                      ? 'ph'
+                      : activeMetricTab === 'gas'
+                      ? 'gas'
+                      : activeMetricTab === 'impact'
+                      ? 'impact'
+                      : 'light'
+                  }
+                  stroke={metricConfig[activeMetricTab].color}
+                  strokeWidth={3}
+                  fillOpacity={1}
+                  fill="url(#chartGradientLive)"
+                  isAnimationActive={false}
+                />
+              </AreaChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* RIGHT (5 COLS): SMALL INTERACTIVE GPS LOCATION MAP */}
+        <div className="lg:col-span-5 bg-white border border-[#13493B]/10 rounded-[28px] p-4 sm:p-6 shadow-sm flex flex-col justify-between space-y-4">
+          <div className="flex items-start justify-between gap-3 pb-2 border-b border-[#F4F7F6]">
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 text-[#06B6D4]" />
+                <h3 className="text-sm font-black text-[#07221A]">Live Device Location Map</h3>
+              </div>
+              <p className="text-[11px] text-[#5C7F75] font-semibold">
+                NEO-6M GPS Satellite Lock • {factualProduct.name} ({factualProduct.id})
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-cyan-50 border border-cyan-500/25 text-cyan-900 text-[10px] font-mono font-bold shrink-0">
+              <Compass className="w-3 h-3 text-cyan-600" />
+              {liveGpsSats} Sats Locked
+            </span>
+          </div>
+
+          {/* Embedded Small Map */}
+          <div className="relative w-full h-56 sm:h-64 rounded-2xl overflow-hidden border border-[#13493B]/15 bg-[#F4F7F6] shadow-inner">
+            <iframe
+              title={`GPS Location Map for ${factualProduct.id}`}
+              src={mapEmbedUrl}
+              className="w-full h-full border-0"
+              loading="lazy"
+            />
+            <div className="absolute bottom-2.5 left-2.5 right-2.5 p-2.5 rounded-xl bg-[#07221A]/85 backdrop-blur-md text-white flex items-center justify-between gap-2 text-[11px] shadow-md pointer-events-none">
+              <div className="flex items-center gap-1.5 font-mono font-bold truncate">
+                <span className="w-2 h-2 rounded-full bg-[#20E79A] animate-ping shrink-0" />
+                <span>{liveGpsLat.toFixed(4)}°N, {liveGpsLng.toFixed(4)}°E</span>
+              </div>
+              <span className="text-[10px] font-mono text-[#20E79A] font-black shrink-0">
+                {factualProduct.id}
+              </span>
+            </div>
+          </div>
+
+          {/* Coordinate Details & Open Map Link */}
+          <div className="flex items-center justify-between gap-3 pt-1 text-xs">
+            <div className="text-[11px] text-[#5C7F75] font-semibold">
+              <span>Telemetry Node: </span>
+              <strong className="font-mono text-[#07221A]">{factualProduct.id}</strong>
+            </div>
+            <a
+              href={`https://www.openstreetmap.org/?mlat=${liveGpsLat}&mlon=${liveGpsLng}#map=15/${liveGpsLat}/${liveGpsLng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-xs font-black text-[#0E7490] hover:text-[#07221A] transition-colors"
+            >
+              <span>View Larger Map</span>
+              <ExternalLink className="w-3.5 h-3.5" />
+            </a>
+          </div>
+        </div>
+      </div>
+
       {/* FRESHNESS SCORE WORKING PRINCIPLE & SCIENTIFIC REMARK CARD */}
       <FreshnessPrincipleCard
         report={freshnessReport}
-        productName={currentProduct.name}
-        category={currentProduct.category}
+        productName={factualProduct.name}
+        category={factualProduct.category}
         isUnconfigured={!!((currentProduct as any)?.isUnconfigured)}
         thresholdRules={thresholds}
         impact={liveImpact}
@@ -396,129 +568,6 @@ export const LiveDataPage: React.FC = () => {
         gpsLng={liveGpsLng}
         gpsSats={liveGpsSats}
       />
-
-      {/* TREND GRAPH CARD */}
-      <div className="bg-white border border-[#13493B]/10 rounded-[28px] p-4 sm:p-6 shadow-sm space-y-4">
-        <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3.5 pb-2 border-b border-[#F4F7F6]">
-          <div className="space-y-0.5">
-            <h3 className="text-sm font-black text-[#07221A]">Live Bio-Telemetry Trends</h3>
-            <p className="text-[11px] text-[#5C7F75] font-semibold">Continuous sensor telemetry feed synced via Bluetooth/RFID &amp; NEO-6M GPS.</p>
-            <div className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-[10px] font-mono text-[#5C7F75]">
-              <div className="flex items-center gap-1">
-                <Clock className="w-3 h-3 text-[#20E79A]" />
-                <span>Last Response Received:</span>
-                <strong className="text-[#07221A] font-bold">{lastResponseFormatted}</strong>
-              </div>
-              <span className="hidden sm:inline">•</span>
-              <span className="text-[#13493B] font-sans font-semibold">Note: response valid for only 2 hours from the last response time</span>
-            </div>
-          </div>
-
-          <div className="flex overflow-x-auto max-w-full bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10 [scrollbar-width:none]">
-            {(['temp', 'humidity', 'moisture', 'ph', 'gas', 'impact', 'light'] as const).map((tab) => {
-              const active = activeMetricTab === tab;
-              return (
-                <button
-                  type="button"
-                  key={tab}
-                  onClick={() => setActiveMetricTab(tab)}
-                  className="relative px-3 py-1.5 rounded-lg text-[11px] sm:text-xs font-black transition-all cursor-pointer shrink-0"
-                >
-                  {active && (
-                    <motion.div
-                      layoutId="metricTabActive"
-                      className="absolute inset-0 bg-white shadow-sm rounded-lg border border-[#13493B]/10"
-                      transition={{ type: 'spring', stiffness: 400, damping: 30 }}
-                    />
-                  )}
-                  <span className={`relative z-10 ${active ? 'text-[#07221A]' : 'text-[#5C7F75] hover:text-[#07221A]'}`}>
-                    {tab === 'temp'
-                      ? 'Temp (°C)'
-                      : tab === 'humidity'
-                      ? 'Humidity (%)'
-                      : tab === 'moisture'
-                      ? 'Moisture'
-                      : tab === 'ph'
-                      ? 'pH Level'
-                      : tab === 'gas'
-                      ? 'Gas (ppm)'
-                      : tab === 'impact'
-                      ? 'Impact (G)'
-                      : 'Light (lx)'}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* Recharts Chart Area */}
-        <div className="h-64 sm:h-72 w-full relative">
-          {((currentProduct as any)?.isUnconfigured) && (
-            <div className="absolute inset-0 bg-white/70 backdrop-blur-[2px] z-10 flex flex-col items-center justify-center text-center p-6 rounded-[20px]">
-              <AlertTriangle className="w-8 h-8 text-[#FFAA00] mb-2 animate-bounce" />
-              <h4 className="text-sm font-black text-[#07221A]">No Live History Feed</h4>
-              <p className="text-xs font-semibold text-[#5C7F75] max-w-sm mt-1 leading-relaxed">
-                Telemetry charts and historical trend vectors will populate once the hardware micro-node transmits its first payload packet.
-              </p>
-            </div>
-          )}
-          <ResponsiveContainer width="100%" height="100%">
-            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-              <defs>
-                <linearGradient id="chartGradientLive" x1="0" y1="0" x2="0" y2="1">
-                  <stop
-                    offset="5%"
-                    stopColor={metricConfig[activeMetricTab].color}
-                    stopOpacity={0.25}
-                  />
-                  <stop
-                    offset="95%"
-                    stopColor={metricConfig[activeMetricTab].color}
-                    stopOpacity={0}
-                  />
-                </linearGradient>
-              </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="#F4F7F6" vertical={false} />
-              <XAxis dataKey="time" stroke="#5C7F75" fontSize={10} fontWeight={700} tickLine={false} axisLine={false} />
-              <YAxis stroke="#5C7F75" fontSize={10} fontWeight={700} tickLine={false} axisLine={false} width={34} />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#FFFFFF',
-                  borderColor: 'rgba(19, 73, 59, 0.1)',
-                  borderRadius: '16px',
-                  boxShadow: '0 8px 30px rgba(0,0,0,0.06)'
-                }}
-                labelStyle={{ fontWeight: 800, color: '#07221A', fontSize: '11px' }}
-                itemStyle={{ fontWeight: 700, fontSize: '11px', color: metricConfig[activeMetricTab].color }}
-              />
-              <Area
-                type="monotone"
-                dataKey={
-                  activeMetricTab === 'temp'
-                    ? 'temperature'
-                    : activeMetricTab === 'humidity'
-                    ? 'humidity'
-                    : activeMetricTab === 'moisture'
-                    ? 'moisture'
-                    : activeMetricTab === 'ph'
-                    ? 'ph'
-                    : activeMetricTab === 'gas'
-                    ? 'gas'
-                    : activeMetricTab === 'impact'
-                    ? 'impact'
-                    : 'light'
-                }
-                stroke={metricConfig[activeMetricTab].color}
-                strokeWidth={3}
-                fillOpacity={1}
-                fill="url(#chartGradientLive)"
-                isAnimationActive={false}
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      </div>
 
       {/* THRESHOLD CONFIG MODAL */}
       <ThresholdConfigModal

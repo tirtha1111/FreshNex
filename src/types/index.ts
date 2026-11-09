@@ -125,6 +125,11 @@ export interface DeviceData {
   status?: string;
   online?: boolean;
   assignedProduct?: string;
+  temperature_min?: number;
+  temperature_max?: number;
+  humidity_min?: number;
+  humidity_max?: number;
+  mq135_threshold?: number;
 }
 
 export interface UserRecord {

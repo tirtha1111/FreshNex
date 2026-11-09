@@ -57,7 +57,7 @@ export const ScanPage: React.FC = () => {
       }, 800);
     } catch (err: any) {
       setErrorMessage(
-        err.message || `Tag "${clean}" not recognized. Allowed QR tags are #YGS-FD-000124 (Cold Drinks) and #YGS-FD-112233 (Meat).`
+        err.message || 'Tag not recognized. Please scan a valid device QR code or enter a registered tag.'
       );
     }
   }, [scanItem, navigate]);
@@ -140,12 +140,7 @@ export const ScanPage: React.FC = () => {
                 if (text && text !== scannedResult && !isScanning) {
                   setScannedResult(text);
                   
-                  // Identify target tag
-                  let matchedTag = text;
-                  if (text.includes('112233')) matchedTag = 'YGS-FD-112233';
-                  else if (text.includes('000124')) matchedTag = 'YGS-FD-000124';
-
-                  handlePerformScan(matchedTag);
+                  handlePerformScan(text);
                   return; // Stop scan loop on detection
                 }
               }
@@ -194,12 +189,8 @@ export const ScanPage: React.FC = () => {
 
         if (code && code.data) {
           const rawText = code.data.trim();
-          let matchedTag = rawText;
-          if (rawText.includes('112233')) matchedTag = 'YGS-FD-112233';
-          else if (rawText.includes('000124')) matchedTag = 'YGS-FD-000124';
-
-          setTagInput(matchedTag);
-          handlePerformScan(matchedTag);
+          setTagInput(rawText);
+          handlePerformScan(rawText);
         } else {
           setErrorMessage('No readable QR code found in the uploaded image. Please try another image or enter the Tag ID.');
           setSuccessMessage(null);
@@ -409,28 +400,28 @@ export const ScanPage: React.FC = () => {
               <button
                 type="button"
                 onClick={() => {
-                  setTagInput('YGS-FD-000124');
-                  handlePerformScan('YGS-FD-000124');
+                  setTagInput('001');
+                  handlePerformScan('001');
                 }}
                 className="p-3 bg-emerald-50/60 hover:bg-emerald-100/70 border border-emerald-200/80 rounded-2xl text-left transition-all cursor-pointer group"
               >
-                <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">COLD DRINKS</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">APPLE (YGS-FD-001)</div>
                 <div className="text-xs font-mono font-black text-[#07221A] group-hover:text-[#20E79A] transition-colors">
-                  #YGS-FD-000124
+                  #001 • Apple
                 </div>
               </button>
 
               <button
                 type="button"
                 onClick={() => {
-                  setTagInput('YGS-FD-112233');
-                  handlePerformScan('YGS-FD-112233');
+                  setTagInput('124');
+                  handlePerformScan('124');
                 }}
                 className="p-3 bg-emerald-50/60 hover:bg-emerald-100/70 border border-emerald-200/80 rounded-2xl text-left transition-all cursor-pointer group"
               >
-                <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">MEAT PACKAGE</div>
+                <div className="text-[10px] font-bold uppercase tracking-wider text-emerald-800">MILK (YGS-FD-124)</div>
                 <div className="text-xs font-mono font-black text-[#07221A] group-hover:text-[#20E79A] transition-colors">
-                  #YGS-FD-112233
+                  #124 • Milk
                 </div>
               </button>
             </div>
@@ -445,7 +436,7 @@ export const ScanPage: React.FC = () => {
                 type="text"
                 value={tagInput}
                 onChange={(e) => setTagInput(e.target.value)}
-                placeholder="e.g. YGS-FD-112233"
+                placeholder="e.g. 001, 124, YGS-FD-001, or YGS-FD-124"
                 className="flex-1 px-4 py-2.5 bg-[#EBF1EF] text-sm font-mono text-[#07221A] placeholder-[#5C7F75] rounded-xl border border-transparent focus:outline-none focus:bg-white focus:border-[#20E79A]/50 focus:ring-4 focus:ring-[#20E79A]/10 transition-all duration-200 uppercase"
               />
               <motion.button

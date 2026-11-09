@@ -646,21 +646,28 @@ export interface ProductThresholdConfig {
 
 /**
  * Normalizes any product name, tag ID, or device code into a canonical threshold key
- * e.g. "Cold Drinks", "COLD_DRINKS", "colddrinks", "YGS-FD-000124" -> "cold_drinks"
+ * e.g. "Fresora", "FRESORA", "fresora", "YGS-FD-001" -> "fresh_produce"
  */
 export function normalizeProductKey(rawKey: string): string {
-  if (!rawKey) return 'cold_drinks';
+  if (!rawKey) return 'apple';
   const clean = rawKey.trim().toLowerCase().replace(/^#/, '');
   if (
-    clean.includes('cold') || 
-    clean.includes('drink') || 
-    clean.includes('000124') || 
-    clean.includes('beverage')
+    clean === '001' ||
+    clean === 'ygs-fd-001' ||
+    clean.includes('001') ||
+    clean.includes('apple') ||
+    clean.includes('fresora')
   ) {
-    return 'cold_drinks';
+    return 'apple';
   }
-  if (clean.includes('meat') || clean.includes('112233') || clean.includes('unconfigured')) {
-    return 'meat';
+  if (
+    clean === '124' ||
+    clean === 'ygs-fd-124' ||
+    clean.includes('124') ||
+    clean.includes('milk') ||
+    clean.includes('dairy')
+  ) {
+    return 'milk';
   }
   return clean.replace(/\s+/g, '_');
 }
@@ -702,7 +709,7 @@ export async function saveProductThresholdToFirebase(
   authorName?: string
 ): Promise<void> {
   const canonicalKey = normalizeProductKey(productKeyOrName);
-  const displayName = config.productName || (canonicalKey === 'cold_drinks' ? 'Cold Drinks' : productKeyOrName);
+  const displayName = config.productName || (canonicalKey === 'apple' ? 'Apple' : canonicalKey === 'milk' ? 'Milk' : productKeyOrName);
 
   const fullRecord: ProductThresholdConfig = {
     productId: config.productId || canonicalKey,
@@ -744,10 +751,12 @@ export async function saveProductThresholdToFirebase(
         productKeyOrName.trim().toUpperCase().replace(/^#/, ''),
         config.productId ? config.productId.trim() : '',
         config.productId ? config.productId.trim().toUpperCase().replace(/^#/, '') : '',
-        canonicalKey === 'cold_drinks' ? 'COLD_DRINKS' : '',
-        canonicalKey === 'cold_drinks' ? 'YGS-FD-000124' : '',
-        canonicalKey === 'meat' ? 'MEAT' : '',
-        canonicalKey === 'meat' ? 'YGS-FD-112233' : '',
+        canonicalKey === 'apple' ? 'APPLE' : '',
+        canonicalKey === 'apple' ? 'YGS-FD-001' : '',
+        canonicalKey === 'apple' ? '001' : '',
+        canonicalKey === 'milk' ? 'MILK' : '',
+        canonicalKey === 'milk' ? 'YGS-FD-124' : '',
+        canonicalKey === 'milk' ? '124' : '',
       ].filter(Boolean)));
 
       for (const alias of aliases) {
@@ -767,8 +776,12 @@ export async function saveProductThresholdToFirebase(
       const docRef = doc(firestoreDb, 'product_thresholds', canonicalKey);
       await setDoc(docRef, fullRecord, { merge: true });
 
-      if (canonicalKey === 'cold_drinks') {
-        await setDoc(doc(firestoreDb, 'product_thresholds', 'COLD_DRINKS'), fullRecord, { merge: true });
+      if (canonicalKey === 'apple') {
+        await setDoc(doc(firestoreDb, 'product_thresholds', 'APPLE'), fullRecord, { merge: true });
+        await setDoc(doc(firestoreDb, 'product_thresholds', 'YGS-FD-001'), fullRecord, { merge: true });
+      } else if (canonicalKey === 'milk') {
+        await setDoc(doc(firestoreDb, 'product_thresholds', 'MILK'), fullRecord, { merge: true });
+        await setDoc(doc(firestoreDb, 'product_thresholds', 'YGS-FD-124'), fullRecord, { merge: true });
       }
       if (config.productId) {
         await setDoc(doc(firestoreDb, 'product_thresholds', config.productId.trim().toUpperCase().replace(/^#/, '')), fullRecord, { merge: true });

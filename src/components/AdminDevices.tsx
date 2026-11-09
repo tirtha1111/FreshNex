@@ -4,6 +4,7 @@ import { useSearchParams, useNavigate } from 'react-router-dom';
 import { useApp } from '../context/AppContext';
 import { useAuth } from '../context/AuthContext';
 import { FirebaseService } from '../services/firebaseService';
+import { socketTelemetryService } from '../services/socketService';
 import { 
   Cpu, 
   Wifi, 
@@ -75,7 +76,7 @@ export const AdminDevices: React.FC = () => {
   // Registration Modal State
   const [isRegisterModalOpen, setIsRegisterModalOpen] = useState(false);
   const [registerStep, setRegisterStep] = useState<'details' | 'thresholds'>('details');
-  const [regCode, setRegCode] = useState('YGS-FD-000125');
+  const [regCode, setRegCode] = useState('YGS-FD-002');
   const [regProduct, setRegProduct] = useState('');
   const [regCategory, setRegCategory] = useState('');
   const [regLocation, setRegLocation] = useState('Central Cold Storage (Chamber A)');
@@ -108,7 +109,9 @@ export const AdminDevices: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  const devicesList: DeviceData[] = Object.values(devicesMap);
+  const devicesList: DeviceData[] = (Object.values(devicesMap) as DeviceData[]).filter(
+    (dev) => dev.device_id !== 'YGS-FD-000124' && dev.device_id !== 'YGS-FD-112233'
+  );
 
   const generateNewDeviceCode = () => {
     const num = Math.floor(100000 + Math.random() * 900000);
@@ -217,6 +220,8 @@ export const AdminDevices: React.FC = () => {
   };
 
   const [realtimeStatus, setRealtimeStatus] = useState<'online' | 'offline' | undefined>(undefined);
+  const [remainingSec, setRemainingSec] = useState<number>(30);
+  const [wsConnected, setWsConnected] = useState<boolean>(true);
   const [, setTick] = useState(0);
   const [liveSensor, setLiveSensor] = useState({
     temperature: 4.2,
@@ -230,53 +235,113 @@ export const AdminDevices: React.FC = () => {
     timestamp: Date.now()
   });
 
-  // Subscribe to real-time status, sensor data, and website configuration changes
+  useEffect(() => {
+    const unsubConn = socketTelemetryService.subscribeConnectionState((connected) => {
+      setWsConnected(connected);
+    });
+    return () => unsubConn();
+  }, []);
+
+  // Subscribe to real-time status (driven by 30s backend timer), sensor data, and website configuration changes
   useEffect(() => {
     if (!activeDeviceId) {
       setRealtimeStatus(undefined);
       return;
     }
-    const unsubStatus = FirebaseService.subscribeToDeviceStatus(activeDeviceId, (status) => {
+
+    const unsubWsStatus = socketTelemetryService.subscribeStatus(activeDeviceId, (status, meta) => {
       setRealtimeStatus(status);
+      if (meta?.remainingMs !== undefined) {
+        setRemainingSec(Math.max(0, Math.ceil(meta.remainingMs / 1000)));
+      } else {
+        setRemainingSec(status === 'online' ? 30 : 0);
+      }
+      if (meta?.lastDataAt) {
+        setLiveSensor((prev) => ({
+          ...prev,
+          timestamp: meta.lastDataAt
+        }));
+      }
+    });
+
+    const unsubStatus = FirebaseService.subscribeToDeviceStatus(activeDeviceId, (status) => {
+      if (status) setRealtimeStatus(status);
     });
 
     const dev = devicesMap[activeDeviceId];
     if (dev) {
-      setLiveSensor((prev) => ({
-        temperature: dev.temperature ?? prev.temperature ?? 4.2,
-        humidity: dev.humidity ?? prev.humidity ?? 62.0,
-        mq135_raw: dev.mq135_raw ?? prev.mq135_raw ?? 120,
-        impact: dev.impact ?? prev.impact ?? 0.12,
-        light: dev.light ?? prev.light ?? 18,
-        gpsLat: dev.gpsLat ?? prev.gpsLat ?? 22.5726,
-        gpsLng: dev.gpsLng ?? prev.gpsLng ?? 88.3639,
-        gpsSats: dev.gpsSats ?? prev.gpsSats ?? 8,
-        timestamp: Date.now()
-      }));
+      setLiveSensor((prev) => {
+        const hasChanged =
+          (dev.temperature !== undefined && dev.temperature !== prev.temperature) ||
+          (dev.humidity !== undefined && dev.humidity !== prev.humidity) ||
+          (dev.mq135_raw !== undefined && dev.mq135_raw !== prev.mq135_raw) ||
+          (dev.impact !== undefined && dev.impact !== prev.impact) ||
+          (dev.light !== undefined && dev.light !== prev.light) ||
+          (dev.gpsLat !== undefined && dev.gpsLat !== prev.gpsLat) ||
+          (dev.gpsLng !== undefined && dev.gpsLng !== prev.gpsLng);
+
+        return {
+          temperature: dev.temperature ?? prev.temperature ?? 4.2,
+          humidity: dev.humidity ?? prev.humidity ?? 62.0,
+          mq135_raw: dev.mq135_raw ?? prev.mq135_raw ?? 120,
+          impact: dev.impact ?? prev.impact ?? 0.12,
+          light: dev.light ?? prev.light ?? 18,
+          gpsLat: dev.gpsLat ?? prev.gpsLat ?? 22.5726,
+          gpsLng: dev.gpsLng ?? prev.gpsLng ?? 88.3639,
+          gpsSats: dev.gpsSats ?? prev.gpsSats ?? 8,
+          timestamp: hasChanged ? Date.now() : prev.timestamp
+        };
+      });
     }
 
     const unsubSensor = FirebaseService.subscribeToSensorData(activeDeviceId, (data) => {
       if (data) {
-        setLiveSensor((prev) => ({
-          temperature: data.temperature ?? dev?.temperature ?? prev.temperature ?? 4.2,
-          humidity: data.humidity ?? dev?.humidity ?? prev.humidity ?? 62.0,
-          mq135_raw: (data as any).gas ?? (data as any).mq135_raw ?? dev?.mq135_raw ?? prev.mq135_raw ?? 120,
-          impact: data.impact ?? dev?.impact ?? prev.impact ?? 0.12,
-          light: data.light ?? dev?.light ?? prev.light ?? 18,
-          gpsLat: data.gpsLat ?? dev?.gpsLat ?? prev.gpsLat ?? 22.5726,
-          gpsLng: data.gpsLng ?? dev?.gpsLng ?? prev.gpsLng ?? 88.3639,
-          gpsSats: data.gpsSats ?? dev?.gpsSats ?? prev.gpsSats ?? 8,
-          timestamp: Date.now()
-        }));
+        setLiveSensor((prev) => {
+          const nextTemp = data.temperature ?? dev?.temperature ?? prev.temperature ?? 4.2;
+          const nextHum = data.humidity ?? dev?.humidity ?? prev.humidity ?? 62.0;
+          const nextGas = (data as any).gas ?? (data as any).mq135_raw ?? dev?.mq135_raw ?? prev.mq135_raw ?? 120;
+          const nextImpact = data.impact ?? dev?.impact ?? prev.impact ?? 0.12;
+          const nextLight = data.light ?? dev?.light ?? prev.light ?? 18;
+          const nextLat = data.gpsLat ?? dev?.gpsLat ?? prev.gpsLat ?? 22.5726;
+          const nextLng = data.gpsLng ?? dev?.gpsLng ?? prev.gpsLng ?? 88.3639;
+          const nextSats = data.gpsSats ?? dev?.gpsSats ?? prev.gpsSats ?? 8;
+
+          const changed =
+            nextTemp !== prev.temperature ||
+            nextHum !== prev.humidity ||
+            nextGas !== prev.mq135_raw ||
+            nextImpact !== prev.impact ||
+            nextLight !== prev.light ||
+            nextLat !== prev.gpsLat ||
+            nextLng !== prev.gpsLng;
+
+          return {
+            temperature: nextTemp,
+            humidity: nextHum,
+            mq135_raw: nextGas,
+            impact: nextImpact,
+            light: nextLight,
+            gpsLat: nextLat,
+            gpsLng: nextLng,
+            gpsSats: nextSats,
+            timestamp: changed ? Date.now() : prev.timestamp
+          };
+        });
       }
     });
 
     const handleWebsiteUpdate = (e: Event) => {
       const detail = (e as CustomEvent)?.detail;
+      const now = detail?.timestamp || Date.now();
       setLiveSensor((prev) => ({
         ...prev,
-        timestamp: detail?.timestamp || Date.now()
+        timestamp: now
       }));
+      socketTelemetryService.reportFrontendDataReceived(
+        activeDeviceId,
+        { ...(dev || {}), timestamp: now },
+        true
+      );
     };
 
     window.addEventListener('freshnex_device_updated', handleWebsiteUpdate);
@@ -287,6 +352,7 @@ export const AdminDevices: React.FC = () => {
     }, 1000);
 
     return () => {
+      unsubWsStatus();
       unsubStatus();
       unsubSensor();
       window.removeEventListener('freshnex_device_updated', handleWebsiteUpdate);
@@ -295,31 +361,15 @@ export const AdminDevices: React.FC = () => {
     };
   }, [activeDeviceId, devicesMap]);
 
-  // Sync URL search params ?id=YGS-FD-000124
+  // Sync URL search params
   useEffect(() => {
     const devId = searchParams.get('id');
-    if (devId && devicesMap[devId]) {
+    if (devId && devicesMap[devId] && devId !== 'YGS-FD-000124' && devId !== 'YGS-FD-112233') {
       setActiveDeviceId(devId);
     }
   }, [searchParams, devicesMap]);
 
-  if (!isAdmin) {
-    return (
-      <div className="max-w-md mx-auto text-center py-20 px-6 space-y-4">
-        <ShieldAlert className="w-16 h-16 text-red-500 mx-auto" />
-        <h2 className="text-xl font-black text-[#1A120D]">Admin Access Required</h2>
-        <p className="text-xs text-slate-500 font-semibold">
-          This device management console is restricted to authenticated FreshNex administrators.
-        </p>
-        <button
-          onClick={() => navigate('/dashboard')}
-          className="px-6 py-2.5 rounded-xl bg-[#07221A] text-white font-bold text-xs"
-        >
-          Return to Dashboard
-        </button>
-      </div>
-    );
-  }
+
 
   const baseDevice = activeDeviceId ? devicesMap[activeDeviceId] : null;
   const activeDevice = baseDevice ? {
@@ -357,8 +407,13 @@ export const AdminDevices: React.FC = () => {
   } = formatRealtimeDateTime(rawResponseTimestamp);
 
   const currentThresholdDisplay = useMemo(() => {
-    if (!activeDevice) return { tempMin: 2.0, tempMax: 6.0, humMin: 50, humMax: 70, mq135_threshold: 1500 };
-    const prod = activeDevice.product || 'Cold Drinks';
+    if (!activeDevice) {
+      return { tempMin: 2.0, tempMax: 6.0, humMin: 50, humMax: 70, mq135_threshold: 1500 };
+    }
+    const devId = (activeDevice.device_id || '').toUpperCase();
+    const prod = activeDevice.product && activeDevice.product !== 'Cold Drinks' && activeDevice.product !== 'Meat' && activeDevice.product !== 'IoT Node'
+      ? activeDevice.product
+      : (devId.includes('124') || devId.includes('MILK') ? 'Milk' : 'Apple');
     const canonical = normalizeProductKey(prod);
     const devIdClean = (activeDevice.device_id || '').toUpperCase();
 
@@ -405,7 +460,10 @@ export const AdminDevices: React.FC = () => {
 
   const handleOpenConfigModal = (dev: DeviceData) => {
     setConfigModalDevice(dev);
-    const prod = dev.product || 'Cold Drinks';
+    const devId = (dev.device_id || '').toUpperCase();
+    const prod = dev.product && dev.product !== 'Cold Drinks' && dev.product !== 'Meat' && dev.product !== 'IoT Node'
+      ? dev.product
+      : (devId.includes('124') || devId.includes('MILK') ? 'Milk' : 'Apple');
     setProductName(prod);
     setConfigSaveError(null);
     setConfigAiDossier(null);
@@ -463,8 +521,8 @@ export const AdminDevices: React.FC = () => {
     setIsSavingConfig(true);
     setConfigSaveError(null);
 
-    const devId = configModalDevice.device_id || (configModalDevice as any).id || activeDeviceId || 'YGS-FD-000124';
-    const cleanProductName = productName.trim() || 'Cold Drinks';
+    const devId = configModalDevice.device_id || (configModalDevice as any).id || activeDeviceId || devicesList[0]?.device_id || '';
+    const cleanProductName = productName.trim() || 'Monitored Product';
 
     const numTempMin = tempMin === '' ? 2.0 : Number(tempMin);
     const numTempMax = tempMax === '' ? 6.0 : Number(tempMax);
@@ -545,6 +603,13 @@ export const AdminDevices: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
+          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#EBFBF4] border border-[#20E79A]/30 text-[10px] font-black text-[#07221A] shadow-2xs">
+            <span className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
+            <span>{wsConnected ? 'WebSocket DB Bridge Active (0ms Lag)' : 'WebSocket Reconnecting...'}</span>
+            <span className="text-[#5C7F75]">•</span>
+            <span className="font-mono text-emerald-900">30s Backend Watchdog</span>
+          </div>
+
           {activeDevice && (
             <button
               onClick={() => { setActiveDeviceId(null); setSearchParams({}); }}
@@ -576,23 +641,32 @@ export const AdminDevices: React.FC = () => {
                   <Radio className="w-3 h-3 text-emerald-600" />
                   ESP32 Monitored Node
                 </span>
-                <h2 className="text-2xl sm:text-3xl font-black text-[#07221A] tracking-tight">{activeDevice.product || 'Cold Drinks'}</h2>
+                <h2 className="text-2xl sm:text-3xl font-black text-[#07221A] tracking-tight">
+                  {activeDevice.product && activeDevice.product !== 'Cold Drinks' && activeDevice.product !== 'Meat' && activeDevice.product !== 'IoT Node'
+                    ? activeDevice.product
+                    : (activeDevice.device_id.includes('124') || activeDevice.device_id.includes('MILK') ? 'Milk' : 'Apple')}
+                </h2>
                 <p className="text-xs font-mono font-bold text-amber-800 flex items-center gap-1.5 mt-0.5">
                   <span className="text-[#5C7F75] font-sans text-[11px]">Device ID:</span>
                   <span className="bg-amber-100/80 text-amber-900 px-2.5 py-0.5 rounded-lg border border-amber-300/80 shadow-xs font-mono font-bold">{activeDevice.device_id}</span>
                 </p>
               </div>
 
-              <div className="flex items-center gap-2 self-start sm:self-auto">
+              <div className="flex flex-col sm:items-end gap-1.5 self-start sm:self-auto">
                 <motion.span 
                   whileHover={{ scale: 1.05 }}
                   className={`px-3.5 py-1.5 rounded-full text-xs font-black flex items-center gap-2 shadow-xs ${
-                    realtimeStatus === 'online' ? 'bg-emerald-100/90 text-emerald-700 border border-emerald-300' : 'bg-slate-100 text-slate-600 border border-slate-300'
+                    realtimeStatus === 'online' ? 'bg-emerald-100/90 text-emerald-700 border border-emerald-300' : 'bg-rose-50 text-rose-700 border border-rose-200'
                   }`}
                 >
-                  <span className={`w-2.5 h-2.5 rounded-full ${realtimeStatus === 'online' ? 'bg-emerald-500 animate-pulse ring-4 ring-emerald-400/20' : 'bg-slate-400'}`} />
+                  <span className={`w-2.5 h-2.5 rounded-full ${realtimeStatus === 'online' ? 'bg-emerald-500 animate-pulse ring-4 ring-emerald-400/20' : 'bg-rose-500'}`} />
                   <span>{realtimeStatus === 'online' ? 'ONLINE' : 'OFFLINE'}</span>
                 </motion.span>
+                <span className="text-[10px] font-mono font-bold text-[#5C7F75] tabular-nums">
+                  {realtimeStatus === 'online'
+                    ? `Backend 30s Timer: ${remainingSec}s left`
+                    : 'Offline (No new frontend data for 30s)'}
+                </span>
               </div>
             </div>
 
@@ -610,8 +684,8 @@ export const AdminDevices: React.FC = () => {
                 <div className="min-w-0">
                   <span className="text-[10px] font-extrabold uppercase text-[#5C7F75] block truncate">ESP32 Hardware</span>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className={`w-2 h-2 rounded-full ${realtimeStatus === 'online' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                    <span className="text-xs font-black text-[#07221A]">{realtimeStatus === 'online' ? 'Online' : 'Offline'}</span>
+                    <span className={`w-2 h-2 rounded-full ${realtimeStatus === 'online' ? 'bg-emerald-500' : 'bg-rose-500'}`} />
+                    <span className="text-xs font-black text-[#07221A]">{realtimeStatus === 'online' ? `Online (${remainingSec}s)` : 'Offline (>30s)'}</span>
                   </div>
                 </div>
               </motion.div>
@@ -626,10 +700,10 @@ export const AdminDevices: React.FC = () => {
                   <Wifi className="w-5 h-5" />
                 </div>
                 <div className="min-w-0">
-                  <span className="text-[10px] font-extrabold uppercase text-[#5C7F75] block truncate">Wi-Fi Connection</span>
+                  <span className="text-[10px] font-extrabold uppercase text-[#5C7F75] block truncate">Wi-Fi Telemetry</span>
                   <div className="flex items-center gap-1.5 mt-0.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    <span className="text-xs font-black text-[#07221A]">Connected</span>
+                    <span className={`w-2 h-2 rounded-full ${realtimeStatus === 'online' ? 'bg-emerald-500' : 'bg-slate-400'}`} />
+                    <span className="text-xs font-black text-[#07221A]">{realtimeStatus === 'online' ? 'Connected' : 'Idle (>30s)'}</span>
                   </div>
                 </div>
               </motion.div>
@@ -888,7 +962,7 @@ export const AdminDevices: React.FC = () => {
 
               <button
                 type="button"
-                onClick={() => handleOpenConfigModal(activeDevice)}
+                onClick={() => navigate(`/thresholds?id=${activeDevice.device_id}`)}
                 className="self-start sm:self-auto px-3.5 py-1.5 rounded-xl bg-white border border-[#20E79A]/40 text-[#07221A] text-xs font-bold hover:bg-[#EBFBF4] transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
               >
                 <Sliders className="w-3.5 h-3.5 text-[#20E79A]" />
@@ -916,7 +990,7 @@ export const AdminDevices: React.FC = () => {
                 <motion.button
                   whileHover={{ scale: 1.02 }}
                   whileTap={{ scale: 0.97 }}
-                  onClick={() => handleOpenConfigModal(activeDevice)}
+                  onClick={() => navigate(`/thresholds?id=${activeDevice.device_id}`)}
                   className="px-6 py-3.5 rounded-2xl bg-[#07221A] hover:bg-[#134336] border border-[#20E79A]/40 text-white font-black text-xs flex items-center justify-center gap-2 cursor-pointer flex-1 shadow-md hover:shadow-lg transition-all min-h-[44px]"
                 >
                   <Sliders className="w-4 h-4 text-[#20E79A]" />

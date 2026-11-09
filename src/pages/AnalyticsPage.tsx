@@ -101,14 +101,14 @@ export const AnalyticsPage: React.FC = () => {
     : [{ name: 'Zero Scans', value: 1, color: '#E2E8F0' }];
 
   // Monitored categories - calculated strictly from real scan items (defaults to 0)
-  const beverageCount = scanHistory.filter(s => s.itemName?.toLowerCase().includes('drink') || s.itemName?.toLowerCase().includes('beverage') || s.itemName?.toLowerCase().includes('cold') || s.itemName?.toLowerCase().includes('ketchup') || s.itemName?.toLowerCase().includes('milk') || s.itemId === 'COLD_DRINKS' || s.itemId === 'KETCHUP' || s.itemId === 'MILK').length;
-  const meatCount = scanHistory.filter(s => s.itemName?.toLowerCase().includes('meat') || s.itemId === 'MEAT').length;
-  const beverageRatio = totalScans > 0 ? Math.round((beverageCount / totalScans) * 100) : 0;
-  const meatRatio = totalScans > 0 ? Math.round((meatCount / totalScans) * 100) : 0;
+  const appleCount = scanHistory.filter(s => s.itemName?.toLowerCase().includes('apple') || s.itemId?.toUpperCase().includes('APPLE') || s.itemId?.includes('001')).length;
+  const milkCount = scanHistory.filter(s => s.itemName?.toLowerCase().includes('milk') || s.itemId?.toUpperCase().includes('MILK') || s.itemId?.includes('124')).length;
+  const appleRatio = totalScans > 0 ? Math.round((appleCount / totalScans) * 100) : 0;
+  const milkRatio = totalScans > 0 ? Math.round((milkCount / totalScans) * 100) : 0;
 
   const categoryBreakdown = [
-    { name: 'Beverages', count: beverageCount, ratio: beverageRatio, color: '#20E79A' },
-    { name: 'Meat Products', count: meatCount, ratio: meatRatio, color: '#FFAA00' },
+    { name: 'Apples (Node 001)', count: appleCount, ratio: appleRatio, color: '#20E79A' },
+    { name: 'Milk (Node 124)', count: milkCount, ratio: milkRatio, color: '#FFAA00' },
   ];
 
   return (

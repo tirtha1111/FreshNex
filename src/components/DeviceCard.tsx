@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { Cpu, Wifi, Clock, Navigation } from 'lucide-react';
 import { FirebaseService } from '../services/firebaseService';
+import { socketTelemetryService } from '../services/socketService';
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
 import { formatRealtimeDateTime, extractLatestTimestamp } from '../utils/dateUtils';
@@ -29,7 +30,10 @@ interface Props {
 }
 
 export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiClick }) => {
-  const [realtimeStatus, setRealtimeStatus] = useState<'online' | 'offline' | undefined>('online');
+  const [realtimeStatus, setRealtimeStatus] = useState<'online' | 'offline'>(
+    socketTelemetryService.getLatestStatus(dev.device_id)
+  );
+  const [remainingSec, setRemainingSec] = useState<number>(30);
   const [, setTick] = useState(0);
   const [liveSensor, setLiveSensor] = useState({
     temperature: dev.temperature ?? 4.2,
@@ -40,22 +44,33 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
     gpsLat: dev.gpsLat ?? 22.5726,
     gpsLng: dev.gpsLng ?? 88.3639,
     gpsSats: dev.gpsSats ?? 8,
-    timestamp: Date.now(),
+    timestamp: extractLatestTimestamp(dev, Date.now()),
   });
 
-  // Sync immediately when parent dev prop changes (from Firebase AppContext listener or website config update)
+  // Sync immediately when parent dev prop changes (from WebSocket / Firebase AppContext listener)
   useEffect(() => {
-    setLiveSensor((prev) => ({
-      temperature: dev.temperature ?? prev.temperature ?? 4.2,
-      humidity: dev.humidity ?? prev.humidity ?? 62.0,
-      mq135_raw: dev.mq135_raw ?? prev.mq135_raw ?? 120,
-      impact: dev.impact ?? prev.impact ?? 0.12,
-      light: dev.light ?? prev.light ?? 18,
-      gpsLat: dev.gpsLat ?? prev.gpsLat ?? 22.5726,
-      gpsLng: dev.gpsLng ?? prev.gpsLng ?? 88.3639,
-      gpsSats: dev.gpsSats ?? prev.gpsSats ?? 8,
-      timestamp: Date.now(),
-    }));
+    setLiveSensor((prev) => {
+      const hasValueChanged =
+        (dev.temperature !== undefined && dev.temperature !== prev.temperature) ||
+        (dev.humidity !== undefined && dev.humidity !== prev.humidity) ||
+        (dev.mq135_raw !== undefined && dev.mq135_raw !== prev.mq135_raw) ||
+        (dev.impact !== undefined && dev.impact !== prev.impact) ||
+        (dev.light !== undefined && dev.light !== prev.light) ||
+        (dev.gpsLat !== undefined && dev.gpsLat !== prev.gpsLat) ||
+        (dev.gpsLng !== undefined && dev.gpsLng !== prev.gpsLng);
+
+      return {
+        temperature: dev.temperature ?? prev.temperature ?? 4.2,
+        humidity: dev.humidity ?? prev.humidity ?? 62.0,
+        mq135_raw: dev.mq135_raw ?? prev.mq135_raw ?? 120,
+        impact: dev.impact ?? prev.impact ?? 0.12,
+        light: dev.light ?? prev.light ?? 18,
+        gpsLat: dev.gpsLat ?? prev.gpsLat ?? 22.5726,
+        gpsLng: dev.gpsLng ?? prev.gpsLng ?? 88.3639,
+        gpsSats: dev.gpsSats ?? prev.gpsSats ?? 8,
+        timestamp: hasValueChanged ? Date.now() : prev.timestamp,
+      };
+    });
   }, [
     dev.temperature,
     dev.humidity,
@@ -66,34 +81,67 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
     dev.gpsLng,
     dev.gpsSats,
     dev.product,
-    dev.last_update,
-    (dev as any).website_updated_at,
   ]);
 
-  // Subscribe to direct Firebase WebSocket stream & website update events
+  // Subscribe to backend WebSocket 30-second timer status & zero-lag telemetry stream
   useEffect(() => {
-    const unsubStatus = FirebaseService.subscribeToDeviceStatus(dev.device_id, (status) => {
+    const unsubWsStatus = socketTelemetryService.subscribeStatus(dev.device_id, (status, meta) => {
       setRealtimeStatus(status);
+      if (meta?.remainingMs !== undefined) {
+        setRemainingSec(Math.max(0, Math.ceil(meta.remainingMs / 1000)));
+      } else {
+        setRemainingSec(status === 'online' ? 30 : 0);
+      }
+      if (meta?.lastDataAt) {
+        setLiveSensor((prev) => ({
+          ...prev,
+          timestamp: meta.lastDataAt,
+        }));
+      }
+    });
+
+    const unsubStatus = FirebaseService.subscribeToDeviceStatus(dev.device_id, (status) => {
+      if (status) setRealtimeStatus(status);
     });
 
     const unsubSensor = FirebaseService.subscribeToSensorData(dev.device_id, (data) => {
       if (data) {
-        setLiveSensor((prev) => ({
-          temperature: data.temperature ?? dev.temperature ?? prev.temperature ?? 4.2,
-          humidity: data.humidity ?? dev.humidity ?? prev.humidity ?? 62.0,
-          mq135_raw:
+        setLiveSensor((prev) => {
+          const nextTemp = data.temperature ?? dev.temperature ?? prev.temperature ?? 4.2;
+          const nextHum = data.humidity ?? dev.humidity ?? prev.humidity ?? 62.0;
+          const nextGas =
             (data as any).gas ??
             (data as any).mq135_raw ??
             dev.mq135_raw ??
             prev.mq135_raw ??
-            120,
-          impact: data.impact ?? dev.impact ?? prev.impact ?? 0.12,
-          light: data.light ?? dev.light ?? prev.light ?? 18,
-          gpsLat: data.gpsLat ?? dev.gpsLat ?? prev.gpsLat ?? 22.5726,
-          gpsLng: data.gpsLng ?? dev.gpsLng ?? prev.gpsLng ?? 88.3639,
-          gpsSats: data.gpsSats ?? dev.gpsSats ?? prev.gpsSats ?? 8,
-          timestamp: Date.now(),
-        }));
+            120;
+          const nextImpact = data.impact ?? dev.impact ?? prev.impact ?? 0.12;
+          const nextLight = data.light ?? dev.light ?? prev.light ?? 18;
+          const nextLat = data.gpsLat ?? dev.gpsLat ?? prev.gpsLat ?? 22.5726;
+          const nextLng = data.gpsLng ?? dev.gpsLng ?? prev.gpsLng ?? 88.3639;
+          const nextSats = data.gpsSats ?? dev.gpsSats ?? prev.gpsSats ?? 8;
+
+          const changed =
+            nextTemp !== prev.temperature ||
+            nextHum !== prev.humidity ||
+            nextGas !== prev.mq135_raw ||
+            nextImpact !== prev.impact ||
+            nextLight !== prev.light ||
+            nextLat !== prev.gpsLat ||
+            nextLng !== prev.gpsLng;
+
+          return {
+            temperature: nextTemp,
+            humidity: nextHum,
+            mq135_raw: nextGas,
+            impact: nextImpact,
+            light: nextLight,
+            gpsLat: nextLat,
+            gpsLng: nextLng,
+            gpsSats: nextSats,
+            timestamp: changed ? Date.now() : prev.timestamp,
+          };
+        });
       }
     });
 
@@ -105,10 +153,16 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
         detail.deviceId === dev.device_id ||
         detail.product === dev.product
       ) {
+        const now = detail?.timestamp || Date.now();
         setLiveSensor((prev) => ({
           ...prev,
-          timestamp: detail?.timestamp || Date.now(),
+          timestamp: now,
         }));
+        socketTelemetryService.reportFrontendDataReceived(
+          dev.device_id,
+          { ...dev, timestamp: now },
+          true
+        );
       }
     };
 
@@ -121,6 +175,7 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
     }, 1000);
 
     return () => {
+      unsubWsStatus();
       unsubStatus();
       unsubSensor();
       window.removeEventListener('freshnex_device_updated', handleWebsiteUpdate);
@@ -140,11 +195,7 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
     }
   );
 
-  const latestTs =
-    Math.max(
-      liveSensor.timestamp || 0,
-      extractLatestTimestamp(dev, 0)
-    ) || Date.now();
+  const latestTs = liveSensor.timestamp || extractLatestTimestamp(dev, Date.now());
   const {
     dateStr: formattedDate,
     timeStr: formattedTime,
@@ -169,27 +220,36 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
               Micro-Node
             </span>
             <h3 className="text-base sm:text-lg font-black text-[#07221A] mt-1.5 truncate">
-              {dev.product || 'Cold Drinks'}
+              {dev.product && dev.product !== 'Cold Drinks' && dev.product !== 'Meat' && dev.product !== 'IoT Node'
+                ? dev.product
+                : (dev.device_id.includes('124') || dev.device_id.includes('MILK') ? 'Milk' : 'Apple')}
             </h3>
             <p className="text-xs font-mono font-bold text-amber-900 bg-amber-100/80 px-2 py-0.5 rounded-md border border-amber-300/80 inline-block mt-0.5 truncate">
               {dev.device_id}
             </p>
           </div>
 
-          <span
-            className={`px-2.5 py-1 rounded-full text-[10px] font-black shrink-0 flex items-center gap-1.5 shadow-xs ${
-              realtimeStatus === 'online'
-                ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
-                : 'bg-slate-100 text-slate-600 border border-slate-300'
-            }`}
-          >
+          <div className="flex flex-col items-end gap-1 shrink-0">
             <span
-              className={`w-2 h-2 rounded-full ${
-                realtimeStatus === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-400'
+              className={`px-2.5 py-1 rounded-full text-[10px] font-black flex items-center gap-1.5 shadow-xs ${
+                realtimeStatus === 'online'
+                  ? 'bg-emerald-100 text-emerald-700 border border-emerald-300'
+                  : 'bg-rose-50 text-rose-700 border border-rose-200'
               }`}
-            />
-            <span>{realtimeStatus === 'online' ? 'ONLINE' : 'OFFLINE'}</span>
-          </span>
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  realtimeStatus === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                }`}
+              />
+              <span>{realtimeStatus === 'online' ? 'ONLINE' : 'OFFLINE'}</span>
+            </span>
+            <span className="text-[8.5px] font-mono font-bold text-[#5C7F75] tabular-nums">
+              {realtimeStatus === 'online'
+                ? `30s timer: ${remainingSec}s`
+                : 'No data > 30s'}
+            </span>
+          </div>
         </div>
 
         {/* Responsive Sensor Readout (All Parameters) */}

@@ -3,7 +3,7 @@ import { Outlet, useLocation, Link } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
-import { Home, QrCode, Activity, History, User, X } from 'lucide-react';
+import { Home, QrCode, Activity, History, User, X, Cpu, Sliders } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useFreshness } from '../../context/FreshnessContext';
 
@@ -17,16 +17,13 @@ export const AppLayout: React.FC = () => {
   const liveDataPath = activeItem ? `/live-data/${activeItem.id}` : '/live-data';
 
   const mobileNav = isAdmin ? [
-    { label: 'Home', path: '/dashboard', icon: Home },
-    { label: 'Scan', path: '/scan', icon: QrCode },
-    { label: 'Live Data', path: liveDataPath, icon: Activity },
-    { label: 'History', path: '/history', icon: History },
+    { label: 'Devices', path: '/devices', icon: Cpu },
+    { label: 'Thresholds', path: '/thresholds', icon: Sliders },
+    { label: 'Analytics', path: '/analytics', icon: Activity },
     { label: 'Profile', path: '/profile', icon: User },
   ] : [
-    { label: 'Home', path: '/dashboard', icon: Home },
-    { label: 'Live Data', path: liveDataPath, icon: Activity },
-    { label: 'History', path: '/history', icon: History },
-    { label: 'Profile', path: '/profile', icon: User },
+    { label: 'Dashboard', path: '/dashboard', icon: Home },
+    { label: 'Live Reading', path: '/live-data', icon: Activity },
   ];
 
   return (
@@ -88,7 +85,7 @@ export const AppLayout: React.FC = () => {
         </main>
 
         {/* Mobile Bottom Navigation */}
-        <nav className={`md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-lg border-t border-[#13493B]/10 px-2 grid ${mobileNav.length === 5 ? 'grid-cols-5' : 'grid-cols-4'} items-center z-40 shadow-[0_-8px_25px_rgba(7,34,26,0.06)]`}>
+        <nav className={`md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white/95 backdrop-blur-lg border-t border-[#13493B]/10 px-2 grid ${mobileNav.length === 5 ? 'grid-cols-5' : mobileNav.length === 2 ? 'grid-cols-2' : 'grid-cols-4'} items-center z-40 shadow-[0_-8px_25px_rgba(7,34,26,0.06)]`}>
           {mobileNav.map((item) => {
             const Icon = item.icon;
             const isActive = location.pathname === item.path || (item.path.startsWith('/live-data') && location.pathname.startsWith('/live-data'));

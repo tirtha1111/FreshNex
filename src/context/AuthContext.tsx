@@ -151,7 +151,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const parsed: UserProfile = JSON.parse(stored);
         if (parsed.role === 'user' && parsed.assignedProductId) {
           const factual = resolveFactualProduct(parsed.assignedProductId);
-          parsed.assignedProductId = factual.id;
+          const rawId = parsed.assignedProductId.trim().toUpperCase().replace(/^#/, '');
+          const normalizedDeviceId =
+            rawId === '124' || rawId === 'MILK' || rawId === 'YGS-FD-124' || rawId.includes('124')
+              ? 'YGS-FD-124'
+              : rawId === '001' || rawId === 'APPLE' || rawId === 'YGS-FD-001' || rawId.includes('001')
+              ? 'YGS-FD-001'
+              : rawId;
+          parsed.assignedProductId = normalizedDeviceId;
           parsed.assignedProductName = factual.name;
           parsed.name = `${factual.name} Access`;
         }
@@ -405,21 +412,28 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthError(null);
     setIsLoading(true);
 
-    const cleanTag = productIdInput.trim().toUpperCase().replace(/^#/, '');
+    const rawTag = productIdInput.trim().toUpperCase().replace(/^#/, '');
 
-    if (!cleanTag) {
+    if (!rawTag) {
       setIsLoading(false);
-      const msg = 'Please enter a valid unique product Tag ID (e.g. APPLE or MILK).';
+      const msg = 'Please enter a valid Device ID (e.g. YGS-FD-001 or YGS-FD-124).';
       setAuthError(msg);
       throw new Error(msg);
     }
 
-    const factualProduct = resolveFactualProduct(cleanTag);
+    const cleanDeviceId =
+      rawTag === '124' || rawTag === 'MILK' || rawTag === 'YGS-FD-124' || rawTag.includes('124')
+        ? 'YGS-FD-124'
+        : rawTag === '001' || rawTag === 'APPLE' || rawTag === 'YGS-FD-001' || rawTag.includes('001')
+        ? 'YGS-FD-001'
+        : rawTag;
+
+    const factualProduct = resolveFactualProduct(cleanDeviceId);
     const productName = factualProduct.name;
 
     const mockUser = {
-      uid: `product_user_${cleanTag.toLowerCase()}`,
-      email: `${cleanTag.toLowerCase()}@user.freshnex.com`,
+      uid: `device_user_${cleanDeviceId.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+      email: `${cleanDeviceId.toLowerCase()}@user.freshnex.com`,
       displayName: `${productName} Consumer`,
     } as any;
 
@@ -432,7 +446,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       email: mockUser.email,
       name: `${productName} Access`,
       role: 'user',
-      assignedProductId: cleanTag,
+      assignedProductId: cleanDeviceId,
       assignedProductName: productName,
       memberSince: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
       organization: 'Product Consumer Access',

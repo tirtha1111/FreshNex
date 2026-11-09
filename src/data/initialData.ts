@@ -1,55 +1,80 @@
 import { FoodItem, SensorData, ScanHistoryRecord } from '../types';
+import appleProductImg from '../assets/images/fresh_red_apples_product_1794239934714.jpg';
+import milkProductImg from '../assets/images/fresh_dairy_milk_product_1794239934344.jpg';
+import tomatoCardImg from '../assets/images/freshnex_tomato_card_1789921202123.jpg';
+import heroCrateImg from '../assets/images/freshnex_hero_crate_1789921168287.jpg';
 
 export interface CustomFoodItem extends FoodItem {
   isUnconfigured?: boolean;
 }
 
 export const FACTUAL_PRODUCT_IMAGES: Record<string, string> = {
-  APPLE: 'https://images.unsplash.com/photo-1560806887-1e4cd0b6cbd6?w=640&auto=format&fit=crop&q=85',
-  MILK: 'https://images.unsplash.com/photo-1550583724-b2692b85b150?w=640&auto=format&fit=crop&q=85',
-  TOMATO: 'https://images.unsplash.com/photo-1592924357228-91a4daadcfea?w=640&auto=format&fit=crop&q=85',
-  MEAT: 'https://images.unsplash.com/photo-1607623814075-e51df1bdc82f?w=640&auto=format&fit=crop&q=85',
-  BANANA: 'https://images.unsplash.com/photo-1571771894821-ce9b6c11b08e?w=640&auto=format&fit=crop&q=85',
-  SPINACH: 'https://images.unsplash.com/photo-1576045057995-568f588f82fb?w=640&auto=format&fit=crop&q=85',
-  STRAWBERRY: 'https://images.unsplash.com/photo-1464965911861-746a04b4bca6?w=640&auto=format&fit=crop&q=85',
+  APPLE: appleProductImg,
+  MILK: milkProductImg,
+  TOMATO: tomatoCardImg,
+  MEAT: heroCrateImg,
+  BANANA: heroCrateImg,
+  SPINACH: heroCrateImg,
+  STRAWBERRY: appleProductImg,
   COLD_DRINKS: '/colddrinks.jpg',
   KETCHUP: '/ketchup.jpg',
 };
 
 export const DEFAULT_ITEMS: Record<string, CustomFoodItem> = {
   'APPLE': {
-    id: 'APPLE',
-    name: 'Fresh Apples',
+    id: 'YGS-FD-001',
+    name: 'Apple',
     category: 'Fruits & Orchard Produce',
     image: FACTUAL_PRODUCT_IMAGES.APPLE,
-    batchId: 'BATCH-APPLE-101',
-    tagId: '#APPLE',
-    description: 'Crisp organic orchard apples monitored via real-time bio-telemetry for optimal crunch, moisture, and ethylene preservation.',
-    optimalTemp: '2 - 6°C',
+    batchId: 'BATCH-APL-001',
+    tagId: 'YGS-FD-001',
+    description: 'Crisp organic apples monitored via real-time bio-telemetry for optimal crunch, moisture, and ethylene preservation.',
+    optimalTemp: '0 - 4°C',
     optimalHumidity: '85 - 95%',
     maxGas: 100,
   },
   'MILK': {
-    id: 'MILK',
-    name: 'Fresh Milk',
+    id: 'YGS-FD-124',
+    name: 'Milk',
     category: 'Farm Fresh Dairy',
     image: FACTUAL_PRODUCT_IMAGES.MILK,
-    batchId: 'BATCH-MILK-202',
-    tagId: '#MILK',
-    description: 'Pasteurized farm-fresh dairy milk monitored continuously for cold-chain integrity, lactic pH stability, and head-space purity.',
+    batchId: 'BATCH-MLK-124',
+    tagId: 'YGS-FD-124',
+    description: 'Pasteurized farm-fresh dairy milk monitored continuously for cold-chain integrity, lactic pH stability, and freshness.',
     optimalTemp: '1 - 4°C',
     optimalHumidity: '65 - 75%',
     maxGas: 120,
   }
 };
 
+// Aliases for direct lookup
+DEFAULT_ITEMS['001'] = DEFAULT_ITEMS['APPLE'];
+DEFAULT_ITEMS['YGS-FD-001'] = DEFAULT_ITEMS['APPLE'];
+DEFAULT_ITEMS['124'] = DEFAULT_ITEMS['MILK'];
+DEFAULT_ITEMS['YGS-FD-124'] = DEFAULT_ITEMS['MILK'];
+
 export function resolveFactualProduct(tagOrName?: string | null, currentImage?: string | null): CustomFoodItem {
   const raw = (tagOrName || '').trim().toUpperCase().replace(/^#/, '');
 
-  if (raw === 'MILK' || raw.includes('MILK') || raw.includes('DAIRY') || raw.includes('000126') || raw.includes('126')) {
+  if (
+    raw === 'MILK' ||
+    raw === '124' ||
+    raw === 'YGS-FD-124' ||
+    raw.includes('MILK') ||
+    raw.includes('DAIRY') ||
+    raw.includes('124')
+  ) {
     return DEFAULT_ITEMS['MILK'];
   }
-  if (raw === 'APPLE' || raw.includes('APPLE') || raw.includes('FRUIT') || raw.includes('000125') || raw.includes('125')) {
+  if (
+    raw === 'APPLE' ||
+    raw === '001' ||
+    raw === 'YGS-FD-001' ||
+    raw.includes('APPLE') ||
+    raw.includes('FRESORA') ||
+    raw.includes('001') ||
+    raw.includes('FRUIT')
+  ) {
     return DEFAULT_ITEMS['APPLE'];
   }
   if (raw.includes('TOMATO')) {
@@ -126,7 +151,7 @@ export function resolveFactualProduct(tagOrName?: string | null, currentImage?: 
     return DEFAULT_ITEMS['APPLE'];
   }
 
-  if (raw && raw !== 'YGS-FD-000124') {
+  if (raw) {
     const validCustomImg =
       currentImage && currentImage !== '/colddrinks.jpg' ? currentImage : FACTUAL_PRODUCT_IMAGES.APPLE;
     return {
@@ -176,5 +201,10 @@ export const DEFAULT_SENSOR_DATA: Record<string, SensorData> = {
     timestamp: Date.now(),
   }
 };
+
+DEFAULT_SENSOR_DATA['001'] = DEFAULT_SENSOR_DATA['APPLE'];
+DEFAULT_SENSOR_DATA['YGS-FD-001'] = DEFAULT_SENSOR_DATA['APPLE'];
+DEFAULT_SENSOR_DATA['124'] = DEFAULT_SENSOR_DATA['MILK'];
+DEFAULT_SENSOR_DATA['YGS-FD-124'] = DEFAULT_SENSOR_DATA['MILK'];
 
 export const DEFAULT_SCAN_HISTORY: ScanHistoryRecord[] = [];

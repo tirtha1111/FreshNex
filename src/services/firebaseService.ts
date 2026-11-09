@@ -23,6 +23,7 @@ import { DEFAULT_ITEMS, DEFAULT_SCAN_HISTORY } from '../data/initialData';
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
 import { extractLatestTimestamp } from '../utils/dateUtils';
+import { socketTelemetryService } from './socketService';
 
 // Provided Realtime Database URL
 export const REALTIME_DATABASE_URL = DEFAULT_REALTIME_DATABASE_URL;
@@ -57,24 +58,18 @@ export function getDirectFirestore(): Firestore | null {
 }
 
 /**
- * Subscribe to real-time status of a device in Firebase Realtime Database
+ * Subscribe to real-time status of a device driven by the backend 30-second WebSocket timer.
+ * When new data is received at the frontend, the backend starts a 30-second timer.
+ * If no new data is updated within 30 seconds, the backend marks the device 'offline'; otherwise 'online'.
  */
 export function subscribeToDeviceStatus(
   deviceId: string,
   callback: (status: 'online' | 'offline' | undefined) => void
 ): () => void {
   const cleanId = deviceId ? deviceId.trim().toUpperCase().replace(/^#/, '') : '';
+  const targetDevId = cleanId;
 
-  const targetDevId =
-    cleanId.includes('112233') || cleanId.includes('MEAT')
-      ? 'YGS-FD-112233'
-      : cleanId.startsWith('YGS-FD-') && cleanId !== 'YGS-FD-000126' && cleanId !== 'YGS-FD-000125'
-      ? cleanId
-      : 'YGS-FD-000124';
-
-  let lastUpdateTime = Date.now();
   let lastReportedStatus: 'online' | 'offline' | undefined = undefined;
-  let statusInterval: any;
 
   const reportStatus = (nextStatus: 'online' | 'offline') => {
     if (lastReportedStatus !== nextStatus) {
@@ -83,10 +78,17 @@ export function subscribeToDeviceStatus(
     }
   };
 
+  // 1. Subscribe to authoritative 30-second timer status from the backend WebSocket
+  const unsubWsStatus = socketTelemetryService.subscribeStatus(targetDevId, (wsStatus) => {
+    reportStatus(wsStatus);
+  });
+
+  // 2. Listen to Firebase RTDB changes at the frontend; when data updates, notify the backend to start/reset the 30s timer
   const db = getDirectDatabase();
   if (!db) {
-    reportStatus('online');
-    return () => {};
+    return () => {
+      unsubWsStatus();
+    };
   }
 
   const deviceRef = ref(db, `devices/${targetDevId}`);
@@ -94,50 +96,15 @@ export function subscribeToDeviceStatus(
   const handleSnapshot = (snapshot: any) => {
     if (snapshot.exists()) {
       const val = snapshot.val();
-      let target = val;
-      if (
-        val &&
-        typeof val === 'object' &&
-        !(
-          'last_update' in val ||
-          'timestamp' in val ||
-          'time' in val ||
-          'temperature' in val ||
-          'temp' in val ||
-          'last_seen' in val
-        )
-      ) {
-        const keys = Object.keys(val).filter((k) => k !== 'commands');
-        if (keys.length > 0) {
-          const lastKey = keys[keys.length - 1];
-          if (typeof val[lastKey] === 'object' && val[lastKey] !== null) {
-            target = val[lastKey];
-          }
-        }
-      }
-
-      const t = extractLatestTimestamp(target, Date.now());
-      lastUpdateTime = t;
-
-      const diff = Date.now() - lastUpdateTime;
-      const isOnline = diff <= 30000 || target.online !== false;
-      reportStatus(isOnline ? 'online' : 'offline');
-    } else {
-      reportStatus('online');
+      socketTelemetryService.reportFrontendDataReceived(targetDevId, val);
     }
   };
 
-  const unsubscribe = onValue(deviceRef, handleSnapshot, () => {
-    reportStatus('online');
-  });
-
-  statusInterval = setInterval(() => {
-    reportStatus('online');
-  }, 3000);
+  const unsubscribeRtdb = onValue(deviceRef, handleSnapshot, () => {});
 
   return () => {
-    clearInterval(statusInterval);
-    unsubscribe();
+    unsubWsStatus();
+    unsubscribeRtdb();
     off(deviceRef, 'value', handleSnapshot);
   };
 }
@@ -150,19 +117,21 @@ export async function getItemById(itemId: string): Promise<FoodItem | null> {
 
   if (
     cleanId === 'MILK' ||
-    cleanId === 'YGS-FD-000126' ||
-    cleanId === 'YGS-FD-000124' ||
-    cleanId.includes('000126') ||
-    cleanId.includes('000124') ||
-    cleanId.includes('MILK')
+    cleanId === '124' ||
+    cleanId === 'YGS-FD-124' ||
+    cleanId.includes('124') ||
+    cleanId.includes('MILK') ||
+    cleanId.includes('DAIRY')
   ) {
     return DEFAULT_ITEMS['MILK'];
   }
   if (
     cleanId === 'APPLE' ||
-    cleanId === 'YGS-FD-000125' ||
-    cleanId.includes('000125') ||
+    cleanId === '001' ||
+    cleanId === 'YGS-FD-001' ||
+    cleanId.includes('001') ||
     cleanId.includes('APPLE') ||
+    cleanId.includes('FRESORA') ||
     cleanId.includes('FRUIT')
   ) {
     return DEFAULT_ITEMS['APPLE'];
@@ -350,12 +319,7 @@ export async function syncSensorTelemetryToFirebase(
   deviceId: string,
   data: Partial<SensorData> & { product?: string; online?: boolean }
 ): Promise<void> {
-  const cleanId =
-    deviceId === 'MILK' || deviceId.includes('000126') || deviceId.includes('000124')
-      ? 'YGS-FD-000124'
-      : deviceId === 'APPLE' || deviceId.includes('000125')
-      ? 'YGS-FD-000124'
-      : deviceId.trim().replace(/^#/, '');
+  const cleanId = deviceId.trim().replace(/^#/, '');
 
   const temp = data.temperature ?? 3.5;
   const hum = data.humidity ?? 58.0;
@@ -368,7 +332,7 @@ export async function syncSensorTelemetryToFirebase(
 
   const payload = {
     device_id: cleanId,
-    product: data.product || (cleanId.includes('112233') ? 'Meat' : 'Cold Drinks'),
+    product: data.product || 'Monitored Product',
     temperature: +Number(temp).toFixed(1),
     humidity: +Number(hum).toFixed(1),
     mq135_raw: Math.round(Number(gas)),
@@ -385,6 +349,9 @@ export async function syncSensorTelemetryToFirebase(
     timestamp: data.timestamp || Date.now(),
     last_update: Date.now(),
   };
+
+  // Broadcast immediately over WebSocket to backend and all connected clients with zero lag
+  socketTelemetryService.emitDeviceUpdate(cleanId, payload);
 
   const rtdb = getDirectDatabase();
   if (rtdb) {
@@ -408,7 +375,7 @@ export async function syncSensorTelemetryToFirebase(
 
 /**
  * Subscribe to real-time sensor updates for a given product by item ID or device ID
- * Connects to devices/{deviceId} and sensorData/{deviceId} on both Realtime Database and Firestore
+ * Connects to WebSocket + devices/{deviceId} and sensorData/{deviceId} on both Realtime Database and Firestore
  * using the active Firebase credentials configured in the Settings panel.
  */
 export function subscribeToSensorData(
@@ -419,7 +386,6 @@ export function subscribeToSensorData(
   const isMeat =
     cleanId === 'MEAT' ||
     cleanId.includes('MEAT') ||
-    cleanId.includes('112233') ||
     cleanId.includes('UNCONFIGURED');
 
   if (isMeat) {
@@ -461,46 +427,67 @@ export function subscribeToSensorData(
     activeCleanups.forEach((c) => c());
     activeCleanups = [];
 
-    // Primary hardware node in Firebase RTDB is YGS-FD-000124
-    const deviceIdToListen =
-      cleanId.startsWith('YGS-FD-') &&
-      cleanId !== 'YGS-FD-000126' &&
-      cleanId !== 'YGS-FD-000125'
-        ? cleanId
-        : 'YGS-FD-000124';
+    // 1. Zero-lag WebSocket subscription from backend database bridge
+    const unsubWsTelemetry = socketTelemetryService.subscribeTelemetry(cleanId, (wsData) => {
+      processSensorPayload(wsData, true);
+    });
+    activeCleanups.push(unsubWsTelemetry);
+
+    const candidatePaths = [cleanId];
+    if (cleanId === 'APPLE' || cleanId === '001' || cleanId.includes('001') || cleanId.includes('APPLE')) {
+      if (!candidatePaths.includes('YGS-FD-001')) candidatePaths.push('YGS-FD-001');
+      if (!candidatePaths.includes('001')) candidatePaths.push('001');
+      if (!candidatePaths.includes('APPLE')) candidatePaths.push('APPLE');
+    } else if (cleanId === 'MILK' || cleanId === '124' || cleanId.includes('124') || cleanId.includes('MILK')) {
+      if (!candidatePaths.includes('YGS-FD-124')) candidatePaths.push('YGS-FD-124');
+      if (!candidatePaths.includes('124')) candidatePaths.push('124');
+      if (!candidatePaths.includes('MILK')) candidatePaths.push('MILK');
+    }
 
     const db = getDirectDatabase();
     let gotRealData = false;
 
     if (db) {
       try {
-        const deviceRef = ref(db, `devices/${deviceIdToListen}`);
-        const sensorRef = ref(db, `sensorData/${deviceIdToListen}`);
+        candidatePaths.forEach((pathId) => {
+          const deviceRef = ref(db, `devices/${pathId}`);
+          const sensorRef = ref(db, `sensorData/${pathId}`);
 
-        const handleDevVal = (snapshot: any) => {
-          if (snapshot.exists()) {
-            gotRealData = true;
-            const rawVal = snapshot.val();
-            processSensorPayload(rawVal, true);
-          }
-        };
+          const handleDevVal = (snapshot: any) => {
+            if (snapshot.exists()) {
+              gotRealData = true;
+              const rawVal = snapshot.val();
+              socketTelemetryService.reportFrontendDataReceived(pathId, rawVal);
+              processSensorPayload(rawVal, true);
+            }
+          };
 
-        const handleSensorVal = (snapshot: any) => {
-          if (snapshot.exists()) {
-            gotRealData = true;
-            processSensorPayload(snapshot.val(), true);
-          }
-        };
+          const handleSensorVal = (snapshot: any) => {
+            if (snapshot.exists()) {
+              gotRealData = true;
+              const rawVal = snapshot.val();
+              socketTelemetryService.reportFrontendDataReceived(pathId, rawVal);
+              processSensorPayload(rawVal, true);
+            }
+          };
 
-        const unsubDev = onValue(deviceRef, handleDevVal, (err) => {
-          if (!err?.message?.includes('PERMISSION_DENIED')) {
-            console.warn(`Realtime device listener warning for ${deviceIdToListen}:`, err);
-          }
-        });
-        const unsubSensor = onValue(sensorRef, handleSensorVal, (err) => {
-          if (!err?.message?.includes('PERMISSION_DENIED')) {
-            console.warn(`Realtime sensor listener warning for ${deviceIdToListen}:`, err);
-          }
+          const unsubDev = onValue(deviceRef, handleDevVal, (err) => {
+            if (!err?.message?.includes('PERMISSION_DENIED')) {
+              console.warn(`Realtime device listener warning for ${pathId}:`, err);
+            }
+          });
+          const unsubSensor = onValue(sensorRef, handleSensorVal, (err) => {
+            if (!err?.message?.includes('PERMISSION_DENIED')) {
+              console.warn(`Realtime sensor listener warning for ${pathId}:`, err);
+            }
+          });
+
+          activeCleanups.push(() => {
+            unsubDev();
+            unsubSensor();
+            off(deviceRef, 'value', handleDevVal);
+            off(sensorRef, 'value', handleSensorVal);
+          });
         });
 
         let unsubscribed = false;
@@ -512,15 +499,17 @@ export function subscribeToSensorData(
             const cfg = getActiveFirebaseConfig();
             const targetUrl = cfg.databaseURL || REALTIME_DATABASE_URL;
             const base = targetUrl.replace(/\/$/, '');
-            const path = isMeat ? 'YGS-FD-112233' : 'YGS-FD-000124';
 
-            const res = await fetch(`${base}/devices/${path}.json`, {
-              signal: AbortSignal.timeout(2500),
-            });
-            if (res.ok) {
-              const data = await res.json();
-              if (data) {
-                processSensorPayload(data, true);
+            for (const path of candidatePaths) {
+              const res = await fetch(`${base}/devices/${path}.json`, {
+                signal: AbortSignal.timeout(2500),
+              });
+              if (res.ok) {
+                const data = await res.json();
+                if (data) {
+                  processSensorPayload(data, true);
+                  break;
+                }
               }
             }
           } catch {
@@ -531,31 +520,29 @@ export function subscribeToSensorData(
         activeCleanups.push(() => {
           unsubscribed = true;
           clearInterval(restInterval);
-          unsubDev();
-          unsubSensor();
-          off(deviceRef, 'value', handleDevVal);
-          off(sensorRef, 'value', handleSensorVal);
         });
       } catch (e) {
         console.warn('Realtime subscription initiation error:', e);
       }
     }
 
-    // Also subscribe to Firestore devices/{deviceIdToListen} if available
+    // Also subscribe to Firestore devices if available
     const fs = getDirectFirestore();
     if (fs) {
       try {
-        const fsDocRef = doc(fs, 'devices', deviceIdToListen);
-        const unsubFs = onSnapshot(
-          fsDocRef,
-          (snap) => {
-            if (snap.exists() && !gotRealData) {
-              processSensorPayload(snap.data(), true);
-            }
-          },
-          () => {}
-        );
-        activeCleanups.push(unsubFs);
+        candidatePaths.forEach((pathId) => {
+          const fsDocRef = doc(fs, 'devices', pathId);
+          const unsubFs = onSnapshot(
+            fsDocRef,
+            (snap) => {
+              if (snap.exists() && !gotRealData) {
+                processSensorPayload(snap.data(), true);
+              }
+            },
+            () => {}
+          );
+          activeCleanups.push(unsubFs);
+        });
       } catch {
         // Ignore Firestore listener error
       }

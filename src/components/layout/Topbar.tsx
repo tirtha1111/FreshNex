@@ -95,7 +95,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
           {isAdmin && (
             <button
               type="button"
-              onClick={() => setIsConfigModalOpen(true)}
+              onClick={() => navigate('/thresholds')}
               title="Configure Sensor Thresholds & Alerts"
               className="neo-btn px-2.5 sm:px-3 py-2 h-10 rounded-xl text-[#07221A] text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm hover:border-[#20E79A]/40 active:scale-95 transition-transform"
             >
@@ -222,7 +222,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                 {userProfile?.name || (userProfile?.role === 'admin' ? 'Admin' : 'Product Access')}
               </span>
               <span className="text-[9px] text-[#5C7F75] font-semibold block uppercase tracking-wider truncate">
-                {userProfile?.role === 'admin' ? 'Administrator' : `Product User (${userProfile?.assignedProductId || 'APPLE'})`}
+                {userProfile?.role === 'admin' ? 'Administrator' : `Device (${userProfile?.assignedProductId || 'YGS-FD-001'})`}
               </span>
             </div>
           </button>

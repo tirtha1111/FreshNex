@@ -26,7 +26,7 @@ import {
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useFreshness } from '../context/FreshnessContext';
-import { useApp } from '../context/AppContext';
+import { useApp, DeviceData } from '../context/AppContext';
 import {
   getActiveFirebaseConfig,
   reinitializeFirebaseWithConfig,
@@ -87,8 +87,11 @@ export const SettingsPage: React.FC = () => {
     setCustomFirestoreDbId(cfg.firestoreDatabaseId || '');
   }, [activeUid]);
 
-  // Resolve current telemetry snapshot from activeItem or primary device YGS-FD-000124
-  const primaryDevice = devicesMap['YGS-FD-000124'];
+  // Resolve current telemetry snapshot from activeItem or first available device
+  const availableDevices = (Object.values(devicesMap) as DeviceData[]).filter(
+    (d) => d.device_id !== 'YGS-FD-000124' && d.device_id !== 'YGS-FD-112233'
+  );
+  const primaryDevice = availableDevices[0];
   const liveTemp = sensorData?.temperature ?? primaryDevice?.temperature ?? 3.5;
   const liveHum = sensorData?.humidity ?? primaryDevice?.humidity ?? 58.2;
   const liveMoisture = sensorData?.moisture ?? primaryDevice?.moisture ?? 4.2;
@@ -171,9 +174,9 @@ export const SettingsPage: React.FC = () => {
     setSyncAllStatus(null);
     try {
       const targetDeviceId =
-        userProfile?.assignedProductId === 'MEAT' ? 'YGS-FD-112233' : 'YGS-FD-000124';
+        userProfile?.assignedProductId || primaryDevice?.device_id || 'YGS-FD-001';
       await FirebaseService.syncSensorTelemetryToFirebase(targetDeviceId, {
-        product: activeItem?.name || userProfile?.assignedProductName || 'Cold Drinks',
+        product: activeItem?.name || userProfile?.assignedProductName || primaryDevice?.product || 'Monitored Produce',
         temperature: liveTemp,
         humidity: liveHum,
         gas: liveGas,

@@ -1,6 +1,6 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useApp } from '../context/AppContext';
+import { useApp, DeviceData } from '../context/AppContext';
 import { motion } from 'motion/react';
 import { QrCode, ArrowRight, ShieldCheck, Cpu, Clock, ChevronRight, Activity, Sparkles } from 'lucide-react';
 import { calculateMoisture } from '../utils/moistureCalculator';
@@ -10,10 +10,18 @@ export const Dashboard: React.FC = () => {
   const { userRecord, userScans, devicesMap } = useApp();
   const navigate = useNavigate();
 
-  // Get prototype or latest device readings for summary preview
-  const protoDevice = devicesMap['YGS-FD-000124'];
-  const protoMoisture = protoDevice ? calculateMoisture(protoDevice.temperature ?? 4.2, protoDevice.humidity ?? 62) : null;
-  const protoPH = protoDevice && protoMoisture ? calculatePH(protoDevice.temperature ?? 4.2, protoDevice.humidity ?? 62, protoMoisture.absoluteMoisture, { category: protoDevice.product, gas: protoDevice.mq135_raw }) : null;
+  // Get latest live hardware node readings for summary preview
+  const liveDevices = (Object.values(devicesMap) as DeviceData[]).filter(
+    (dev) => dev.device_id !== 'YGS-FD-000124' && dev.device_id !== 'YGS-FD-112233'
+  );
+  const activeDevice = liveDevices[0];
+  const activeProd = activeDevice
+    ? (activeDevice.product && activeDevice.product !== 'Cold Drinks' && activeDevice.product !== 'Meat' && activeDevice.product !== 'IoT Node'
+        ? activeDevice.product
+        : (activeDevice.device_id.includes('124') || activeDevice.device_id.includes('MILK') ? 'Milk' : 'Apple'))
+    : 'Apple';
+  const protoMoisture = activeDevice ? calculateMoisture(activeDevice.temperature ?? 4.2, activeDevice.humidity ?? 62) : null;
+  const protoPH = activeDevice && protoMoisture ? calculatePH(activeDevice.temperature ?? 4.2, activeDevice.humidity ?? 62, protoMoisture.absoluteMoisture, { category: activeProd, gas: activeDevice.mq135_raw }) : null;
 
   return (
     <div className="space-y-6">
@@ -28,10 +36,10 @@ export const Dashboard: React.FC = () => {
           </p>
         </div>
 
-        {/* Prototype Quick Status Badge */}
-        {protoDevice && (
+        {/* Live Device Quick Status Badge */}
+        {activeDevice && (
           <div 
-            onClick={() => navigate('/products/YGS-FD-000124')}
+            onClick={() => navigate(`/products/${activeDevice.device_id}`)}
             className="glass-card p-3 rounded-2xl flex items-center gap-3 cursor-pointer hover:border-[#FF6A00]/60 transition-all shadow-lg border border-[#FF6A00]/25"
           >
             <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center font-bold text-xs relative border border-emerald-500/30">
@@ -39,9 +47,9 @@ export const Dashboard: React.FC = () => {
               LIVE
             </div>
             <div>
-              <p className="text-xs font-bold text-[#FDF8F5]">{protoDevice.product} ({protoDevice.device_id})</p>
+              <p className="text-xs font-bold text-[#FDF8F5]">{activeProd} ({activeDevice.device_id})</p>
               <p className="text-[10px] text-[#FFAA00] font-mono font-semibold">
-                {protoDevice.temperature}°C • {protoDevice.humidity}% • pH {protoPH?.ph ?? '3.85'} • Moist: {protoMoisture?.absoluteMoisture ?? '4.0'}
+                {activeDevice.temperature}°C • {activeDevice.humidity}% • pH {protoPH?.ph ?? '3.85'} • Moist: {protoMoisture?.absoluteMoisture ?? '4.0'}
               </p>
             </div>
             <ChevronRight className="w-4 h-4 text-[#B8A89E]" />

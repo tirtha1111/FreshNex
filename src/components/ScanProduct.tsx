@@ -24,7 +24,7 @@ export const ScanProduct: React.FC = () => {
 
   const [hasPermission, setHasPermission] = useState<boolean | null>(null);
   const [flashlight, setFlashlight] = useState<boolean>(false);
-  const [manualInput, setManualInput] = useState<string>('YGS-FD-000124');
+  const [manualInput, setManualInput] = useState<string>('YGS-FD-001');
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -129,8 +129,10 @@ export const ScanProduct: React.FC = () => {
       const device = await fetchDeviceById(cleanId);
 
       if (device) {
-        // Device found! Save to scan history and navigate to details
-        await addScanToHistory(device.device_id, device.product || 'Cold Drinks');
+        const resolvedProd = device.product && device.product !== 'Cold Drinks' && device.product !== 'Meat' && device.product !== 'IoT Node'
+          ? device.product
+          : (device.device_id.includes('124') || device.device_id.includes('MILK') ? 'Milk' : 'Apple');
+        await addScanToHistory(device.device_id, resolvedProd);
         navigate(`/products/${device.device_id}`);
       } else {
         setErrorMessage(`FreshNex device "${cleanId}" not found in database.`);
@@ -237,7 +239,7 @@ export const ScanProduct: React.FC = () => {
             <QrCode className="w-4 h-4 text-[#FFAA00]" />
             <span>Manual Device ID Entry</span>
           </label>
-          <span className="text-[10px] text-[#B8A89E] font-medium">Prototype: YGS-FD-000124</span>
+          <span className="text-[10px] text-[#B8A89E] font-medium">Hardware Node</span>
         </div>
 
         <form onSubmit={handleManualSubmit} className="flex gap-2">
@@ -246,7 +248,7 @@ export const ScanProduct: React.FC = () => {
               type="text"
               value={manualInput}
               onChange={e => setManualInput(e.target.value)}
-              placeholder="e.g. YGS-FD-000124"
+              placeholder="e.g. YGS-FD-001"
               className="w-full bg-[#1C1410] border border-[#FF6A00]/30 px-3.5 py-2.5 rounded-xl text-sm font-mono font-bold text-[#FDF8F5] uppercase tracking-wider focus:outline-none focus:border-[#FFAA00]"
             />
           </div>
@@ -267,21 +269,39 @@ export const ScanProduct: React.FC = () => {
         </form>
       </div>
 
-      {/* Prototype Quick Test Chip */}
-      <div 
-        onClick={() => handleScanResult('YGS-FD-000124')}
-        className="glass-card p-3.5 rounded-xl border border-[#FF6A00]/25 cursor-pointer hover:bg-[#FF6A00]/15 transition-colors flex items-center justify-between"
-      >
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-[#FFAA00]/15 text-[#FFAA00] flex items-center justify-center border border-[#FFAA00]/30">
-            <Info className="w-4 h-4" />
+      {/* Live Device Quick Test Chips */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <div 
+          onClick={() => handleScanResult('YGS-FD-001')}
+          className="glass-card p-3 rounded-xl border border-[#FF6A00]/25 cursor-pointer hover:bg-[#FF6A00]/15 transition-colors flex items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-emerald-500/15 text-emerald-400 flex items-center justify-center border border-emerald-500/30 font-bold text-xs">
+              🍏
+            </div>
+            <div>
+              <p className="text-xs font-bold text-[#FDF8F5]">YGS-FD-001</p>
+              <p className="text-[10px] text-[#B8A89E] font-medium">Apple</p>
+            </div>
           </div>
-          <div>
-            <p className="text-xs font-bold text-[#FDF8F5]">Quick Test Prototype Device</p>
-            <p className="text-[10px] text-[#B8A89E] font-mono">YGS-FD-000124 (Cold Drinks)</p>
-          </div>
+          <span className="text-[11px] font-bold text-[#FFAA00]">SCAN →</span>
         </div>
-        <span className="text-xs font-bold text-[#FFAA00] hover:underline">SCAN NOW →</span>
+
+        <div 
+          onClick={() => handleScanResult('YGS-FD-124')}
+          className="glass-card p-3 rounded-xl border border-[#FF6A00]/25 cursor-pointer hover:bg-[#FF6A00]/15 transition-colors flex items-center justify-between"
+        >
+          <div className="flex items-center gap-2">
+            <div className="w-7 h-7 rounded-lg bg-indigo-500/15 text-indigo-400 flex items-center justify-center border border-indigo-500/30 font-bold text-xs">
+              🥛
+            </div>
+            <div>
+              <p className="text-xs font-bold text-[#FDF8F5]">YGS-FD-124</p>
+              <p className="text-[10px] text-[#B8A89E] font-medium">Milk</p>
+            </div>
+          </div>
+          <span className="text-[11px] font-bold text-[#FFAA00]">SCAN →</span>
+        </div>
       </div>
     </div>
   );

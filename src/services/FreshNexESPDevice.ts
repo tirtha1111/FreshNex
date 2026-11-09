@@ -175,8 +175,8 @@ export class FreshNexESPDevice {
   }
 
   getDeviceName(): string {
-    if (this.isVirtual) return 'PROV_YGSFD000124 (Virtual)';
-    return this.device?.name || 'PROV_YGSFD000124';
+    if (this.isVirtual) return 'PROV_ESP32 (Virtual)';
+    return this.device?.name || 'PROV_ESP32';
   }
 
   isDeviceConnected(): boolean {

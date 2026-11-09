@@ -28,12 +28,18 @@ import { useAuth } from '../context/AuthContext';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { login, loginWithProductId, authError, clearAuthError } = useAuth();
+  const { currentUser, userProfile, login, loginWithProductId, authError, clearAuthError } = useAuth();
+
+  useEffect(() => {
+    if (currentUser) {
+      navigate(userProfile?.role === 'admin' ? '/devices' : '/dashboard', { replace: true });
+    }
+  }, [currentUser, userProfile?.role, navigate]);
 
   const [loginMode, setLoginMode] = useState<'user' | 'admin'>('user');
 
-  // User product portal state
-  const [productId, setProductId] = useState('APPLE');
+  // User device portal state
+  const [productId, setProductId] = useState('YGS-FD-001');
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
   // Interactive 3D Card Tilt & Spotlight Motion Values
@@ -94,7 +100,7 @@ export const LoginPage: React.FC = () => {
       }
     } catch (err: any) {
       console.warn('Camera access restriction (Permission denied):', err?.message || err);
-      setScannerError('Camera access denied or unavailable. Please enter Product Tag ID manually.');
+      setScannerError('Camera access denied or unavailable. Please enter Device ID manually.');
     }
   };
 
@@ -170,7 +176,7 @@ export const LoginPage: React.FC = () => {
     clearAuthError();
 
     if (!productId.trim()) {
-      setLocalError('Please enter a valid unique product tag ID (e.g. COLD_DRINKS or MEAT).');
+      setLocalError('Please enter a valid Device ID (e.g. YGS-FD-001 or YGS-FD-124).');
       return;
     }
 
@@ -179,7 +185,7 @@ export const LoginPage: React.FC = () => {
       await loginWithProductId(productId.trim());
       navigate('/dashboard');
     } catch (err: any) {
-      setLocalError(err.message || 'Failed to authenticate product ID. Please check the Tag ID.');
+      setLocalError(err.message || 'Failed to authenticate Device ID. Please check the Device ID.');
     } finally {
       setIsSubmitting(false);
     }
@@ -198,7 +204,7 @@ export const LoginPage: React.FC = () => {
     setIsSubmitting(true);
     try {
       await login(adminEmail.trim(), adminPassword);
-      navigate('/dashboard');
+      navigate('/devices');
     } catch (err: any) {
       setLocalError(err.message || 'Failed to sign in as Administrator. Please check your credentials.');
     } finally {
@@ -534,14 +540,14 @@ export const LoginPage: React.FC = () => {
                 onSubmit={handleUserProductSubmit}
                 className="space-y-4"
               >
-                {/* Product Tag ID Input */}
+                {/* Device ID Input */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <label
                       htmlFor="product-tag-input"
                       className="text-xs font-bold text-[#07221A] block"
                     >
-                      Unique Product Tag ID
+                      Unique Device ID
                     </label>
                     <motion.button
                       whileHover={{ scale: 1.05, y: -1 }}
@@ -587,43 +593,43 @@ export const LoginPage: React.FC = () => {
                       onFocus={() => setFocusedField('tag')}
                       onBlur={() => setFocusedField(null)}
                       onChange={(e) => setProductId(e.target.value)}
-                      placeholder="e.g. APPLE or MILK"
+                      placeholder="e.g. YGS-FD-001 (Apple) or YGS-FD-124 (Milk)"
                       className="w-full pl-11 pr-4 py-3.5 bg-[#F4FBF7] text-sm font-bold text-[#07221A] placeholder-[#6B8A7E] rounded-2xl border border-emerald-950/12 focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/15 transition-all uppercase font-mono tracking-wider"
                     />
                   </motion.div>
 
-                  {/* Interactive One-Tap Demo Tags (Without Subtitle Spans) */}
+                  {/* Interactive One-Tap Demo Device IDs */}
                   <div className="pt-1 space-y-1.5">
                     <span className="text-[11px] font-semibold text-[#4A6B5F] block">
-                      Quick Demo Tags (Click to select):
+                      Quick Demo Device IDs (Click to select):
                     </span>
                     <div className="grid grid-cols-2 gap-2.5">
                       <motion.button
                         whileHover={{ y: -2, scale: 1.02 }}
                         whileTap={{ scale: 0.97 }}
                         type="button"
-                        onClick={() => setProductId('APPLE')}
+                        onClick={() => setProductId('YGS-FD-001')}
                         className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between relative overflow-hidden ${
-                          productId.trim().toUpperCase() === 'APPLE'
+                          productId.trim().toUpperCase() === 'YGS-FD-001' || productId.trim().toUpperCase() === '001' || productId.trim().toUpperCase() === 'APPLE'
                             ? 'bg-emerald-50/95 border-emerald-500/60 text-[#07221A] shadow-xs'
                             : 'bg-[#F6FBF8] border-emerald-950/8 text-[#3B5E52] hover:bg-emerald-50/40'
                         }`}
                       >
                         <div>
                           <span className="font-mono text-xs font-bold block text-[#07221A]">
-                            APPLE
+                            YGS-FD-001 • Apple
                           </span>
                         </div>
                         <motion.span
                           animate={
-                            productId.trim().toUpperCase() === 'APPLE'
+                            productId.trim().toUpperCase() === 'YGS-FD-001' || productId.trim().toUpperCase() === '001' || productId.trim().toUpperCase() === 'APPLE'
                               ? { scale: [0.8, 1.15, 1], rotate: [0, 10, 0] }
                               : { scale: 1 }
                           }
                         >
                           <CheckCircle2
                             className={`w-4 h-4 ${
-                              productId.trim().toUpperCase() === 'APPLE'
+                              productId.trim().toUpperCase() === 'YGS-FD-001' || productId.trim().toUpperCase() === '001' || productId.trim().toUpperCase() === 'APPLE'
                                 ? 'text-emerald-600 opacity-100'
                                 : 'opacity-20'
                             }`}
@@ -635,28 +641,28 @@ export const LoginPage: React.FC = () => {
                         whileHover={{ y: -2, scale: 1.02 }}
                         whileTap={{ scale: 0.97 }}
                         type="button"
-                        onClick={() => setProductId('MILK')}
+                        onClick={() => setProductId('YGS-FD-124')}
                         className={`p-3 rounded-xl border text-left transition-all cursor-pointer flex items-center justify-between relative overflow-hidden ${
-                          productId.trim().toUpperCase() === 'MILK'
+                          productId.trim().toUpperCase() === 'YGS-FD-124' || productId.trim().toUpperCase() === '124' || productId.trim().toUpperCase() === 'MILK'
                             ? 'bg-emerald-50/95 border-emerald-500/60 text-[#07221A] shadow-xs'
                             : 'bg-[#F6FBF8] border-emerald-950/8 text-[#3B5E52] hover:bg-emerald-50/40'
                         }`}
                       >
                         <div>
                           <span className="font-mono text-xs font-bold block text-[#07221A]">
-                            MILK
+                            YGS-FD-124 • Milk
                           </span>
                         </div>
                         <motion.span
                           animate={
-                            productId.trim().toUpperCase() === 'MILK'
+                            productId.trim().toUpperCase() === 'YGS-FD-124' || productId.trim().toUpperCase() === '124' || productId.trim().toUpperCase() === 'MILK'
                               ? { scale: [0.8, 1.15, 1], rotate: [0, 10, 0] }
                               : { scale: 1 }
                           }
                         >
                           <CheckCircle2
                             className={`w-4 h-4 ${
-                              productId.trim().toUpperCase() === 'MILK'
+                              productId.trim().toUpperCase() === 'YGS-FD-124' || productId.trim().toUpperCase() === '124' || productId.trim().toUpperCase() === 'MILK'
                                 ? 'text-emerald-600 opacity-100'
                                 : 'opacity-20'
                             }`}

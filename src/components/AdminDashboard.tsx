@@ -152,7 +152,11 @@ export const AdminDashboard: React.FC = () => {
                 return (
                   <tr key={dev.device_id} className="hover:bg-[#FF6A00]/5 transition-colors">
                     <td className="py-3 px-3 font-mono font-bold text-[#FFAA00]">{dev.device_id}</td>
-                    <td className="py-3 px-3 font-bold">{dev.product || 'Cold Drinks'}</td>
+                    <td className="py-3 px-3 font-bold">
+                      {dev.product && dev.product !== 'Cold Drinks' && dev.product !== 'Meat' && dev.product !== 'IoT Node'
+                        ? dev.product
+                        : (dev.device_id.includes('124') || dev.device_id.includes('MILK') ? 'Milk' : 'Apple')}
+                    </td>
                     <td className="py-3 px-3 font-bold">{dev.temperature}°C</td>
                     <td className="py-3 px-3 font-bold">{dev.humidity}%</td>
                     <td className="py-3 px-3 font-bold text-[#20E79A]">
@@ -207,7 +211,7 @@ export const AdminDashboard: React.FC = () => {
           <div className="p-3 rounded-2xl bg-[#1C1410] border border-[#FF6A00]/20 flex items-center justify-between">
             <div className="flex items-center gap-2.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400" />
-              <span className="font-bold text-[#FDF8F5]">ESP32 Device YGS-FD-000124 connected to Firebase RTDB</span>
+              <span className="font-bold text-[#FDF8F5]">ESP32 Hardware Nodes connected to Firebase RTDB</span>
             </div>
             <span className="text-[10px] text-[#8C7A70] font-mono">Live</span>
           </div>

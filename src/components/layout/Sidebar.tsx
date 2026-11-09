@@ -12,7 +12,9 @@ import {
   Users, 
   Settings, 
   LogOut,
-  X
+  X,
+  Sliders,
+  Activity
 } from 'lucide-react';
 import { Logo } from '../common/Logo';
 import { useAuth } from '../../context/AuthContext';
@@ -42,19 +44,15 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
   }
 
   const adminNavItems: NavItem[] = [
-    { name: 'Dashboard', path: '/dashboard', icon: Home },
-    { name: 'Devices', path: '/admin/devices', icon: Cpu },
-    { name: 'Products', path: '/history', icon: Package },
+    { name: 'Devices', path: '/devices', icon: Cpu },
+    { name: 'Thresholds', path: '/thresholds', icon: Sliders },
     { name: 'Analytics', path: '/analytics', icon: BarChart3 },
-    { name: 'Notifications', path: '/alerts', icon: Bell, badge: unreadCount },
     { name: 'Users', path: '/profile', icon: Users },
   ];
 
   const userNavItems: NavItem[] = [
     { name: 'Dashboard', path: '/dashboard', icon: Home },
-    { name: 'Live Readings', path: liveDataPath, icon: Cpu, matchPrefix: '/live-data' },
-    { name: 'Analytics', path: '/analytics', icon: BarChart3 },
-    { name: 'Settings', path: '/settings', icon: Settings },
+    { name: 'Live Reading', path: '/live-data', matchPrefix: '/live-data', icon: Activity },
   ];
 
   const navItems = isAdmin ? adminNavItems : userNavItems;
@@ -72,7 +70,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
         <div className="flex-1 flex flex-col min-h-0">
           {/* Brand Logo with integrated mobile close button */}
           <div className="pb-4 sm:pb-5 mb-1 sm:mb-2 border-b border-[#13493B]/30 flex items-center justify-between gap-2 shrink-0">
-            <Logo size="md" variant="dark" showTagline={true} linkTo="/dashboard" />
+            <Logo size="md" variant="dark" showTagline={true} linkTo={isAdmin ? "/admin/devices" : "/dashboard"} />
             {onCloseMobile && (
               <button
                 type="button"
@@ -235,7 +233,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
                 {userProfile?.name || (isAdmin ? 'Admin' : 'Product Access')}
               </p>
               <span className="text-[9px] font-semibold text-[#20E79A] block uppercase tracking-wider truncate">
-                {isAdmin ? 'Administrator' : `Tag #${userProfile?.assignedProductId || 'APPLE'}`}
+                {isAdmin ? 'Administrator' : `Device ${userProfile?.assignedProductId || 'YGS-FD-001'}`}
               </span>
             </div>
           </div>

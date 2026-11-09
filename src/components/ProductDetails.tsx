@@ -26,14 +26,18 @@ export const ProductDetails: React.FC = () => {
   const { productId } = useParams<{ productId: string }>();
   const navigate = useNavigate();
   const { devicesMap, sensorHistory } = useApp();
-
-  const deviceId = productId ? productId.toUpperCase() : 'YGS-FD-000124';
+  const liveDevices = (Object.values(devicesMap) as any[]).filter(
+    (d) => d.device_id !== 'YGS-FD-000124' && d.device_id !== 'YGS-FD-112233'
+  );
+  const defaultDeviceId = liveDevices[0]?.device_id || 'YGS-FD-001';
+  const deviceId = productId ? productId.toUpperCase() : defaultDeviceId;
+  const isMilk = deviceId.includes('124') || deviceId.includes('MILK');
   const baseDevice = devicesMap[deviceId] || {
     device_id: deviceId,
-    product: 'Cold Drinks',
-    temperature: 4.5,
-    humidity: 58.2,
-    mq135_raw: 140,
+    product: isMilk ? 'Milk' : 'Apple',
+    temperature: isMilk ? 2.8 : 3.5,
+    humidity: isMilk ? 70.0 : 88.0,
+    mq135_raw: isMilk ? 120 : 95,
     online: true,
     last_update: Date.now()
   };
@@ -137,7 +141,9 @@ export const ProductDetails: React.FC = () => {
               Package Telemetry
             </span>
             <h1 className="text-2xl sm:text-3xl font-black text-[#FDF8F5] mt-1">
-              {device.product || 'Cold Drinks'}
+              {device.product && device.product !== 'Cold Drinks' && device.product !== 'Meat' && device.product !== 'IoT Node'
+                ? device.product
+                : (device.device_id.includes('124') || device.device_id.includes('MILK') ? 'Milk' : 'Apple')}
             </h1>
             <p className="text-xs font-mono font-bold text-[#B8A89E] mt-0.5">
               ID: {device.device_id}

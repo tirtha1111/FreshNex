@@ -106,7 +106,8 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         !s.itemImage ||
         s.itemImage === '/colddrinks.jpg' ||
         s.itemName?.toLowerCase().includes('monitored unit') ||
-        s.itemName?.toLowerCase() === 'cold drinks';
+        s.itemName?.toLowerCase() === 'cold drinks' ||
+        s.itemName === 'Fresh Apples';
       return {
         ...s,
         itemId: factual.id,
@@ -177,7 +178,7 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     saveGlobalThresholdsToFirebase(newConfig);
 
     const targetProductKey =
-      assignedTag || assignedName || activeItem?.id || activeItem?.name || 'COLD_DRINKS';
+      assignedTag || assignedName || activeItem?.id || activeItem?.name || '001';
     saveProductThresholdToFirebase(
       targetProductKey,
       {
@@ -188,7 +189,7 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         humMax: newConfig.humidityMax,
         gasWarning: newConfig.gasWarning,
         gasCritical: newConfig.gasCritical,
-        productName: activeItem?.name || assignedName || 'Cold Drinks',
+        productName: activeItem?.name || assignedName || (assignedTag?.includes('124') ? 'Milk' : 'Apple'),
       },
       userProfile?.name || 'Admin'
     ).catch((e) => console.warn(e));

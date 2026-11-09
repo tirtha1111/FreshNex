@@ -148,8 +148,7 @@ export const WifiSettings: React.FC<WifiSettingsProps> = ({ deviceId, onClose })
           { namePrefix: 'PROV_' },
           { namePrefix: 'PROV' },
           { namePrefix: 'FreshNex' },
-          { name: `PROV_${deviceId.replace(/[^a-zA-Z0-9]/g, '')}` },
-          { name: 'PROV_YGSFD000124' }
+          { name: `PROV_${deviceId.replace(/[^a-zA-Z0-9]/g, '')}` }
         ],
         optionalServices: ESP_PROV_SERVICE_UUIDS
       });
