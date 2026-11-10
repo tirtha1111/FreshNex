@@ -35,15 +35,8 @@ export const Splash: React.FC<SplashProps> = ({ onFinish }) => {
         >
           {/* Backing glassy glow container */}
           <div className="w-28 h-28 rounded-3xl bg-gradient-to-tr from-[#13493B]/40 to-[#22C55E]/10 backdrop-blur-2xl border border-[#22C55E]/30 flex items-center justify-center shadow-2xl shadow-[#22C55E]/20">
-            <FreshNexEmblem size={64} animated={true} withGlow={true} />
+            <FreshNexEmblem size={64} animated={false} withGlow={false} />
           </div>
-
-          {/* Micro pulsing ring */}
-          <motion.div 
-            animate={{ scale: [1, 1.35, 1], opacity: [0.5, 0, 0.5] }}
-            transition={{ duration: 2.2, repeat: Infinity, ease: "easeInOut" }}
-            className="absolute inset-0 rounded-3xl border-2 border-[#4ADE80]/30 pointer-events-none"
-          />
         </motion.div>
 
         {/* Brand Name */}
