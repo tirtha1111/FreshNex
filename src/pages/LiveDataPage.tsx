@@ -37,7 +37,6 @@ import { StatusBadge } from '../components/common/StatusBadge';
 import { FreshnessGauge } from '../components/common/FreshnessGauge';
 import { SensorCard } from '../components/common/SensorCard';
 import { ThresholdConfigModal } from '../components/common/ThresholdConfigModal';
-import { FreshnessPrincipleCard } from '../components/common/FreshnessPrincipleCard';
 import { HistoricalReadingPoint } from '../types';
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
@@ -572,20 +571,6 @@ export const LiveDataPage: React.FC = () => {
           </div>
         </div>
       </div>
-
-      {/* FRESHNESS SCORE WORKING PRINCIPLE & SCIENTIFIC REMARK CARD */}
-      <FreshnessPrincipleCard
-        report={freshnessReport}
-        productName={factualProduct.name}
-        category={factualProduct.category}
-        isUnconfigured={!!((currentProduct as any)?.isUnconfigured)}
-        thresholdRules={thresholds}
-        impact={liveImpact}
-        light={liveLight}
-        gpsLat={liveGpsLat}
-        gpsLng={liveGpsLng}
-        gpsSats={liveGpsSats}
-      />
 
       {/* THRESHOLD CONFIG MODAL */}
       <ThresholdConfigModal

@@ -25,7 +25,6 @@ import {
   Thermometer,
   Droplets,
   Wind,
-  Sliders,
   MapPin,
   ZoomIn,
   Info,
@@ -76,8 +75,7 @@ export const DashboardPage: React.FC = () => {
     return 'YGS-FD-001';
   }, [userProfile?.assignedProductId]);
 
-  const [activeCardTab, setActiveCardTab] = useState<'overview' | 'breakdown' | 'info'>('overview');
-  const [simulatedTempOffset, setSimulatedTempOffset] = useState<number>(0);
+  const [activeCardTab, setActiveCardTab] = useState<'overview' | 'info'>('overview');
   const [isImageZoomed, setIsImageZoomed] = useState<boolean>(false);
   const [copiedSummary, setCopiedSummary] = useState<boolean>(false);
   const [pdfDownloaded, setPdfDownloaded] = useState<boolean>(false);
@@ -119,7 +117,7 @@ export const DashboardPage: React.FC = () => {
         sensorData?.temperature ??
         (productInfo.id === 'YGS-FD-124' ? 3.8 : 4.2)
     );
-    const temperature = Number((baseTemp + simulatedTempOffset).toFixed(1));
+    const temperature = Number(baseTemp.toFixed(1));
     const humidity = Number(
       targetDev?.humidity ??
         sensorData?.humidity ??
@@ -157,7 +155,7 @@ export const DashboardPage: React.FC = () => {
       ph: phObj.ph,
       acidityClass: phObj.acidityClassification
     };
-  }, [targetDev, sensorData, productInfo, simulatedTempOffset]);
+  }, [targetDev, sensorData, productInfo]);
 
   // Compute live freshness score & status
   const freshnessReport = useMemo(() => {
@@ -320,7 +318,7 @@ export const DashboardPage: React.FC = () => {
       `FreshNex Product Report — ${productInfo.name} (${productInfo.id})`,
       `Category: ${productInfo.category} | Batch: ${batchNumber}`,
       `Freshness Level: ${freshnessReport.score}% (${freshnessReport.status})`,
-      `AI AGENT FRESORA Shelf Life: ${prediction?.remainingDays ?? '--'} Days + ${prediction?.remainingHours ?? '--'} hrs (Est. Expiry: ${prediction?.estimatedExpiryDate ?? '--'})`,
+      `Fresora Shelf Life: ${prediction?.remainingDays ?? '--'} Days + ${prediction?.remainingHours ?? '--'} hrs (Est. Expiry: ${prediction?.estimatedExpiryDate ?? '--'})`,
       `Telemetry: Temp ${liveTelemetry.temperature}°C | Humidity ${liveTelemetry.humidity}% | Moisture ${liveTelemetry.moisture} g/m³ | pH ${liveTelemetry.ph} | Gas ${liveTelemetry.gas} ppm`,
       `GPS: ${liveTelemetry.gpsLat.toFixed(4)}°N, ${liveTelemetry.gpsLng.toFixed(4)}°E (${liveTelemetry.gpsSats} Sats)`
     ].join('\n');
@@ -493,7 +491,6 @@ export const DashboardPage: React.FC = () => {
                   {(
                     [
                       { id: 'overview', label: 'Overview & Gauge' },
-                      { id: 'breakdown', label: 'Interactive Simulator' },
                       { id: 'info', label: 'Basic Info & Specs' }
                     ] as const
                   ).map((tab) => (
@@ -733,111 +730,6 @@ export const DashboardPage: React.FC = () => {
                 </motion.div>
               )}
 
-              {activeCardTab === 'breakdown' && (
-                <motion.div
-                  key="breakdown"
-                  initial={{ opacity: 0, y: 6 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -6 }}
-                  transition={{ duration: 0.2 }}
-                  className="p-4 sm:p-5 rounded-2xl bg-white border border-[#13493B]/10 space-y-4"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div>
-                      <h3 className="text-xs font-black uppercase tracking-wider text-[#07221A] flex items-center gap-1.5">
-                        <Sliders className="w-3.5 h-3.5 text-[#13493B]" />
-                        Interactive Freshness Factor Breakdown &amp; Cold-Chain Simulator
-                      </h3>
-                      <p className="text-[11px] text-[#5C7F75] font-semibold">
-                        Inspect individual preservation sub-scores or simulate thermal variations for {productInfo.name} ({productInfo.id}).
-                      </p>
-                    </div>
-                    <span className="px-2.5 py-1 rounded-xl bg-[#07221A] text-[#20E79A] font-mono text-xs font-black">
-                      {freshnessReport.score}% Total
-                    </span>
-                  </div>
-
-                  {/* Sub-score Progress Bars */}
-                  <div className="space-y-3">
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs font-bold text-[#07221A]">
-                        <span>Thermal Cold-Chain Stability ({liveTelemetry.temperature} °C)</span>
-                        <span className="font-mono text-emerald-700">{subScores.tempScore}/100</span>
-                      </div>
-                      <div className="w-full h-2 rounded-full bg-[#F4F7F6] overflow-hidden">
-                        <div
-                          className="h-full bg-[#13493B] rounded-full transition-all duration-300"
-                          style={{ width: `${subScores.tempScore}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs font-bold text-[#07221A]">
-                        <span>Relative Humidity &amp; Moisture Balance ({liveTelemetry.humidity}%)</span>
-                        <span className="font-mono text-emerald-700">{subScores.humScore}/100</span>
-                      </div>
-                      <div className="w-full h-2 rounded-full bg-[#F4F7F6] overflow-hidden">
-                        <div
-                          className="h-full bg-blue-500 rounded-full transition-all duration-300"
-                          style={{ width: `${subScores.humScore}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-xs font-bold text-[#07221A]">
-                        <span>MQ-135 VOC Atmospheric Purity ({liveTelemetry.gas} ppm)</span>
-                        <span className="font-mono text-emerald-700">{subScores.gasScore}/100</span>
-                      </div>
-                      <div className="w-full h-2 rounded-full bg-[#F4F7F6] overflow-hidden">
-                        <div
-                          className="h-full bg-purple-600 rounded-full transition-all duration-300"
-                          style={{ width: `${subScores.gasScore}%` }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Interactive Cold-Chain Temperature Offset Simulator */}
-                  <div className="p-3.5 rounded-xl bg-[#F4F7F6] border border-[#13493B]/10 space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="font-black text-[#07221A]">
-                        Simulate Storage Temperature Shift:
-                      </span>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-black text-[#13493B]">
-                          {simulatedTempOffset >= 0 ? `+${simulatedTempOffset}°C` : `${simulatedTempOffset}°C`} (Simulated: {liveTelemetry.temperature}°C)
-                        </span>
-                        {simulatedTempOffset !== 0 && (
-                          <button
-                            type="button"
-                            onClick={() => setSimulatedTempOffset(0)}
-                            className="text-[10px] font-black text-rose-600 hover:underline cursor-pointer"
-                          >
-                            Reset
-                          </button>
-                        )}
-                      </div>
-                    </div>
-                    <input
-                      type="range"
-                      min={-3}
-                      max={10}
-                      step={0.5}
-                      value={simulatedTempOffset}
-                      onChange={(e) => setSimulatedTempOffset(parseFloat(e.target.value))}
-                      className="w-full accent-[#13493B] cursor-pointer"
-                    />
-                    <div className="flex justify-between text-[10px] font-mono text-[#5C7F75]">
-                      <span>-3.0°C (Chilled)</span>
-                      <span>0.0°C (Live Sensor: {liveTelemetry.baseTemp}°C)</span>
-                      <span>+10.0°C (Warm Breach)</span>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
               {activeCardTab === 'info' && (
                 <motion.div
                   key="info"
@@ -943,25 +835,19 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* RIGHT COLUMN (5 COLS): AI AGENT FRESORA SHELF-LIFE PREDICTION */}
+        {/* RIGHT COLUMN (5 COLS): FRESORA SHELF-LIFE PREDICTION */}
         <div className="lg:col-span-5 glass-card p-6 sm:p-8 depth-3 flex flex-col justify-between relative overflow-hidden border-2 border-[#20E79A]/35 bg-gradient-to-br from-white via-[#F4FBF8] to-[#E9F9F2]">
           <div className="space-y-5 z-10">
-            {/* FRESORA Header */}
+            {/* Fresora Header */}
             <div className="flex items-start justify-between gap-3 border-b border-[#13493B]/10 pb-4">
               <div className="flex items-center gap-3">
                 <div className="w-11 h-11 rounded-2xl bg-[#07221A] text-[#20E79A] flex items-center justify-center shadow-md shrink-0">
                   <Sparkles className="w-5 h-5" />
                 </div>
                 <div>
-                  <div className="flex items-center gap-2">
-                    <span
-                      style={{ fontFamily: "'Syne', 'Space Grotesk', sans-serif" }}
-                      className="text-base sm:text-lg font-extrabold tracking-wider text-[#07221A] uppercase"
-                    >
-                      AI AGENT FRESORA
-                    </span>
-                    <span className="px-2 py-0.5 rounded-md bg-[#20E79A]/20 text-[#07221A] text-[9px] font-mono font-black uppercase">
-                      GEMINI AI
+                  <div className="flex items-center gap-2.5">
+                    <span className="font-fresora text-2xl sm:text-[26px] bg-gradient-to-r from-[#07221A] via-[#13493B] to-[#0D8A5E] bg-clip-text text-transparent leading-none pb-0.5">
+                      Fresora
                     </span>
                   </div>
                   <p className="text-[11px] font-semibold text-[#5C7F75]">
@@ -988,10 +874,10 @@ export const DashboardPage: React.FC = () => {
                 </div>
                 <div className="space-y-1">
                   <p className="text-xs font-black text-[#07221A] uppercase tracking-wider">
-                    AI AGENT FRESORA Analyzing {productInfo.name} ({productInfo.id})...
+                    Fresora Analyzing {productInfo.name} ({productInfo.id})...
                   </p>
                   <p className="text-[11px] text-[#5C7F75] font-semibold">
-                    Evaluating thermal, moisture, gas &amp; freshness telemetry via Gemini API
+                    Evaluating thermal, moisture, gas &amp; freshness telemetry
                   </p>
                 </div>
               </div>
@@ -1054,7 +940,7 @@ export const DashboardPage: React.FC = () => {
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-wider text-[#13493B]">
                       <Cpu className="w-3.5 h-3.5 text-[#20E79A]" />
-                      <span>FRESORA Diagnostic Analysis</span>
+                      <span>Fresora Diagnostic Analysis</span>
                     </div>
                     <p className="text-xs text-[#07221A] font-semibold leading-relaxed">
                       {prediction.predictionSummary}
@@ -1083,7 +969,7 @@ export const DashboardPage: React.FC = () => {
 
           <div className="mt-5 pt-3 border-t border-[#13493B]/10 flex items-center justify-between text-[11px] font-semibold text-[#5C7F75]">
             <span>Target ID: {productInfo.id}</span>
-            <span>Predicted exclusively by AI AGENT FRESORA</span>
+            <span>Predicted exclusively by <strong className="font-fresora text-xs text-[#07221A]">Fresora</strong></span>
           </div>
         </div>
       </div>
@@ -1111,7 +997,7 @@ export const DashboardPage: React.FC = () => {
                 Comprehensive Product, Sensor &amp; Shelf-Life Report
               </h2>
               <p className="text-xs text-[#5C7F75] font-semibold">
-                Consolidated report containing basic product metadata, live 8-sensor telemetry readings, and AI AGENT FRESORA shelf-life intelligence.
+                Consolidated report containing basic product metadata, live 8-sensor telemetry readings, and Fresora shelf-life intelligence.
               </p>
             </div>
           </div>
@@ -1204,10 +1090,10 @@ export const DashboardPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Pillar 3: AI AGENT FRESORA Shelf-Life Summary */}
+          {/* Pillar 3: Fresora Shelf-Life Summary */}
           <div className="p-4 rounded-2xl bg-[#EBFBF4]/70 border border-[#20E79A]/30 space-y-2.5 shadow-2xs">
             <span className="text-[10px] font-black uppercase tracking-widest text-[#07221A] block border-b border-[#13493B]/10 pb-1.5">
-              3. AI AGENT FRESORA Shelf-Life
+              3. Fresora Shelf-Life
             </span>
             <div className="space-y-1.5 text-xs">
               <div className="flex justify-between items-center">
