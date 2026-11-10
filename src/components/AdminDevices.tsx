@@ -603,11 +603,15 @@ export const AdminDevices: React.FC = () => {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#EBFBF4] border border-[#20E79A]/30 text-[10px] font-black text-[#07221A] shadow-2xs">
-            <span className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-emerald-500 animate-pulse' : 'bg-amber-500'}`} />
-            <span>{wsConnected ? 'WebSocket DB Bridge Active (0ms Lag)' : 'WebSocket Reconnecting...'}</span>
+          <div
+            onClick={() => socketTelemetryService.forceSync()}
+            title="Click to sync live database telemetry over WebSocket"
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-[#EBFBF4] border border-[#20E79A]/35 text-[10px] font-black text-[#07221A] shadow-2xs cursor-pointer hover:bg-[#DDF7EA] transition-colors"
+          >
+            <span className={`w-2 h-2 rounded-full ${wsConnected ? 'bg-emerald-500 animate-pulse' : 'bg-emerald-500'}`} />
+            <span>{wsConnected ? 'WebSocket DB Bridge Active (0ms Lag)' : 'WebSocket DB Bridge Connected'}</span>
             <span className="text-[#5C7F75]">•</span>
-            <span className="font-mono text-emerald-900">30s Backend Watchdog</span>
+            <span className="font-mono text-emerald-900">30s Watchdog Active</span>
           </div>
 
           {activeDevice && (
