@@ -126,7 +126,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const storedProfile = localStorage.getItem('freshnex_profile');
       if (storedProfile) {
         const parsed = JSON.parse(storedProfile);
-        if (parsed && parsed.uid) {
+        // Never restore fake mock admin sessions; admin must be authenticated via Firebase Auth
+        if (parsed && parsed.uid && parsed.uid !== 'admin_realtirtharaj_101' && parsed.role !== 'admin') {
           return {
             uid: parsed.uid,
             email: parsed.email || '',
@@ -141,6 +142,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const [isDemoMode, setIsDemoMode] = useState<boolean>(() => {
+    try {
+      const storedProfile = localStorage.getItem('freshnex_profile');
+      if (storedProfile) {
+        const parsed = JSON.parse(storedProfile);
+        if (parsed?.role === 'admin' || parsed?.uid === 'admin_realtirtharaj_101') {
+          localStorage.removeItem('freshnex_demo_user');
+          return false;
+        }
+      }
+    } catch {
+      // ignore
+    }
     return localStorage.getItem('freshnex_demo_user') === 'true';
   });
 
@@ -149,6 +162,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const stored = localStorage.getItem('freshnex_profile');
       if (stored) {
         const parsed: UserProfile = JSON.parse(stored);
+        if (parsed.uid === 'admin_realtirtharaj_101') {
+          localStorage.removeItem('freshnex_profile');
+          localStorage.removeItem('freshnex_demo_user');
+          return DEFAULT_PROFILE;
+        }
         if (parsed.role === 'user' && parsed.assignedProductId) {
           const factual = resolveFactualProduct(parsed.assignedProductId);
           const rawId = parsed.assignedProductId.trim().toUpperCase().replace(/^#/, '');
@@ -181,8 +199,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   });
 
   const [isLoading, setIsLoading] = useState<boolean>(() => {
-    const hasStored = !!localStorage.getItem('freshnex_profile');
-    return !hasStored && !!auth;
+    return !!auth;
   });
   const [authError, setAuthError] = useState<string | null>(null);
 
@@ -243,13 +260,16 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     if (!isFirebaseConfigured || !auth) {
-      if (parsedStored && parsedStored.uid) {
+      if (parsedStored && parsedStored.uid && parsedStored.role === 'user') {
         setCurrentUser({
           uid: parsedStored.uid,
           email: parsedStored.email || '',
           displayName: parsedStored.name || '',
         } as any);
         setUserProfile(parsedStored);
+      } else {
+        setCurrentUser(null);
+        setUserProfile(DEFAULT_PROFILE);
       }
       setIsLoading(false);
       return;
@@ -265,18 +285,19 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         clearTimeout(timer);
         if (user) {
           setCurrentUser(user);
+          setIsDemoMode(false);
+          localStorage.removeItem('freshnex_demo_user');
           setUserProfile((prev) => {
-            const isAdmin =
-              user.email === 'realtirtharaj@gmail.com' ||
-              prev.role === 'admin' ||
-              (parsedStored && parsedStored.role === 'admin');
-
             const updated: UserProfile = {
               ...prev,
               uid: user.uid,
               email: user.email || prev.email || '',
-              name: user.displayName || prev.name || user.email?.split('@')[0] || 'User',
-              role: isAdmin ? 'admin' : prev.role || 'user',
+              name:
+                user.displayName ||
+                (user.email?.toLowerCase() === 'realtirtharaj@gmail.com'
+                  ? 'Tirtharaj (System Admin)'
+                  : prev.name || user.email?.split('@')[0] || 'Administrator'),
+              role: 'admin',
               memberSince:
                 prev.memberSince ||
                 new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
@@ -291,16 +312,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (currentStored) {
             try {
               const p = JSON.parse(currentStored);
-              if (p && p.uid) {
+              // Only restore Device ID consumer sessions when Firebase Auth user is null.
+              // Admin sessions MUST have an active Firebase Auth user.
+              if (p && p.uid && p.role === 'user' && p.uid !== 'admin_realtirtharaj_101') {
                 setCurrentUser({
                   uid: p.uid,
                   email: p.email || '',
                   displayName: p.name || '',
                 } as any);
                 setUserProfile(p);
+              } else {
+                localStorage.removeItem('freshnex_profile');
+                localStorage.removeItem('freshnex_demo_user');
+                setIsDemoMode(false);
+                setCurrentUser(null);
+                setUserProfile(DEFAULT_PROFILE);
               }
             } catch {
-              // Ignore parse errors
+              setCurrentUser(null);
+              setUserProfile(DEFAULT_PROFILE);
             }
           } else {
             setCurrentUser(null);
@@ -326,51 +356,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthError(null);
     setIsLoading(true);
 
-    const cleanEmail = email.trim().toLowerCase();
-    const isAdminCredentials =
-      cleanEmail === 'realtirtharaj@gmail.com' ||
-      cleanEmail.includes('admin') ||
-      (cleanEmail === 'realtirtharaj@gmail.com' && pass === '1122');
-
-    const assignedRole: 'admin' | 'user' = isAdminCredentials ? 'admin' : 'user';
+    const cleanEmail = email.trim();
 
     if (!auth) {
-      const mockUser = {
-        uid: isAdminCredentials ? 'admin_realtirtharaj_101' : 'user_demo_101',
-        email: email.trim(),
-        displayName: isAdminCredentials ? 'System Administrator' : 'FreshNex User',
-      } as any;
-
-      setCurrentUser(mockUser);
-      setIsDemoMode(true);
-      localStorage.setItem('freshnex_demo_user', 'true');
-      const profileData: UserProfile = {
-        uid: mockUser.uid,
-        email: email.trim(),
-        name: isAdminCredentials ? 'Tirtharaj (System Admin)' : 'FreshNex User',
-        role: assignedRole,
-        memberSince: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-        organization: 'FreshNex Enterprise Operations',
-      };
-      setUserProfile(profileData);
-      localStorage.setItem('freshnex_profile', JSON.stringify(profileData));
-      await syncProfileToFirebase(profileData);
       setIsLoading(false);
-      return;
+      const msg = 'Firebase Authentication is not initialized. Please check your Firebase configuration.';
+      setAuthError(msg);
+      throw new Error(msg);
     }
 
     try {
-      const userCred = await signInWithEmailAndPassword(auth, email, pass);
+      const userCred = await signInWithEmailAndPassword(auth, cleanEmail, pass);
       setCurrentUser(userCred.user);
       setIsDemoMode(false);
       localStorage.removeItem('freshnex_demo_user');
+
+      const isTirtharaj = cleanEmail.toLowerCase() === 'realtirtharaj@gmail.com';
       const profileData: UserProfile = {
         uid: userCred.user.uid,
-        email: userCred.user.email || email,
-        name: isAdminCredentials
+        email: userCred.user.email || cleanEmail,
+        name: isTirtharaj
           ? 'Tirtharaj (System Admin)'
-          : userCred.user.displayName || userCred.user.email?.split('@')[0] || 'User',
-        role: assignedRole,
+          : userCred.user.displayName || userCred.user.email?.split('@')[0] || 'Administrator',
+        role: 'admin',
         memberSince: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
         organization: 'FreshNex Network',
       };
@@ -378,31 +386,22 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       localStorage.setItem('freshnex_profile', JSON.stringify(profileData));
       await syncProfileToFirebase(profileData);
     } catch (err: any) {
-      if (isAdminCredentials || pass === '1122' || pass === 'admin123') {
-        const mockUser = {
-          uid: 'admin_realtirtharaj_101',
-          email: cleanEmail,
-          displayName: 'Tirtharaj (System Admin)',
-        } as any;
-        setCurrentUser(mockUser);
-        setIsDemoMode(true);
-        localStorage.setItem('freshnex_demo_user', 'true');
-        const profileData: UserProfile = {
-          uid: mockUser.uid,
-          email: cleanEmail,
-          name: 'Tirtharaj (System Admin)',
-          role: 'admin',
-          memberSince: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-          organization: 'FreshNex Enterprise Operations',
-        };
-        setUserProfile(profileData);
-        localStorage.setItem('freshnex_profile', JSON.stringify(profileData));
-        await syncProfileToFirebase(profileData);
-      } else {
-        const message = err.message || 'Failed to sign in. Please verify your credentials.';
-        setAuthError(message);
-        throw err;
+      const code = err?.code || '';
+      let message = 'Invalid administrator email or password. Please enter the password set in Firebase.';
+      if (
+        code === 'auth/invalid-credential' ||
+        code === 'auth/wrong-password' ||
+        code === 'auth/user-not-found' ||
+        code === 'auth/invalid-email'
+      ) {
+        message = 'Invalid administrator email or password. Please verify your Firebase credentials.';
+      } else if (code === 'auth/too-many-requests') {
+        message = 'Too many failed login attempts. Please wait a moment and try again.';
+      } else if (err?.message) {
+        message = err.message;
       }
+      setAuthError(message);
+      throw new Error(message);
     } finally {
       setIsLoading(false);
     }
