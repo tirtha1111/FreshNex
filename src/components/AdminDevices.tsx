@@ -249,12 +249,16 @@ export const AdminDevices: React.FC = () => {
       return;
     }
 
+    // Immediately sync with current timer state without restarting the 30s countdown
+    setRealtimeStatus(socketTelemetryService.getLatestStatus(activeDeviceId));
+    setRemainingSec(socketTelemetryService.getRemainingSeconds(activeDeviceId));
+
     const unsubWsStatus = socketTelemetryService.subscribeStatus(activeDeviceId, (status, meta) => {
       setRealtimeStatus(status);
       if (meta?.remainingMs !== undefined) {
         setRemainingSec(Math.max(0, Math.ceil(meta.remainingMs / 1000)));
       } else {
-        setRemainingSec(status === 'online' ? 30 : 0);
+        setRemainingSec(socketTelemetryService.getRemainingSeconds(activeDeviceId));
       }
       const nextTs = meta?.lastResponseAt || meta?.lastDataAt;
       if (nextTs) {
@@ -271,32 +275,17 @@ export const AdminDevices: React.FC = () => {
 
     const dev = devicesMap[activeDeviceId];
     if (dev) {
-      setLiveSensor((prev) => {
-        const hasChanged =
-          (dev.temperature !== undefined && dev.temperature !== prev.temperature) ||
-          (dev.humidity !== undefined && dev.humidity !== prev.humidity) ||
-          (dev.mq135_raw !== undefined && dev.mq135_raw !== prev.mq135_raw) ||
-          (dev.impact !== undefined && dev.impact !== prev.impact) ||
-          (dev.light !== undefined && dev.light !== prev.light) ||
-          (dev.gpsLat !== undefined && dev.gpsLat !== prev.gpsLat) ||
-          (dev.gpsLng !== undefined && dev.gpsLng !== prev.gpsLng);
-
-        if (hasChanged) {
-          socketTelemetryService.reportFrontendDataReceived(activeDeviceId, dev);
-        }
-
-        return {
-          temperature: dev.temperature ?? prev.temperature ?? 4.2,
-          humidity: dev.humidity ?? prev.humidity ?? 62.0,
-          mq135_raw: dev.mq135_raw ?? prev.mq135_raw ?? 120,
-          impact: dev.impact ?? prev.impact ?? 0.12,
-          light: dev.light ?? prev.light ?? 18,
-          gpsLat: dev.gpsLat ?? prev.gpsLat ?? 22.5726,
-          gpsLng: dev.gpsLng ?? prev.gpsLng ?? 88.3639,
-          gpsSats: dev.gpsSats ?? prev.gpsSats ?? 8,
-          timestamp: socketTelemetryService.getLastResponseTimestamp(activeDeviceId)
-        };
-      });
+      setLiveSensor((prev) => ({
+        temperature: dev.temperature ?? prev.temperature ?? 4.2,
+        humidity: dev.humidity ?? prev.humidity ?? 62.0,
+        mq135_raw: dev.mq135_raw ?? prev.mq135_raw ?? 120,
+        impact: dev.impact ?? prev.impact ?? 0.12,
+        light: dev.light ?? prev.light ?? 18,
+        gpsLat: dev.gpsLat ?? prev.gpsLat ?? 22.5726,
+        gpsLng: dev.gpsLng ?? prev.gpsLng ?? 88.3639,
+        gpsSats: dev.gpsSats ?? prev.gpsSats ?? 8,
+        timestamp: socketTelemetryService.getLastResponseTimestamp(activeDeviceId)
+      }));
     }
 
     const unsubSensor = FirebaseService.subscribeToSensorData(activeDeviceId, (data) => {
@@ -310,19 +299,6 @@ export const AdminDevices: React.FC = () => {
           const nextLat = data.gpsLat ?? dev?.gpsLat ?? prev.gpsLat ?? 22.5726;
           const nextLng = data.gpsLng ?? dev?.gpsLng ?? prev.gpsLng ?? 88.3639;
           const nextSats = data.gpsSats ?? dev?.gpsSats ?? prev.gpsSats ?? 8;
-
-          const changed =
-            nextTemp !== prev.temperature ||
-            nextHum !== prev.humidity ||
-            nextGas !== prev.mq135_raw ||
-            nextImpact !== prev.impact ||
-            nextLight !== prev.light ||
-            nextLat !== prev.gpsLat ||
-            nextLng !== prev.gpsLng;
-
-          if (changed) {
-            socketTelemetryService.reportFrontendDataReceived(activeDeviceId, data);
-          }
 
           return {
             temperature: nextTemp,

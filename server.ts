@@ -83,15 +83,8 @@ function computeSensorSignature(payload: any): string {
   const light = Number(target.light ?? target.light_lux ?? 0).toFixed(1);
   const lat = Number(target.gpsLat ?? target.lat ?? 0).toFixed(4);
   const lng = Number(target.gpsLng ?? target.lng ?? 0).toFixed(4);
-  const ts = Number(
-    target.timestamp ??
-      target.last_update ??
-      target.lastUpdated ??
-      target.time ??
-      target.website_updated_at ??
-      0
-  );
-  return `${temp}|${hum}|${gas}|${impact}|${light}|${lat}|${lng}|${ts}`;
+  const sats = Number(target.gpsSats ?? target.sats ?? 0).toFixed(0);
+  return `${temp}|${hum}|${gas}|${impact}|${light}|${lat}|${lng}|${sats}`;
 }
 
 // Authoritative Backend State & 30-Second Per-Device Timers
@@ -258,8 +251,12 @@ if (rtdb) {
             device_id: normId,
           });
 
-          // If the database reading actually changed, push via WebSocket and reset the 30s timer
-          if (oldSig !== newSig) {
+          if (oldSig === undefined) {
+            deviceSignaturesStore.set(normId, newSig);
+            if (!deviceStatusStore.has(normId)) {
+              startOrReset30sTimer(normId, devPayload);
+            }
+          } else if (oldSig !== newSig) {
             deviceSignaturesStore.set(normId, newSig);
             startOrReset30sTimer(normId, devPayload);
           }
@@ -284,7 +281,9 @@ if (rtdb) {
           const newSig = computeSensorSignature(sensorPayload);
           const oldSig = deviceSignaturesStore.get(`sensor_${normId}`);
 
-          if (oldSig !== newSig) {
+          if (oldSig === undefined) {
+            deviceSignaturesStore.set(`sensor_${normId}`, newSig);
+          } else if (oldSig !== newSig) {
             deviceSignaturesStore.set(`sensor_${normId}`, newSig);
             startOrReset30sTimer(normId, sensorPayload);
           }
@@ -318,6 +317,7 @@ io.on('connection', (socket) => {
       deviceId: normId,
       status: 'online' as const,
       lastDataAt: Date.now(),
+      lastResponseAt: Date.now(),
       remainingMs: OFFLINE_TIMEOUT_MS,
     };
     socket.emit('device:status', st);
@@ -325,21 +325,32 @@ io.on('connection', (socket) => {
 
   /**
    * Triggered when the frontend receives new/updated sensor data.
-   * Starts/resets the 30-second backend timer for that device.
+   * Starts/resets the 30-second backend timer ONLY when data actually changes or is forced.
    */
   socket.on(
     'device:data_received',
-    (payload: { deviceId: string; data?: any; signature?: string; receivedAt?: number }) => {
+    (payload: {
+      deviceId: string;
+      data?: any;
+      signature?: string;
+      receivedAt?: number;
+      force?: boolean;
+    }) => {
       if (!payload || !payload.deviceId) return;
       const normId = normalizeDeviceId(payload.deviceId);
       const incomingSig = payload.signature || computeSensorSignature(payload.data);
       const prevClientSig = deviceSignaturesStore.get(`client_${normId}`);
 
-      // Reset the 30-second timer whenever a new data reading is received at the frontend
-      if (!prevClientSig || prevClientSig !== incomingSig) {
+      if (prevClientSig === undefined) {
         deviceSignaturesStore.set(`client_${normId}`, incomingSig);
-        startOrReset30sTimer(normId, payload.data);
-      } else if (!deviceStatusStore.has(normId)) {
+        if (payload.force || !deviceStatusStore.has(normId)) {
+          startOrReset30sTimer(normId, payload.data);
+        }
+        return;
+      }
+
+      if (payload.force || prevClientSig !== incomingSig) {
+        deviceSignaturesStore.set(`client_${normId}`, incomingSig);
         startOrReset30sTimer(normId, payload.data);
       }
     }

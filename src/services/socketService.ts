@@ -60,7 +60,7 @@ class SocketTelemetryService {
 
   constructor() {
     if (typeof window !== 'undefined') {
-      // Seed initial 30-second timers for active devices
+      // Seed initial 30-second timers once for active devices on app startup
       this.startOrResetLocal30sTimer('YGS-FD-001');
       this.startOrResetLocal30sTimer('YGS-FD-124');
       this.startCountdownTicker();
@@ -89,6 +89,10 @@ class SocketTelemetryService {
     return clean || 'YGS-FD-001';
   }
 
+  /**
+   * Computes a deterministic signature strictly from the sensor reading values.
+   * Excludes wrapper timestamps so view changes or re-renders never trigger false timer resets.
+   */
   private computeDataSignature(data: any): string {
     if (!data || typeof data !== 'object') return '';
     let target = data;
@@ -120,16 +124,9 @@ class SocketTelemetryService {
     const light = Number(target.light ?? target.light_lux ?? 0).toFixed(1);
     const lat = Number(target.gpsLat ?? target.lat ?? 0).toFixed(4);
     const lng = Number(target.gpsLng ?? target.lng ?? 0).toFixed(4);
-    const ts = Number(
-      target.timestamp ??
-        target.last_update ??
-        target.lastUpdated ??
-        target.time ??
-        target.website_updated_at ??
-        0
-    );
+    const sats = Number(target.gpsSats ?? target.sats ?? 0).toFixed(0);
 
-    return `${temp}|${hum}|${gas}|${impact}|${light}|${lat}|${lng}|${ts}`;
+    return `${temp}|${hum}|${gas}|${impact}|${light}|${lat}|${lng}|${sats}`;
   }
 
   public isBridgeConnected(): boolean {
@@ -145,7 +142,7 @@ class SocketTelemetryService {
    * Starts or resets the authoritative 30-second timer for a device.
    * - When data is received by the frontend, `lastResponseAt` is set to `now` (`lastDataAt`).
    * - At the exact moment the 30-second timer expires and the device becomes offline,
-   *   `lastResponseAt` is updated to that exact `offlineMoment` timestamp.
+   *   `lastResponseAt` is updated to that exact `offlineMoment` timestamp and stays static until new data arrives.
    */
   private startOrResetLocal30sTimer(deviceId: string, latestData?: any) {
     const normId = this.normalizeDeviceId(deviceId);
@@ -257,6 +254,7 @@ class SocketTelemetryService {
 
   /**
    * Direct Firebase Realtime Database Native WebSocket (`wss://`) Bridge.
+   * Only starts/resets the 30s timer when sensor values actually change after initial seed.
    */
   private initFirebaseNativeWebSocket() {
     this.rtdbCleanupFns.forEach((fn) => fn());
@@ -303,10 +301,27 @@ class SocketTelemetryService {
             if (rawDevId === 'YGS-FD-000124' || rawDevId === 'YGS-FD-112233') return;
             const normId = this.normalizeDeviceId(rawDevId);
             normalizedMap[normId] = devPayload;
+
+            const existing = this.localTelemetryMap.get(normId) || {};
+            this.localTelemetryMap.set(normId, {
+              ...existing,
+              ...(typeof devPayload === 'object' ? devPayload : {}),
+              device_id: normId,
+            });
+
             const sig = this.computeDataSignature(devPayload);
             const prevSig = this.lastDataSignatures.get(normId);
 
-            if (prevSig !== sig) {
+            if (prevSig === undefined) {
+              // First initial snapshot — record baseline signature without resetting an already-running timer
+              this.lastDataSignatures.set(normId, sig);
+              if (!this.localStatusMap.has(normId)) {
+                this.startOrResetLocal30sTimer(normId, devPayload);
+              } else {
+                this.notifyTelemetryListeners(normId, this.localTelemetryMap.get(normId));
+              }
+            } else if (prevSig !== sig) {
+              // Sensor reading genuinely changed in the database -> reset the 30-second timer
               this.lastDataSignatures.set(normId, sig);
               this.startOrResetLocal30sTimer(normId, devPayload);
             }
@@ -334,7 +349,9 @@ class SocketTelemetryService {
             const sig = this.computeDataSignature(sensorPayload);
             const prevSig = this.lastDataSignatures.get(`sensor_${normId}`);
 
-            if (prevSig !== sig) {
+            if (prevSig === undefined) {
+              this.lastDataSignatures.set(`sensor_${normId}`, sig);
+            } else if (prevSig !== sig) {
               this.lastDataSignatures.set(`sensor_${normId}`, sig);
               this.startOrResetLocal30sTimer(normId, sensorPayload);
             }
@@ -500,7 +517,12 @@ class SocketTelemetryService {
             Object.entries(val).forEach(([rawDevId, devPayload]: [string, any]) => {
               if (rawDevId === 'YGS-FD-000124' || rawDevId === 'YGS-FD-112233') return;
               const normId = this.normalizeDeviceId(rawDevId);
-              this.startOrResetLocal30sTimer(normId, devPayload);
+              const sig = this.computeDataSignature(devPayload);
+              const prevSig = this.lastDataSignatures.get(normId);
+              if (prevSig !== undefined && prevSig !== sig) {
+                this.lastDataSignatures.set(normId, sig);
+                this.startOrResetLocal30sTimer(normId, devPayload);
+              }
             });
           }
         }
@@ -530,15 +552,25 @@ class SocketTelemetryService {
 
   /**
    * Called by the frontend whenever sensor data is received/updated at the frontend.
-   * If the data signature is new or updated, starts/resets the 30-second timer
-   * and sets `lastResponseAt` to the exact timestamp when the data was received.
+   * Only starts/resets the 30-second timer when the sensor data signature genuinely changes
+   * after initial baseline, or when `forceTimerReset` is explicitly true.
    */
   public reportFrontendDataReceived(deviceId: string, data: any, forceTimerReset: boolean = false) {
     const normId = this.normalizeDeviceId(deviceId);
     const sig = this.computeDataSignature(data);
+    if (!sig) return;
+
     const prevSig = this.lastDataSignatures.get(normId);
 
-    if (!forceTimerReset && prevSig !== undefined && prevSig === sig) {
+    if (prevSig === undefined) {
+      this.lastDataSignatures.set(normId, sig);
+      if (forceTimerReset || !this.localStatusMap.has(normId)) {
+        this.startOrResetLocal30sTimer(normId, data);
+      }
+      return;
+    }
+
+    if (!forceTimerReset && prevSig === sig) {
       return;
     }
 
@@ -551,6 +583,7 @@ class SocketTelemetryService {
         data,
         signature: sig,
         receivedAt: Date.now(),
+        force: forceTimerReset,
       });
     }
   }
@@ -601,13 +634,10 @@ class SocketTelemetryService {
     const existing = this.latestStatuses.get(normId);
     if (existing) {
       callback(existing.status, existing);
-    } else {
+    } else if (!this.localStatusMap.has(normId)) {
       this.startOrResetLocal30sTimer(normId);
       const created = this.latestStatuses.get(normId);
       if (created) callback(created.status, created);
-      if (this.socket?.connected) {
-        this.socket.emit('client:request_device_status', normId);
-      }
     }
 
     return () => {
@@ -651,7 +681,16 @@ class SocketTelemetryService {
 
   public getLatestStatus(deviceId: string): 'online' | 'offline' {
     const normId = this.normalizeDeviceId(deviceId);
-    return this.latestStatuses.get(normId)?.status || 'online';
+    return this.latestStatuses.get(normId)?.status || this.localStatusMap.get(normId) || 'online';
+  }
+
+  public getRemainingSeconds(deviceId: string): number {
+    const normId = this.normalizeDeviceId(deviceId);
+    const meta = this.latestStatuses.get(normId);
+    if (meta && meta.remainingMs !== undefined) {
+      return Math.max(0, Math.ceil(meta.remainingMs / 1000));
+    }
+    return this.getLatestStatus(normId) === 'online' ? 30 : 0;
   }
 
   /**

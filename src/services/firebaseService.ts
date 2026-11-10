@@ -67,46 +67,14 @@ export function subscribeToDeviceStatus(
   callback: (status: 'online' | 'offline' | undefined) => void
 ): () => void {
   const cleanId = deviceId ? deviceId.trim().toUpperCase().replace(/^#/, '') : '';
-  const targetDevId = cleanId;
-
   let lastReportedStatus: 'online' | 'offline' | undefined = undefined;
 
-  const reportStatus = (nextStatus: 'online' | 'offline') => {
-    if (lastReportedStatus !== nextStatus) {
-      lastReportedStatus = nextStatus;
-      callback(nextStatus);
+  return socketTelemetryService.subscribeStatus(cleanId, (wsStatus) => {
+    if (lastReportedStatus !== wsStatus) {
+      lastReportedStatus = wsStatus;
+      callback(wsStatus);
     }
-  };
-
-  // 1. Subscribe to authoritative 30-second timer status from the backend WebSocket
-  const unsubWsStatus = socketTelemetryService.subscribeStatus(targetDevId, (wsStatus) => {
-    reportStatus(wsStatus);
   });
-
-  // 2. Listen to Firebase RTDB changes at the frontend; when data updates, notify the backend to start/reset the 30s timer
-  const db = getDirectDatabase();
-  if (!db) {
-    return () => {
-      unsubWsStatus();
-    };
-  }
-
-  const deviceRef = ref(db, `devices/${targetDevId}`);
-
-  const handleSnapshot = (snapshot: any) => {
-    if (snapshot.exists()) {
-      const val = snapshot.val();
-      socketTelemetryService.reportFrontendDataReceived(targetDevId, val);
-    }
-  };
-
-  const unsubscribeRtdb = onValue(deviceRef, handleSnapshot, () => {});
-
-  return () => {
-    unsubWsStatus();
-    unsubscribeRtdb();
-    off(deviceRef, 'value', handleSnapshot);
-  };
 }
 
 /**
@@ -462,7 +430,6 @@ export function subscribeToSensorData(
             if (snapshot.exists()) {
               gotRealData = true;
               const rawVal = snapshot.val();
-              socketTelemetryService.reportFrontendDataReceived(pathId, rawVal);
               processSensorPayload(rawVal, true);
             }
           };
@@ -471,7 +438,6 @@ export function subscribeToSensorData(
             if (snapshot.exists()) {
               gotRealData = true;
               const rawVal = snapshot.val();
-              socketTelemetryService.reportFrontendDataReceived(pathId, rawVal);
               processSensorPayload(rawVal, true);
             }
           };
@@ -513,7 +479,6 @@ export function subscribeToSensorData(
                 const data = await res.json();
                 if (data) {
                   gotRealData = true;
-                  socketTelemetryService.reportFrontendDataReceived(path, data);
                   processSensorPayload(data, true);
                   break;
                 }
