@@ -265,7 +265,8 @@ export function parseFullSensorPayload(
       defaultSats
   );
 
-  const timestamp = isReal ? Date.now() : extractLatestTimestamp(target);
+  const devIdHint = target.device_id || target.id || (isMeat ? 'MEAT' : 'YGS-FD-001');
+  const timestamp = socketTelemetryService.getLastResponseTimestamp(devIdHint);
 
   const finalTemp = isNaN(temperature) ? defaultTemp : +temperature.toFixed(1);
   const finalHum = isNaN(humidity) ? defaultHum : +humidity.toFixed(1);
@@ -415,7 +416,11 @@ export function subscribeToSensorData(
   }
 
   const processSensorPayload = (val: any, isReal: boolean = false) => {
-    const parsed = parseFullSensorPayload(val, isMeat, isReal);
+    const parsed = parseFullSensorPayload(
+      val && typeof val === 'object' ? { ...val, device_id: val.device_id || cleanId } : val,
+      isMeat,
+      isReal
+    );
     if (parsed) {
       callback(parsed as any);
     }
@@ -507,6 +512,8 @@ export function subscribeToSensorData(
               if (res.ok) {
                 const data = await res.json();
                 if (data) {
+                  gotRealData = true;
+                  socketTelemetryService.reportFrontendDataReceived(path, data);
                   processSensorPayload(data, true);
                   break;
                 }

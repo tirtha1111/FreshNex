@@ -104,6 +104,11 @@ const deviceLastDataAtStore = new Map<string, number>([
   ['YGS-FD-001', Date.now()],
   ['YGS-FD-124', Date.now()],
 ]);
+const deviceOfflineAtStore = new Map<string, number>();
+const deviceLastResponseAtStore = new Map<string, number>([
+  ['YGS-FD-001', Date.now()],
+  ['YGS-FD-124', Date.now()],
+]);
 const deviceSignaturesStore = new Map<string, string>();
 const deviceOfflineTimers = new Map<string, NodeJS.Timeout>();
 
@@ -111,17 +116,31 @@ function getStatusesSnapshot() {
   const now = Date.now();
   const snapshot: Record<
     string,
-    { deviceId: string; status: 'online' | 'offline'; lastDataAt: number; remainingMs: number }
+    {
+      deviceId: string;
+      status: 'online' | 'offline';
+      lastDataAt: number;
+      offlineAt?: number;
+      lastResponseAt: number;
+      remainingMs: number;
+    }
   > = {};
 
   for (const [devId, status] of deviceStatusStore.entries()) {
     const lastDataAt = deviceLastDataAtStore.get(devId) || now;
+    const offlineAt = deviceOfflineAtStore.get(devId);
+    const lastResponseAt =
+      status === 'offline'
+        ? offlineAt || deviceLastResponseAtStore.get(devId) || lastDataAt
+        : lastDataAt;
     const elapsed = now - lastDataAt;
     const remainingMs = status === 'online' ? Math.max(0, OFFLINE_TIMEOUT_MS - elapsed) : 0;
     snapshot[devId] = {
       deviceId: devId,
       status,
       lastDataAt,
+      offlineAt,
+      lastResponseAt,
       remainingMs,
     };
   }
@@ -130,8 +149,9 @@ function getStatusesSnapshot() {
 
 /**
  * Starts or resets the authoritative 30-second backend timer for a device.
- * Until 30 seconds elapse, the device is ONLINE. If no new data update arrives
- * within 30 seconds, the timer fires and marks the device OFFLINE.
+ * Until 30 seconds elapse, the device is ONLINE and lastResponseAt is the timestamp when
+ * the last data was received. At the moment the 30s timer expires and the device becomes OFFLINE,
+ * lastResponseAt is updated to that exact offline transition timestamp.
  */
 function startOrReset30sTimer(deviceId: string, latestData?: any) {
   const normId = normalizeDeviceId(deviceId);
@@ -140,6 +160,8 @@ function startOrReset30sTimer(deviceId: string, latestData?: any) {
   const now = Date.now();
   deviceStatusStore.set(normId, 'online');
   deviceLastDataAtStore.set(normId, now);
+  deviceOfflineAtStore.delete(normId);
+  deviceLastResponseAtStore.set(normId, now);
 
   if (latestData && typeof latestData === 'object') {
     const existing = deviceTelemetryStore.get(normId) || {};
@@ -149,6 +171,7 @@ function startOrReset30sTimer(deviceId: string, latestData?: any) {
       device_id: normId,
       online: true,
       status: 'online',
+      last_response_at: now,
     });
   }
 
@@ -163,6 +186,7 @@ function startOrReset30sTimer(deviceId: string, latestData?: any) {
     deviceId: normId,
     status: 'online',
     lastDataAt: now,
+    lastResponseAt: now,
     remainingMs: OFFLINE_TIMEOUT_MS,
   });
 
@@ -172,27 +196,34 @@ function startOrReset30sTimer(deviceId: string, latestData?: any) {
       data: deviceTelemetryStore.get(normId),
       status: 'online',
       lastDataAt: now,
+      lastResponseAt: now,
     });
   }
 
   // Start the 30-second countdown timer in the backend
   const timer = setTimeout(() => {
+    const offlineMoment = Date.now();
     deviceStatusStore.set(normId, 'offline');
-    const lastDataAt = deviceLastDataAtStore.get(normId) || Date.now() - OFFLINE_TIMEOUT_MS;
+    deviceOfflineAtStore.set(normId, offlineMoment);
+    deviceLastResponseAtStore.set(normId, offlineMoment);
+    const lastDataAt = deviceLastDataAtStore.get(normId) || offlineMoment - OFFLINE_TIMEOUT_MS;
     const existing = deviceTelemetryStore.get(normId);
     if (existing) {
       deviceTelemetryStore.set(normId, {
         ...existing,
         online: false,
         status: 'offline',
+        last_response_at: offlineMoment,
       });
     }
 
-    // Immediately broadcast OFFLINE status to Admin Panel & all clients
+    // Immediately broadcast OFFLINE status with the offline moment as lastResponseAt
     io.emit('device:status', {
       deviceId: normId,
       status: 'offline',
       lastDataAt,
+      offlineAt: offlineMoment,
+      lastResponseAt: offlineMoment,
       remainingMs: 0,
     });
   }, OFFLINE_TIMEOUT_MS);

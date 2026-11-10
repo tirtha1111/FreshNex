@@ -43,6 +43,7 @@ import { calculateMoisture } from '../../utils/moistureCalculator';
 import { calculatePH } from '../../utils/phCalculator';
 import { SensorThresholdConfig, DEFAULT_THRESHOLDS } from '../../services/alertThresholdService';
 import { useAuth } from '../../context/AuthContext';
+import { socketTelemetryService } from '../../services/socketService';
 
 export interface TelemetryPoint {
   id: string;
@@ -352,9 +353,29 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
     return null;
   };
 
+  const targetDeviceId = activeItem?.id || userProfile?.assignedProductId || 'YGS-FD-001';
+  const [lastResponseTs, setLastResponseTs] = useState<number>(() =>
+    socketTelemetryService.getLastResponseTimestamp(targetDeviceId)
+  );
+
+  useEffect(() => {
+    setLastResponseTs(socketTelemetryService.getLastResponseTimestamp(targetDeviceId));
+    const unsub = socketTelemetryService.subscribeStatus(targetDeviceId, (_status, meta) => {
+      const nextTs = meta?.lastResponseAt || meta?.lastDataAt;
+      if (nextTs) {
+        setLastResponseTs(nextTs);
+      }
+    });
+    return () => unsub();
+  }, [targetDeviceId]);
+
   // Formatted last response timestamp with full date and time
   const lastResponseFormatted = useMemo(() => {
-    const ts = latestPoint.timestamp || currentSensorData?.timestamp || Date.now();
+    const ts =
+      lastResponseTs ||
+      socketTelemetryService.getLastResponseTimestamp(targetDeviceId) ||
+      currentSensorData?.timestamp ||
+      Date.now();
     const d = new Date(ts);
     const dateStr = d.toLocaleDateString('en-US', { day: '2-digit', month: 'short', year: 'numeric' });
     const timeStr = d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
@@ -363,7 +384,7 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
       time: timeStr,
       fullText: `${dateStr}, ${timeStr}`
     };
-  }, [latestPoint.timestamp, currentSensorData?.timestamp]);
+  }, [lastResponseTs, targetDeviceId, currentSensorData?.timestamp]);
 
   return (
     <div className="glass-card p-4 sm:p-7 depth-2 space-y-5 text-[#07221A] relative overflow-hidden">

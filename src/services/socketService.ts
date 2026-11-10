@@ -19,6 +19,8 @@ export interface DeviceStatusPayload {
   deviceId: string;
   status: 'online' | 'offline';
   lastDataAt: number;
+  offlineAt?: number;
+  lastResponseAt: number;
   remainingMs?: number;
 }
 
@@ -27,6 +29,7 @@ export interface DeviceTelemetryBroadcast {
   data: any;
   status: 'online' | 'offline';
   lastDataAt: number;
+  lastResponseAt?: number;
 }
 
 const OFFLINE_TIMEOUT_MS = 30000; // 30-second timer for online/offline status
@@ -43,9 +46,11 @@ class SocketTelemetryService {
   private lastDataSignatures = new Map<string, string>();
   private connectionListeners = new Set<(connected: boolean) => void>();
 
-  // Authoritative 30s Watchdog & Firebase Native WebSocket state (works on both Node server & Vercel)
+  // Authoritative 30s Watchdog & Last Response Timestamp state
   private localOfflineTimers = new Map<string, ReturnType<typeof setTimeout>>();
   private localLastDataAt = new Map<string, number>();
+  private localOfflineAt = new Map<string, number>();
+  private localLastResponseAt = new Map<string, number>();
   private localStatusMap = new Map<string, 'online' | 'offline'>();
   private localTelemetryMap = new Map<string, any>();
   private isSocketIoConnected = false;
@@ -77,7 +82,7 @@ class SocketTelemetryService {
     }
   }
 
-  private normalizeDeviceId(rawId: string): string {
+  public normalizeDeviceId(rawId: string): string {
     const clean = (rawId || '').trim().toUpperCase().replace(/^#/, '');
     if (clean === '001' || clean === 'APPLE' || clean.includes('001')) return 'YGS-FD-001';
     if (clean === '124' || clean === 'MILK' || clean.includes('124')) return 'YGS-FD-124';
@@ -138,7 +143,9 @@ class SocketTelemetryService {
 
   /**
    * Starts or resets the authoritative 30-second timer for a device.
-   * Works identically whether connected to the Express Socket.IO server or deployed on Vercel.
+   * - When data is received by the frontend, `lastResponseAt` is set to `now` (`lastDataAt`).
+   * - At the exact moment the 30-second timer expires and the device becomes offline,
+   *   `lastResponseAt` is updated to that exact `offlineMoment` timestamp.
    */
   private startOrResetLocal30sTimer(deviceId: string, latestData?: any) {
     const normId = this.normalizeDeviceId(deviceId);
@@ -147,6 +154,8 @@ class SocketTelemetryService {
     const now = Date.now();
     this.localStatusMap.set(normId, 'online');
     this.localLastDataAt.set(normId, now);
+    this.localOfflineAt.delete(normId);
+    this.localLastResponseAt.set(normId, now);
 
     if (latestData && typeof latestData === 'object') {
       const existing = this.localTelemetryMap.get(normId) || {};
@@ -156,6 +165,7 @@ class SocketTelemetryService {
         device_id: normId,
         online: true,
         status: 'online',
+        last_response_at: now,
       });
     }
 
@@ -168,6 +178,7 @@ class SocketTelemetryService {
       deviceId: normId,
       status: 'online',
       lastDataAt: now,
+      lastResponseAt: now,
       remainingMs: OFFLINE_TIMEOUT_MS,
     };
     this.latestStatuses.set(normId, onlinePayload);
@@ -178,12 +189,18 @@ class SocketTelemetryService {
     }
 
     const timer = setTimeout(() => {
+      const offlineMoment = Date.now();
       this.localStatusMap.set(normId, 'offline');
-      const lastDataAt = this.localLastDataAt.get(normId) || Date.now() - OFFLINE_TIMEOUT_MS;
+      this.localOfflineAt.set(normId, offlineMoment);
+      this.localLastResponseAt.set(normId, offlineMoment);
+      const lastDataAt = this.localLastDataAt.get(normId) || offlineMoment - OFFLINE_TIMEOUT_MS;
+
       const offlinePayload: DeviceStatusPayload = {
         deviceId: normId,
         status: 'offline',
         lastDataAt,
+        offlineAt: offlineMoment,
+        lastResponseAt: offlineMoment,
         remainingMs: 0,
       };
       this.latestStatuses.set(normId, offlinePayload);
@@ -201,21 +218,34 @@ class SocketTelemetryService {
         const lastDataAt = this.localLastDataAt.get(devId) || now;
         const elapsed = now - lastDataAt;
         if (status === 'online' && elapsed >= OFFLINE_TIMEOUT_MS) {
+          // Transition moment from online -> offline
+          const offlineMoment = now;
           this.localStatusMap.set(devId, 'offline');
+          this.localOfflineAt.set(devId, offlineMoment);
+          this.localLastResponseAt.set(devId, offlineMoment);
           const offlinePayload: DeviceStatusPayload = {
             deviceId: devId,
             status: 'offline',
             lastDataAt,
+            offlineAt: offlineMoment,
+            lastResponseAt: offlineMoment,
             remainingMs: 0,
           };
           this.latestStatuses.set(devId, offlinePayload);
           this.notifyStatusListeners(devId, 'offline', offlinePayload);
         } else {
           const remainingMs = status === 'online' ? Math.max(0, OFFLINE_TIMEOUT_MS - elapsed) : 0;
+          const offlineAt = this.localOfflineAt.get(devId);
+          const lastResponseAt =
+            status === 'offline'
+              ? offlineAt || this.localLastResponseAt.get(devId) || lastDataAt
+              : lastDataAt;
           const payload: DeviceStatusPayload = {
             deviceId: devId,
             status,
             lastDataAt,
+            offlineAt,
+            lastResponseAt,
             remainingMs,
           };
           this.latestStatuses.set(devId, payload);
@@ -227,7 +257,6 @@ class SocketTelemetryService {
 
   /**
    * Direct Firebase Realtime Database Native WebSocket (`wss://`) Bridge.
-   * Ensures zero-lag streaming and 30s watchdog timer on Vercel and all cloud deployments.
    */
   private initFirebaseNativeWebSocket() {
     this.rtdbCleanupFns.forEach((fn) => fn());
@@ -320,17 +349,11 @@ class SocketTelemetryService {
     }
   }
 
-  /**
-   * Probes whether the current host supports the Node Socket.IO endpoint before opening a socket.
-   * On Vercel (`*.vercel.app` or static SPA hosts where `/socket.io` rewrites to `index.html`),
-   * it avoids failed WebSocket console errors and uses the direct Firebase RTDB WebSocket bridge.
-   */
   private async initSocketSafely() {
     if (this.socket || typeof window === 'undefined') return;
 
     const host = window.location.hostname || '';
     if (host.includes('vercel.app')) {
-      // On Vercel, use direct Firebase Realtime Database WebSocket (`wss://`) with zero console errors
       this.isFirebaseWsConnected = true;
       this.broadcastConnectionState();
       return;
@@ -343,7 +366,6 @@ class SocketTelemetryService {
       });
       const contentType = probe.headers.get('content-type') || '';
       if (!probe.ok || contentType.includes('text/html')) {
-        // Static/serverless host detected — rely on Firebase RTDB native WebSocket
         this.isFirebaseWsConnected = true;
         this.broadcastConnectionState();
         return;
@@ -389,11 +411,7 @@ class SocketTelemetryService {
         }) => {
           if (payload?.statuses) {
             Object.entries(payload.statuses).forEach(([devId, st]) => {
-              const normId = this.normalizeDeviceId(devId);
-              this.localStatusMap.set(normId, st.status);
-              if (st.lastDataAt) this.localLastDataAt.set(normId, st.lastDataAt);
-              this.latestStatuses.set(normId, st);
-              this.notifyStatusListeners(normId, st.status, st);
+              this.applyBackendStatusPayload(devId, st);
             });
           }
           if (payload?.devices && Object.keys(payload.devices).length > 0) {
@@ -408,21 +426,13 @@ class SocketTelemetryService {
 
       this.socket.on('device:status', (payload: DeviceStatusPayload) => {
         if (!payload || !payload.deviceId) return;
-        const normId = this.normalizeDeviceId(payload.deviceId);
-        this.localStatusMap.set(normId, payload.status);
-        if (payload.lastDataAt) this.localLastDataAt.set(normId, payload.lastDataAt);
-        this.latestStatuses.set(normId, payload);
-        this.notifyStatusListeners(normId, payload.status, payload);
+        this.applyBackendStatusPayload(payload.deviceId, payload);
       });
 
       this.socket.on('devices:status_sync', (statuses: Record<string, DeviceStatusPayload>) => {
         if (!statuses) return;
         Object.entries(statuses).forEach(([devId, st]) => {
-          const normId = this.normalizeDeviceId(devId);
-          this.localStatusMap.set(normId, st.status);
-          if (st.lastDataAt) this.localLastDataAt.set(normId, st.lastDataAt);
-          this.latestStatuses.set(normId, st);
-          this.notifyStatusListeners(normId, st.status, st);
+          this.applyBackendStatusPayload(devId, st);
         });
       });
 
@@ -437,6 +447,39 @@ class SocketTelemetryService {
       this.isFirebaseWsConnected = true;
       this.broadcastConnectionState();
     }
+  }
+
+  private applyBackendStatusPayload(rawDevId: string, st: DeviceStatusPayload) {
+    const normId = this.normalizeDeviceId(rawDevId);
+    const prevStatus = this.localStatusMap.get(normId);
+    this.localStatusMap.set(normId, st.status);
+    if (st.lastDataAt) {
+      this.localLastDataAt.set(normId, st.lastDataAt);
+    }
+
+    let lastResponseAt = st.lastResponseAt || st.lastDataAt || Date.now();
+    if (st.status === 'offline') {
+      const offlineMoment =
+        st.offlineAt ||
+        (prevStatus === 'online' ? Date.now() : this.localOfflineAt.get(normId)) ||
+        st.lastResponseAt ||
+        Date.now();
+      this.localOfflineAt.set(normId, offlineMoment);
+      lastResponseAt = offlineMoment;
+    } else {
+      this.localOfflineAt.delete(normId);
+      lastResponseAt = st.lastDataAt || lastResponseAt;
+    }
+
+    this.localLastResponseAt.set(normId, lastResponseAt);
+    const enriched: DeviceStatusPayload = {
+      ...st,
+      deviceId: normId,
+      offlineAt: this.localOfflineAt.get(normId),
+      lastResponseAt,
+    };
+    this.latestStatuses.set(normId, enriched);
+    this.notifyStatusListeners(normId, st.status, enriched);
   }
 
   public async forceSync(): Promise<void> {
@@ -488,7 +531,7 @@ class SocketTelemetryService {
   /**
    * Called by the frontend whenever sensor data is received/updated at the frontend.
    * If the data signature is new or updated, starts/resets the 30-second timer
-   * both locally and on the backend WebSocket.
+   * and sets `lastResponseAt` to the exact timestamp when the data was received.
    */
   public reportFrontendDataReceived(deviceId: string, data: any, forceTimerReset: boolean = false) {
     const normId = this.normalizeDeviceId(deviceId);
@@ -609,6 +652,36 @@ class SocketTelemetryService {
   public getLatestStatus(deviceId: string): 'online' | 'offline' {
     const normId = this.normalizeDeviceId(deviceId);
     return this.latestStatuses.get(normId)?.status || 'online';
+  }
+
+  /**
+   * Returns the authoritative Last Response timestamp for a device:
+   * - While online: the exact timestamp when the last data was received by the frontend (`lastDataAt`).
+   * - When the device becomes offline: the exact timestamp of the moment it became offline (`offlineAt`).
+   */
+  public getLastResponseTimestamp(deviceId: string): number {
+    const normId = this.normalizeDeviceId(deviceId);
+    const meta = this.latestStatuses.get(normId);
+    if (meta) {
+      return meta.status === 'offline'
+        ? meta.offlineAt || meta.lastResponseAt || meta.lastDataAt
+        : meta.lastDataAt || meta.lastResponseAt;
+    }
+    return this.localLastResponseAt.get(normId) || this.localLastDataAt.get(normId) || Date.now();
+  }
+
+  public getStatusMeta(deviceId: string): DeviceStatusPayload {
+    const normId = this.normalizeDeviceId(deviceId);
+    const existing = this.latestStatuses.get(normId);
+    if (existing) return existing;
+    const now = Date.now();
+    return {
+      deviceId: normId,
+      status: 'online',
+      lastDataAt: now,
+      lastResponseAt: now,
+      remainingMs: OFFLINE_TIMEOUT_MS,
+    };
   }
 }
 

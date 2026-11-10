@@ -90,25 +90,26 @@ export function extractLatestTimestamp(payload: any, fallback?: number): number 
   }
 
   if (typeof payload === 'number') {
+    if (payload < 1600000000) return fallback ?? Date.now();
     return parseTimestamp(payload);
   }
 
   if (typeof payload === 'string') {
+    const num = Number(payload.trim());
+    if (!isNaN(num) && num > 0 && num < 1600000000) return fallback ?? Date.now();
     return parseTimestamp(payload);
   }
 
   if (typeof payload === 'object') {
-    // If it's a Date or Firestore Timestamp
     if (payload instanceof Date || typeof payload.toMillis === 'function' || typeof payload.toDate === 'function') {
       return parseTimestamp(payload);
     }
 
-    // Collect all candidate timestamps from common hardware / website / cloud keys
     const candidates: number[] = [];
 
     const keysToCheck = [
-      'website_updated_at',
       'last_response_at',
+      'website_updated_at',
       'last_seen',
       'lastSeen',
       'last_response',
@@ -125,36 +126,35 @@ export function extractLatestTimestamp(payload: any, fallback?: number): number 
       'date'
     ];
 
-    for (const k of keysToCheck) {
-      if (payload[k] !== undefined && payload[k] !== null && payload[k] !== '') {
-        const parsed = parseTimestamp(payload[k]);
-        if (parsed > 0) {
-          candidates.push(parsed);
-        }
+    const tryAddCandidate = (rawVal: any) => {
+      if (rawVal === undefined || rawVal === null || rawVal === '') return;
+      if (typeof rawVal === 'number' && rawVal < 1600000000) return;
+      if (typeof rawVal === 'string') {
+        const n = Number(rawVal.trim());
+        if (!isNaN(n) && n < 1600000000) return;
       }
+      const parsed = parseTimestamp(rawVal);
+      if (parsed >= 1600000000000) {
+        candidates.push(parsed);
+      }
+    };
+
+    for (const k of keysToCheck) {
+      tryAddCandidate(payload[k]);
     }
 
-    // Also check if payload has a nested child object (e.g. payload[lastKey] when RTDB stores nested push keys),
-    // skipping non-telemetry control objects such as 'commands'
     const childKeys = Object.keys(payload).filter((k) => k !== 'commands');
     if (childKeys.length > 0) {
       const lastKey = childKeys[childKeys.length - 1];
       if (typeof payload[lastKey] === 'object' && payload[lastKey] !== null) {
         for (const k of keysToCheck) {
-          if (payload[lastKey][k] !== undefined && payload[lastKey][k] !== null && payload[lastKey][k] !== '') {
-            const parsed = parseTimestamp(payload[lastKey][k]);
-            if (parsed > 0) {
-              candidates.push(parsed);
-            }
-          }
+          tryAddCandidate(payload[lastKey][k]);
         }
       }
     }
 
     if (candidates.length > 0) {
-      // Pick the most recent timestamp among all candidates
       const maxTs = Math.max(...candidates);
-      // Cap slightly in the future if clock drift > 2 minutes
       const now = Date.now();
       if (maxTs > now + 120000) {
         return now;

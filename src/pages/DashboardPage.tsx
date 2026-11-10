@@ -39,6 +39,7 @@ import { formatRealtimeDateTime, extractLatestTimestamp } from '../utils/dateUti
 import { resolveFactualProduct } from '../data/initialData';
 import { calculateFreshness } from '../utils/freshnessEngine';
 import { generateAndDownloadProductPDF } from '../utils/pdfReportGenerator';
+import { socketTelemetryService } from '../services/socketService';
 
 interface FresoraPrediction {
   productName: string;
@@ -187,19 +188,35 @@ export const DashboardPage: React.FC = () => {
     return { tempScore, humScore, gasScore };
   }, [liveTelemetry, thresholds]);
 
+  const [lastResponseTs, setLastResponseTs] = useState<number>(() =>
+    socketTelemetryService.getLastResponseTimestamp(productInfo.id)
+  );
+
+  useEffect(() => {
+    setLastResponseTs(socketTelemetryService.getLastResponseTimestamp(productInfo.id));
+    const unsub = socketTelemetryService.subscribeStatus(productInfo.id, (_status, meta) => {
+      const nextTs = meta?.lastResponseAt || meta?.lastDataAt;
+      if (nextTs) {
+        setLastResponseTs(nextTs);
+      }
+    });
+    return () => unsub();
+  }, [productInfo.id]);
+
   const lastResponseInfo = useMemo(() => {
     const rawTs =
-      Math.max(
-        extractLatestTimestamp(targetDev, 0),
-        extractLatestTimestamp(sensorData, 0)
-      ) || Date.now();
+      lastResponseTs ||
+      socketTelemetryService.getLastResponseTimestamp(productInfo.id) ||
+      extractLatestTimestamp(targetDev, 0) ||
+      extractLatestTimestamp(sensorData, 0) ||
+      Date.now();
     const { dateStr, timeStr, fullStr } = formatRealtimeDateTime(rawTs);
     return {
       dateStr,
       timeStr,
       fullText: fullStr
     };
-  }, [targetDev, sensorData]);
+  }, [lastResponseTs, productInfo.id, targetDev, sensorData]);
 
   // AI AGENT FRESORA state
   const [prediction, setPrediction] = useState<FresoraPrediction | null>(null);

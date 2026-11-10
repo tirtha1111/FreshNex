@@ -44,7 +44,7 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
     gpsLat: dev.gpsLat ?? 22.5726,
     gpsLng: dev.gpsLng ?? 88.3639,
     gpsSats: dev.gpsSats ?? 8,
-    timestamp: extractLatestTimestamp(dev, Date.now()),
+    timestamp: socketTelemetryService.getLastResponseTimestamp(dev.device_id),
   });
 
   // Sync immediately when parent dev prop changes (from WebSocket / Firebase AppContext listener)
@@ -59,6 +59,10 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
         (dev.gpsLat !== undefined && dev.gpsLat !== prev.gpsLat) ||
         (dev.gpsLng !== undefined && dev.gpsLng !== prev.gpsLng);
 
+      if (hasValueChanged) {
+        socketTelemetryService.reportFrontendDataReceived(dev.device_id, dev);
+      }
+
       return {
         temperature: dev.temperature ?? prev.temperature ?? 4.2,
         humidity: dev.humidity ?? prev.humidity ?? 62.0,
@@ -68,10 +72,11 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
         gpsLat: dev.gpsLat ?? prev.gpsLat ?? 22.5726,
         gpsLng: dev.gpsLng ?? prev.gpsLng ?? 88.3639,
         gpsSats: dev.gpsSats ?? prev.gpsSats ?? 8,
-        timestamp: hasValueChanged ? Date.now() : prev.timestamp,
+        timestamp: socketTelemetryService.getLastResponseTimestamp(dev.device_id),
       };
     });
   }, [
+    dev.device_id,
     dev.temperature,
     dev.humidity,
     dev.mq135_raw,
@@ -92,10 +97,11 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
       } else {
         setRemainingSec(status === 'online' ? 30 : 0);
       }
-      if (meta?.lastDataAt) {
+      const nextTs = meta?.lastResponseAt || meta?.lastDataAt;
+      if (nextTs) {
         setLiveSensor((prev) => ({
           ...prev,
-          timestamp: meta.lastDataAt,
+          timestamp: nextTs,
         }));
       }
     });
@@ -130,6 +136,10 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
             nextLat !== prev.gpsLat ||
             nextLng !== prev.gpsLng;
 
+          if (changed) {
+            socketTelemetryService.reportFrontendDataReceived(dev.device_id, data);
+          }
+
           return {
             temperature: nextTemp,
             humidity: nextHum,
@@ -139,7 +149,7 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
             gpsLat: nextLat,
             gpsLng: nextLng,
             gpsSats: nextSats,
-            timestamp: changed ? Date.now() : prev.timestamp,
+            timestamp: socketTelemetryService.getLastResponseTimestamp(dev.device_id),
           };
         });
       }
@@ -154,15 +164,15 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
         detail.product === dev.product
       ) {
         const now = detail?.timestamp || Date.now();
-        setLiveSensor((prev) => ({
-          ...prev,
-          timestamp: now,
-        }));
         socketTelemetryService.reportFrontendDataReceived(
           dev.device_id,
           { ...dev, timestamp: now },
           true
         );
+        setLiveSensor((prev) => ({
+          ...prev,
+          timestamp: socketTelemetryService.getLastResponseTimestamp(dev.device_id),
+        }));
       }
     };
 
@@ -195,7 +205,10 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
     }
   );
 
-  const latestTs = liveSensor.timestamp || extractLatestTimestamp(dev, Date.now());
+  const latestTs =
+    socketTelemetryService.getLastResponseTimestamp(dev.device_id) ||
+    liveSensor.timestamp ||
+    Date.now();
   const {
     dateStr: formattedDate,
     timeStr: formattedTime,
@@ -328,19 +341,45 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
             </span>
           </div>
 
-          <div className="flex items-center justify-between text-[10px] bg-[#EBFBF4]/80 px-2.5 py-1.5 rounded-xl border border-[#20E79A]/30 shadow-xs">
+          <div
+            className={`flex items-center justify-between text-[10px] px-2.5 py-1.5 rounded-xl border shadow-xs transition-colors ${
+              realtimeStatus === 'online'
+                ? 'bg-[#EBFBF4]/80 border-[#20E79A]/30'
+                : 'bg-rose-50/80 border-rose-200/80'
+            }`}
+          >
             <div className="flex items-center gap-1.5 truncate min-w-0">
-              <Clock className="w-3.5 h-3.5 text-[#13493B] shrink-0" />
-              <span className="font-bold text-[#13493B] shrink-0">Last Response:</span>
+              <Clock
+                className={`w-3.5 h-3.5 shrink-0 ${
+                  realtimeStatus === 'online' ? 'text-[#13493B]' : 'text-rose-700'
+                }`}
+              />
+              <span
+                className={`font-bold shrink-0 ${
+                  realtimeStatus === 'online' ? 'text-[#13493B]' : 'text-rose-800'
+                }`}
+              >
+                Last Response:
+              </span>
               <span className="font-mono font-black text-[#07221A] truncate">
                 {formattedDate}, {formattedTime}
               </span>
             </div>
             <div className="flex items-center gap-1 shrink-0 ml-1.5">
-              <span className="text-[9px] font-extrabold text-emerald-800 bg-white/90 px-1.5 py-0.5 rounded-md border border-emerald-200 tabular-nums">
+              <span
+                className={`text-[9px] font-extrabold bg-white/90 px-1.5 py-0.5 rounded-md border tabular-nums ${
+                  realtimeStatus === 'online'
+                    ? 'text-emerald-800 border-emerald-200'
+                    : 'text-rose-700 border-rose-200'
+                }`}
+              >
                 {relativeStr}
               </span>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+              <span
+                className={`w-1.5 h-1.5 rounded-full shrink-0 ${
+                  realtimeStatus === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                }`}
+              />
             </div>
           </div>
         </div>

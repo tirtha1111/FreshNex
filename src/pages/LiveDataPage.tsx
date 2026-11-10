@@ -44,6 +44,7 @@ import { calculatePH } from '../utils/phCalculator';
 import { formatRealtimeDateTime, extractLatestTimestamp } from '../utils/dateUtils';
 import { resolveFactualProduct } from '../data/initialData';
 import { generateAndDownloadProductPDF } from '../utils/pdfReportGenerator';
+import { socketTelemetryService } from '../services/socketService';
 
 export const LiveDataPage: React.FC = () => {
   const { userProfile } = useAuth();
@@ -124,13 +125,30 @@ export const LiveDataPage: React.FC = () => {
     { category: factualProduct.category, gas: liveGas }
   );
 
+  const [lastResponseTs, setLastResponseTs] = useState<number>(() =>
+    socketTelemetryService.getLastResponseTimestamp(factualProduct.id)
+  );
+
+  useEffect(() => {
+    setLastResponseTs(socketTelemetryService.getLastResponseTimestamp(factualProduct.id));
+    const unsub = socketTelemetryService.subscribeStatus(factualProduct.id, (_status, meta) => {
+      const nextTs = meta?.lastResponseAt || meta?.lastDataAt;
+      if (nextTs) {
+        setLastResponseTs(nextTs);
+      }
+    });
+    return () => unsub();
+  }, [factualProduct.id]);
+
   const lastResponseFormatted = useMemo(() => {
-    const raw = Math.max(
-      extractLatestTimestamp(targetDev, 0),
-      extractLatestTimestamp(sensorData, 0)
-    ) || Date.now();
+    const raw =
+      lastResponseTs ||
+      socketTelemetryService.getLastResponseTimestamp(factualProduct.id) ||
+      extractLatestTimestamp(targetDev, 0) ||
+      extractLatestTimestamp(sensorData, 0) ||
+      Date.now();
     return formatRealtimeDateTime(raw).fullStr;
-  }, [targetDev, sensorData]);
+  }, [lastResponseTs, factualProduct.id, targetDev, sensorData]);
 
   const chartData: HistoricalReadingPoint[] = [
     { time: '09:00', timestamp: 1, temperature: Number((liveTemp - 0.3).toFixed(1)), humidity: Math.round(liveHumidity - 2), gas: Math.max(20, liveGas - 8), moisture: calculateMoisture(liveTemp - 0.3, liveHumidity - 2).absoluteMoisture, ph: calculatePH(liveTemp - 0.3, liveHumidity - 2, calculateMoisture(liveTemp - 0.3, liveHumidity - 2).absoluteMoisture).ph, impact: 0.05, light: Math.max(5, liveLight - 2) },

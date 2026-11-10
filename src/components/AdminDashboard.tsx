@@ -16,11 +16,18 @@ import {
 } from 'lucide-react';
 import { calculateMoisture } from '../utils/moistureCalculator';
 import { calculatePH } from '../utils/phCalculator';
-import { formatRealtimeDateTime, parseTimestamp, extractLatestTimestamp } from '../utils/dateUtils';
+import { formatRealtimeDateTime } from '../utils/dateUtils';
+import { socketTelemetryService } from '../services/socketService';
 
 export const AdminDashboard: React.FC = () => {
   const { devicesMap, allUsersList, alertsList } = useApp();
   const navigate = useNavigate();
+  const [, setTick] = React.useState(0);
+
+  React.useEffect(() => {
+    const ticker = setInterval(() => setTick((t) => t + 1), 1000);
+    return () => clearInterval(ticker);
+  }, []);
 
   const devicesArray: DeviceData[] = Object.values(devicesMap);
   const totalDevices = devicesArray.length;
@@ -146,7 +153,8 @@ export const AdminDashboard: React.FC = () => {
                   category: dev.product,
                   gas: dev.mq135_raw,
                 });
-                const devTimestamp = extractLatestTimestamp(dev);
+                const devTimestamp = socketTelemetryService.getLastResponseTimestamp(dev.device_id);
+                const isOnline = socketTelemetryService.getLatestStatus(dev.device_id) === 'online';
                 const { dateStr, timeStr } = formatRealtimeDateTime(devTimestamp);
 
                 return (
@@ -180,9 +188,9 @@ export const AdminDashboard: React.FC = () => {
                     </td>
                     <td className="py-3 px-3">
                       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black ${
-                        dev.online ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-[#1C1410] text-[#8C7A70] border border-[#FF6A00]/20'
+                        isOnline ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-[#1C1410] text-[#8C7A70] border border-[#FF6A00]/20'
                       }`}>
-                        {dev.online ? 'ONLINE' : 'OFFLINE'}
+                        {isOnline ? 'ONLINE' : 'OFFLINE'}
                       </span>
                     </td>
                     <td className="py-3 px-3 text-right">

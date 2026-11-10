@@ -256,10 +256,11 @@ export const AdminDevices: React.FC = () => {
       } else {
         setRemainingSec(status === 'online' ? 30 : 0);
       }
-      if (meta?.lastDataAt) {
+      const nextTs = meta?.lastResponseAt || meta?.lastDataAt;
+      if (nextTs) {
         setLiveSensor((prev) => ({
           ...prev,
-          timestamp: meta.lastDataAt
+          timestamp: nextTs
         }));
       }
     });
@@ -280,6 +281,10 @@ export const AdminDevices: React.FC = () => {
           (dev.gpsLat !== undefined && dev.gpsLat !== prev.gpsLat) ||
           (dev.gpsLng !== undefined && dev.gpsLng !== prev.gpsLng);
 
+        if (hasChanged) {
+          socketTelemetryService.reportFrontendDataReceived(activeDeviceId, dev);
+        }
+
         return {
           temperature: dev.temperature ?? prev.temperature ?? 4.2,
           humidity: dev.humidity ?? prev.humidity ?? 62.0,
@@ -289,7 +294,7 @@ export const AdminDevices: React.FC = () => {
           gpsLat: dev.gpsLat ?? prev.gpsLat ?? 22.5726,
           gpsLng: dev.gpsLng ?? prev.gpsLng ?? 88.3639,
           gpsSats: dev.gpsSats ?? prev.gpsSats ?? 8,
-          timestamp: hasChanged ? Date.now() : prev.timestamp
+          timestamp: socketTelemetryService.getLastResponseTimestamp(activeDeviceId)
         };
       });
     }
@@ -315,6 +320,10 @@ export const AdminDevices: React.FC = () => {
             nextLat !== prev.gpsLat ||
             nextLng !== prev.gpsLng;
 
+          if (changed) {
+            socketTelemetryService.reportFrontendDataReceived(activeDeviceId, data);
+          }
+
           return {
             temperature: nextTemp,
             humidity: nextHum,
@@ -324,7 +333,7 @@ export const AdminDevices: React.FC = () => {
             gpsLat: nextLat,
             gpsLng: nextLng,
             gpsSats: nextSats,
-            timestamp: changed ? Date.now() : prev.timestamp
+            timestamp: socketTelemetryService.getLastResponseTimestamp(activeDeviceId)
           };
         });
       }
@@ -333,15 +342,15 @@ export const AdminDevices: React.FC = () => {
     const handleWebsiteUpdate = (e: Event) => {
       const detail = (e as CustomEvent)?.detail;
       const now = detail?.timestamp || Date.now();
-      setLiveSensor((prev) => ({
-        ...prev,
-        timestamp: now
-      }));
       socketTelemetryService.reportFrontendDataReceived(
         activeDeviceId,
         { ...(dev || {}), timestamp: now },
         true
       );
+      setLiveSensor((prev) => ({
+        ...prev,
+        timestamp: socketTelemetryService.getLastResponseTimestamp(activeDeviceId)
+      }));
     };
 
     window.addEventListener('freshnex_device_updated', handleWebsiteUpdate);
@@ -396,10 +405,10 @@ export const AdminDevices: React.FC = () => {
       })
     : null;
 
-  const rawResponseTimestamp = Math.max(
-    liveSensor.timestamp || 0,
-    extractLatestTimestamp(activeDevice, 0)
-  ) || Date.now();
+  const rawResponseTimestamp =
+    (activeDeviceId ? socketTelemetryService.getLastResponseTimestamp(activeDeviceId) : 0) ||
+    liveSensor.timestamp ||
+    Date.now();
   const {
     dateStr: formattedResponseDate,
     timeStr: formattedResponseTime,
