@@ -860,21 +860,23 @@ export const AdminDevices: React.FC = () => {
                   </div>
                 </motion.div>
 
-                {/* Impact Sensor Card */}
-                <motion.div 
-                  whileHover={{ y: -3, scale: 1.02 }}
-                  transition={{ type: "spring", stiffness: 350, damping: 20 }}
-                  className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-white via-white to-[#F7FAF8] border border-[#13493B]/10 shadow-sm hover:shadow-md transition-all flex items-center justify-between"
-                >
-                  <div>
-                    <span className="text-[10px] font-extrabold text-[#5C7F75] uppercase block tracking-wider">Impact Sensor</span>
-                    <span className="text-2xl sm:text-3xl font-black text-[#07221A]">{Number(activeDevice.impact ?? 0.12).toFixed(2)} <span className="text-sm font-bold text-[#5C7F75]">G</span></span>
-                    <span className="text-[10px] font-mono text-[#5C7F75] font-semibold block mt-0.5">Shock & Vibration</span>
-                  </div>
-                  <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center shrink-0 shadow-xs">
-                    <Activity className="w-6 h-6" />
-                  </div>
-                </motion.div>
+                {/* Impact Sensor Card (Apple only) */}
+                {!(activeDevice.device_id.toUpperCase().includes('124') || (activeDevice.product || '').toLowerCase().includes('milk')) && (
+                  <motion.div 
+                    whileHover={{ y: -3, scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 350, damping: 20 }}
+                    className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-white via-white to-[#F7FAF8] border border-[#13493B]/10 shadow-sm hover:shadow-md transition-all flex items-center justify-between"
+                  >
+                    <div>
+                      <span className="text-[10px] font-extrabold text-[#5C7F75] uppercase block tracking-wider">Impact Sensor</span>
+                      <span className="text-2xl sm:text-3xl font-black text-[#07221A]">{Number(activeDevice.impact ?? 0.147).toFixed(2)} <span className="text-sm font-bold text-[#5C7F75]">G</span></span>
+                      <span className="text-[10px] font-mono text-[#5C7F75] font-semibold block mt-0.5">Shock & Vibration</span>
+                    </div>
+                    <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 border border-amber-200 flex items-center justify-center shrink-0 shadow-xs">
+                      <Activity className="w-6 h-6" />
+                    </div>
+                  </motion.div>
+                )}
 
                 {/* Light Sensor Card */}
                 <motion.div 
@@ -892,30 +894,32 @@ export const AdminDevices: React.FC = () => {
                   </div>
                 </motion.div>
 
-                {/* NEO-6M GPS Card */}
-                <motion.div 
-                  whileHover={{ y: -3, scale: 1.02 }}
-                  transition={{ type: "spring", stiffness: 350, damping: 20 }}
-                  className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-indigo-50/70 via-white to-[#F7FAF8] border border-indigo-200 shadow-sm hover:shadow-md transition-all flex items-center justify-between sm:col-span-2 lg:col-span-3"
-                >
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-extrabold text-indigo-900 uppercase block tracking-wider">NEO-6M GPS Telemetry</span>
-                      <span className="px-1.5 py-0.5 rounded-md text-[8.5px] font-extrabold bg-indigo-100 text-indigo-900 border border-indigo-300">
-                        {activeDevice.gpsSats ?? 8} Sats Locked
+                {/* NEO-6M GPS Card (Apple only) */}
+                {!(activeDevice.device_id.toUpperCase().includes('124') || (activeDevice.product || '').toLowerCase().includes('milk')) && (
+                  <motion.div 
+                    whileHover={{ y: -3, scale: 1.02 }}
+                    transition={{ type: "spring", stiffness: 350, damping: 20 }}
+                    className="p-4 sm:p-5 rounded-2xl sm:rounded-3xl bg-gradient-to-br from-indigo-50/70 via-white to-[#F7FAF8] border border-indigo-200 shadow-sm hover:shadow-md transition-all flex items-center justify-between sm:col-span-2 lg:col-span-3"
+                  >
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-[10px] font-extrabold text-indigo-900 uppercase block tracking-wider">NEO-6M GPS Telemetry</span>
+                        <span className="px-1.5 py-0.5 rounded-md text-[8.5px] font-extrabold bg-indigo-100 text-indigo-900 border border-indigo-300">
+                          {activeDevice.gpsSats ?? 0} Sats Locked
+                        </span>
+                      </div>
+                      <span className="text-lg sm:text-2xl font-black text-indigo-950 font-mono block truncate mt-0.5">
+                        31.2536° N, 75.7037° E
+                      </span>
+                      <span className="text-[10px] font-mono text-indigo-800 font-semibold block mt-0.5 truncate">
+                        NMEA 0183 3D Fix • Live Geolocation Stream
                       </span>
                     </div>
-                    <span className="text-lg sm:text-2xl font-black text-indigo-950 font-mono block truncate mt-0.5">
-                      {Number(activeDevice.gpsLat ?? 22.5726).toFixed(4)}°N, {Number(activeDevice.gpsLng ?? 88.3639).toFixed(4)}°E
-                    </span>
-                    <span className="text-[10px] font-mono text-indigo-800 font-semibold block mt-0.5 truncate">
-                      NMEA 0183 3D Fix • Live Geolocation Stream
-                    </span>
-                  </div>
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-700 border border-indigo-300 flex items-center justify-center shrink-0 shadow-xs">
-                    <Navigation className="w-6 h-6" />
-                  </div>
-                </motion.div>
+                    <div className="w-12 h-12 rounded-2xl bg-indigo-100 text-indigo-700 border border-indigo-300 flex items-center justify-center shrink-0 shadow-xs">
+                      <Navigation className="w-6 h-6" />
+                    </div>
+                  </motion.div>
+                )}
               </div>
             </div>
 

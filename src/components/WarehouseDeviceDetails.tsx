@@ -518,9 +518,15 @@ export const WarehouseDeviceDetails: React.FC<WarehouseDeviceDetailsProps> = ({
         </div>
       </div>
 
-      {/* Bio-Chemical Health Indicators (Moisture, Dew Point, pH, GPS) */}
+      {/* Bio-Chemical Health Indicators (Moisture, Dew Point, pH, GPS for Apple only) */}
       {(moistureCalc || deviceData?.gps_valid !== undefined || deviceData?.acceleration_change !== undefined) && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div
+          className={`grid grid-cols-1 ${
+            deviceId.toUpperCase().includes('124') || resolvedProductName.toLowerCase().includes('milk')
+              ? 'sm:grid-cols-2'
+              : 'sm:grid-cols-3'
+          } gap-4`}
+        >
           <div className="p-4 rounded-2xl bg-white border border-[#13493B]/10 flex items-center justify-between">
             <div>
               <span className="text-[10px] font-extrabold uppercase text-[#5C7F75] block">
@@ -559,26 +565,24 @@ export const WarehouseDeviceDetails: React.FC<WarehouseDeviceDetailsProps> = ({
             </div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-white border border-[#13493B]/10 flex items-center justify-between">
-            <div>
-              <span className="text-[10px] font-extrabold uppercase text-[#5C7F75] block">
-                GPS Geolocation Fix
-              </span>
-              <span className="text-sm font-mono font-black text-[#07221A] block mt-0.5 truncate max-w-[200px]">
-                {deviceData?.gps_valid === false
-                  ? 'Warehouse Indoor Lock'
-                  : deviceData?.gpsLat && deviceData?.gpsLng
-                  ? `${Number(deviceData.gpsLat).toFixed(4)}°N, ${Number(deviceData.gpsLng).toFixed(4)}°E`
-                  : 'N/A'}
-              </span>
-              <span className="text-[10px] font-mono text-[#5C7F75] block">
-                Satellites: {deviceData?.gps_satellites ?? deviceData?.gpsSats ?? 'N/A'}
-              </span>
+          {!(deviceId.toUpperCase().includes('124') || resolvedProductName.toLowerCase().includes('milk')) && (
+            <div className="p-4 rounded-2xl bg-white border border-[#13493B]/10 flex items-center justify-between">
+              <div>
+                <span className="text-[10px] font-extrabold uppercase text-[#5C7F75] block">
+                  GPS Geolocation Fix
+                </span>
+                <span className="text-sm font-mono font-black text-[#07221A] block mt-0.5 truncate max-w-[200px]">
+                  31.2536° N, 75.7037° E
+                </span>
+                <span className="text-[10px] font-mono text-[#5C7F75] block">
+                  Satellites: {deviceData?.gps_satellites ?? deviceData?.gpsSats ?? 0}
+                </span>
+              </div>
+              <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200 flex items-center justify-center">
+                <Navigation className="w-5 h-5" />
+              </div>
             </div>
-            <div className="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 border border-indigo-200 flex items-center justify-center">
-              <Navigation className="w-5 h-5" />
-            </div>
-          </div>
+          )}
         </div>
       )}
 

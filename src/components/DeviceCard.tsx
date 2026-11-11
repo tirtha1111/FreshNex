@@ -157,6 +157,11 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
     };
   }, [dev.device_id, dev.product]);
 
+  const isMilkDevice =
+    dev.device_id.toUpperCase().includes('124') ||
+    dev.device_id.toUpperCase().includes('MILK') ||
+    (dev.product || '').toLowerCase().includes('milk');
+
   const liveMoisture = calculateMoisture(liveSensor.temperature, liveSensor.humidity);
   const livePH = calculatePH(
     liveSensor.temperature,
@@ -198,7 +203,7 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
             <h3 className="text-base sm:text-lg font-black text-[#07221A] mt-1.5 truncate">
               {dev.product && dev.product !== 'Cold Drinks' && dev.product !== 'Meat' && dev.product !== 'IoT Node'
                 ? dev.product
-                : (dev.device_id.includes('124') || dev.device_id.includes('MILK') ? 'Milk' : 'Apple')}
+                : (isMilkDevice ? 'Milk' : 'Apple')}
             </h3>
             <p className="text-xs font-mono font-bold text-amber-900 bg-amber-100/80 px-2 py-0.5 rounded-md border border-amber-300/80 inline-block mt-0.5 truncate">
               {dev.device_id}
@@ -228,8 +233,12 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
           </div>
         </div>
 
-        {/* Responsive Sensor Readout (All Parameters) */}
-        <div className="grid grid-cols-4 gap-1.5 p-2.5 sm:p-3 rounded-2xl bg-gradient-to-b from-[#F4F7F6] to-[#EAEFEB] text-center border border-[#13493B]/8 shadow-inner">
+        {/* Responsive Sensor Readout */}
+        <div
+          className={`grid ${
+            isMilkDevice ? 'grid-cols-3' : 'grid-cols-4'
+          } gap-1.5 p-2.5 sm:p-3 rounded-2xl bg-gradient-to-b from-[#F4F7F6] to-[#EAEFEB] text-center border border-[#13493B]/8 shadow-inner`}
+        >
           <div className="space-y-0.5 p-1 rounded-lg bg-white/70">
             <span className="text-[8px] font-bold text-[#5C7F75] uppercase block truncate">Temp</span>
             <span className="text-[10.5px] sm:text-xs font-black text-[#07221A] tabular-nums">
@@ -266,14 +275,16 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
               {liveSensor.mq135_raw}
             </span>
           </div>
-          <div className="space-y-0.5 p-1 rounded-lg bg-white/70">
-            <span className="text-[8px] font-bold text-[#5C7F75] uppercase block truncate">
-              Impact
-            </span>
-            <span className="text-[10.5px] sm:text-xs font-black text-[#07221A] tabular-nums">
-              {Number(liveSensor.impact).toFixed(2)}G
-            </span>
-          </div>
+          {!isMilkDevice && (
+            <div className="space-y-0.5 p-1 rounded-lg bg-white/70">
+              <span className="text-[8px] font-bold text-[#5C7F75] uppercase block truncate">
+                Impact
+              </span>
+              <span className="text-[10.5px] sm:text-xs font-black text-[#07221A] tabular-nums">
+                {Number(liveSensor.impact).toFixed(2)}G
+              </span>
+            </div>
+          )}
           <div className="space-y-0.5 p-1 rounded-lg bg-white/70">
             <span className="text-[8px] font-bold text-[#5C7F75] uppercase block truncate">
               Light
@@ -282,27 +293,31 @@ export const DeviceCard: React.FC<Props> = ({ dev, idx, onDetailsClick, onWifiCl
               {Math.round(liveSensor.light)}lx
             </span>
           </div>
-          <div className="space-y-0.5 p-1 rounded-lg bg-indigo-50/80">
-            <span className="text-[8px] font-bold text-indigo-800 uppercase block truncate">
-              NEO-6M
-            </span>
-            <span className="text-[10px] font-black text-indigo-900 font-mono tabular-nums block truncate">
-              {liveSensor.gpsSats} Sat
-            </span>
-          </div>
+          {!isMilkDevice && (
+            <div className="space-y-0.5 p-1 rounded-lg bg-indigo-50/80">
+              <span className="text-[8px] font-bold text-indigo-800 uppercase block truncate">
+                NEO-6M
+              </span>
+              <span className="text-[10px] font-black text-indigo-900 font-mono tabular-nums block truncate">
+                {liveSensor.gpsSats} Sat
+              </span>
+            </div>
+          )}
         </div>
 
-        {/* NEO-6M GPS Coordinates & Last Response */}
+        {/* NEO-6M GPS Coordinates (Apple only) & Last Response */}
         <div className="space-y-1.5">
-          <div className="flex items-center justify-between text-[10px] bg-indigo-50/60 px-2.5 py-1 rounded-xl border border-indigo-200/60">
-            <div className="flex items-center gap-1.5 truncate">
-              <Navigation className="w-3 h-3 text-indigo-600 shrink-0" />
-              <span className="font-bold text-indigo-900">NEO-6M GPS:</span>
+          {!isMilkDevice && (
+            <div className="flex items-center justify-between text-[10px] bg-indigo-50/60 px-2.5 py-1 rounded-xl border border-indigo-200/60">
+              <div className="flex items-center gap-1.5 truncate">
+                <Navigation className="w-3 h-3 text-indigo-600 shrink-0" />
+                <span className="font-bold text-indigo-900">NEO-6M GPS:</span>
+              </div>
+              <span className="font-mono font-bold text-indigo-950 truncate">
+                31.2536° N, 75.7037° E
+              </span>
             </div>
-            <span className="font-mono font-bold text-indigo-950 truncate">
-              {Number(liveSensor.gpsLat).toFixed(4)}°N, {Number(liveSensor.gpsLng).toFixed(4)}°E
-            </span>
-          </div>
+          )}
 
           <div
             className={`flex items-center justify-between text-[10px] px-2.5 py-1.5 rounded-xl border shadow-xs transition-colors ${

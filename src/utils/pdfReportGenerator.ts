@@ -115,13 +115,24 @@ export function generateAndDownloadProductPDF(data: FullProductReportData): void
   doc.setFont('helvetica', 'normal');
   doc.text(data.batchNumber, col2X + 34, y + 14);
 
+  const isMilk =
+    data.deviceId.toUpperCase().includes('124') ||
+    data.productName.toLowerCase().includes('milk');
+
   // Row 3
   doc.setTextColor(92, 127, 117);
   doc.setFont('helvetica', 'bold');
-  doc.text('GPS Coordinates:', col1X, y + 21);
-  doc.setTextColor(7, 34, 26);
-  doc.setFont('helvetica', 'normal');
-  doc.text(`${data.gpsLat.toFixed(4)}°N, ${data.gpsLng.toFixed(4)}°E (${data.gpsSats} Sats)`, col1X + 32, y + 21);
+  if (isMilk) {
+    doc.text('Origin Location:', col1X, y + 21);
+    doc.setTextColor(7, 34, 26);
+    doc.setFont('helvetica', 'normal');
+    doc.text(data.originLocation, col1X + 32, y + 21);
+  } else {
+    doc.text('GPS Coordinates:', col1X, y + 21);
+    doc.setTextColor(7, 34, 26);
+    doc.setFont('helvetica', 'normal');
+    doc.text(`31.2536° N, 75.7037° E (${data.gpsSats} Sats)`, col1X + 32, y + 21);
+  }
 
   doc.setTextColor(92, 127, 117);
   doc.setFont('helvetica', 'bold');
@@ -211,25 +222,40 @@ export function generateAndDownloadProductPDF(data: FullProductReportData): void
 
   y += 54;
 
-  // 5. SECTION 4: COMPLETE 8-CHANNEL SENSOR TELEMETRY READINGS
+  // 5. SECTION 4: COMPLETE SENSOR TELEMETRY READINGS
   doc.setFillColor(235, 251, 244);
   doc.roundedRect(margin, y, contentWidth, 8, 1.5, 1.5, 'F');
   doc.setTextColor(7, 34, 26);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
-  doc.text('4. COMPLETE 8-CHANNEL IOT SENSOR TELEMETRY DATA', margin + 4, y + 5.5);
+  doc.text(
+    isMilk
+      ? '4. COMPLETE 6-CHANNEL IOT SENSOR TELEMETRY DATA'
+      : '4. COMPLETE 8-CHANNEL IOT SENSOR TELEMETRY DATA',
+    margin + 4,
+    y + 5.5
+  );
   y += 11;
 
-  const sensorRows: Array<[string, string, string]> = [
-    ['1. Ambient Temperature', `${data.temperature} °C`, data.temperature <= 6 ? 'Optimal Cold-Chain' : 'Elevated Thermal'],
-    ['2. Relative Humidity', `${data.humidity} %`, 'Regulated Moisture'],
-    ['3. Calculated Moisture & Dew Point', `${data.moisture} g/m³ (Dew: ${data.dewPoint} °C)`, 'Psychrometric Balance'],
-    ['4. Calculated Acidity (pH)', `pH ${data.ph}`, data.acidityClass],
-    ['5. MQ-135 Air Quality / VOC Gas', `${data.gas} ${data.gas > 500 ? 'ADC' : 'ppm'}`, data.gas < 250 ? 'Safe Atmosphere' : 'VOC Warning'],
-    ['6. Mechanical Impact Sensor', `${data.impact.toFixed(2)} G`, data.impact <= 1.5 ? 'No Physical Shock' : 'Shock Detected'],
-    ['7. Ambient Light Exposure', `${data.light} lx`, data.light <= 50 ? 'Dark Sealed Storage' : 'Light Exposed'],
-    ['8. NEO-6M GPS Satellite Lock', `${data.gpsLat.toFixed(4)}°N, ${data.gpsLng.toFixed(4)}°E`, `${data.gpsSats} Satellites Locked`]
-  ];
+  const sensorRows: Array<[string, string, string]> = isMilk
+    ? [
+        ['1. Ambient Temperature', `${data.temperature} °C`, data.temperature <= 6 ? 'Optimal Cold-Chain' : 'Elevated Thermal'],
+        ['2. Relative Humidity', `${data.humidity} %`, 'Regulated Moisture'],
+        ['3. Calculated Moisture & Dew Point', `${data.moisture} g/m³ (Dew: ${data.dewPoint} °C)`, 'Psychrometric Balance'],
+        ['4. Calculated Acidity (pH)', `pH ${data.ph}`, data.acidityClass],
+        ['5. MQ-135 Air Quality / VOC Gas', `${data.gas} ${data.gas > 500 ? 'ADC' : 'ppm'}`, data.gas < 250 ? 'Safe Atmosphere' : 'VOC Warning'],
+        ['6. Ambient Light Exposure', `${data.light} lx`, data.light <= 50 ? 'Dark Sealed Storage' : 'Light Exposed']
+      ]
+    : [
+        ['1. Ambient Temperature', `${data.temperature} °C`, data.temperature <= 6 ? 'Optimal Cold-Chain' : 'Elevated Thermal'],
+        ['2. Relative Humidity', `${data.humidity} %`, 'Regulated Moisture'],
+        ['3. Calculated Moisture & Dew Point', `${data.moisture} g/m³ (Dew: ${data.dewPoint} °C)`, 'Psychrometric Balance'],
+        ['4. Calculated Acidity (pH)', `pH ${data.ph}`, data.acidityClass],
+        ['5. MQ-135 Air Quality / VOC Gas', `${data.gas} ${data.gas > 500 ? 'ADC' : 'ppm'}`, data.gas < 250 ? 'Safe Atmosphere' : 'VOC Warning'],
+        ['6. Mechanical Impact Sensor', `${data.impact.toFixed(2)} G`, data.impact <= 1.5 ? 'No Physical Shock' : 'Shock Detected'],
+        ['7. Ambient Light Exposure', `${data.light} lx`, data.light <= 50 ? 'Dark Sealed Storage' : 'Light Exposed'],
+        ['8. NEO-6M GPS Satellite Lock', `31.2536° N, 75.7037° E`, `${data.gpsSats} Satellites Locked`]
+      ];
 
   const rowHeight = 7.5;
   // Table Header

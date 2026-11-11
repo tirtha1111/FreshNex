@@ -319,8 +319,8 @@ export function parseFullSensorPayload(
   const defaultGas = isMeat ? 980 : isMilkDevice ? 47 : 79;
   const defaultImpact = isMeat ? 0.15 : isMilkDevice ? 0 : 0.147;
   const defaultLight = isMeat ? 12 : isMilkDevice ? 33.3 : 12.5;
-  const defaultLat = 22.5726;
-  const defaultLng = 88.3639;
+  const defaultLat = isMilkDevice ? 0 : 31.2536;
+  const defaultLng = isMilkDevice ? 0 : 75.7037;
   const defaultSats = target.gps_satellites !== undefined ? Number(target.gps_satellites) : 0;
 
   // Prefer hardware-native RTDB fields (temperature_c, humidity_percent) first
@@ -370,30 +370,43 @@ export function parseFullSensorPayload(
       target.illuminance ??
       defaultLight
   );
-  const gpsLatRaw = Number(
+  const rawLatCandidate =
     target.gpsLat ??
-      target.gps_lat ??
-      target.lat ??
-      target.latitude ??
-      target.gps?.lat ??
-      target.gps?.latitude ??
-      target.neo6m?.lat ??
-      target.neo6m?.latitude ??
-      defaultLat
-  );
-  const gpsLngRaw = Number(
+    target.gps_lat ??
+    target.lat ??
+    target.latitude ??
+    target.gps?.lat ??
+    target.gps?.latitude ??
+    target.neo6m?.lat ??
+    target.neo6m?.latitude;
+  const rawLngCandidate =
     target.gpsLng ??
-      target.gps_lng ??
-      target.lng ??
-      target.lon ??
-      target.longitude ??
-      target.gps?.lng ??
-      target.gps?.lon ??
-      target.gps?.longitude ??
-      target.neo6m?.lng ??
-      target.neo6m?.lon ??
-      defaultLng
-  );
+    target.gps_lng ??
+    target.lng ??
+    target.lon ??
+    target.longitude ??
+    target.gps?.lng ??
+    target.gps?.lon ??
+    target.gps?.longitude ??
+    target.neo6m?.lng ??
+    target.neo6m?.lon;
+
+  const gpsLatRaw =
+    !isMilkDevice &&
+    (rawLatCandidate === undefined ||
+      Number(rawLatCandidate) === 0 ||
+      Number(rawLatCandidate) === 22.5726 ||
+      Number(rawLatCandidate) === 28.6139)
+      ? 31.2536
+      : Number(rawLatCandidate ?? defaultLat);
+  const gpsLngRaw =
+    !isMilkDevice &&
+    (rawLngCandidate === undefined ||
+      Number(rawLngCandidate) === 0 ||
+      Number(rawLngCandidate) === 88.3639 ||
+      Number(rawLngCandidate) === 77.209)
+      ? 75.7037
+      : Number(rawLngCandidate ?? defaultLng);
   const gpsSatsRaw = Number(
     target.gps_satellites ??
       target.gpsSats ??

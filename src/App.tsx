@@ -196,10 +196,41 @@ const AppRoutes: React.FC = () => {
 };
 
 export default function App() {
+  const [quotaExceeded, setQuotaExceeded] = React.useState(false);
+
+  React.useEffect(() => {
+    const handler = () => setQuotaExceeded(true);
+    window.addEventListener('gmp-quota-exceeded', handler);
+    return () => window.removeEventListener('gmp-quota-exceeded', handler);
+  }, []);
+
   return (
     <AuthProvider>
       <AppProvider>
         <FreshnessProvider>
+          {quotaExceeded && (
+            <div className="sticky top-0 z-50 flex items-center justify-between gap-4 bg-amber-50 border-b border-amber-300 px-4 py-2.5 text-sm text-amber-900">
+              <span>
+                The demo Google Maps API key has reached its shared quota limit. To restore maps,{' '}
+                <a
+                  href="https://developers.google.com/maps/ai/ai-studio?utm_campaign=gmp_mcp_codeassist_v1_aistudio#quota_exceeded_errors"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium underline hover:text-amber-700"
+                >
+                  create your own API key
+                </a>{' '}
+                and set <code className="rounded bg-amber-100 px-1 py-0.5 text-xs">VITE_GOOGLE_MAPS_API_KEY</code> in your app settings.
+              </span>
+              <button
+                onClick={() => setQuotaExceeded(false)}
+                className="shrink-0 text-amber-600 hover:text-amber-800"
+                aria-label="Dismiss"
+              >
+                ✕
+              </button>
+            </div>
+          )}
           <BrowserRouter>
             {/* Active on Login screen and across the application */}
             <WarehouseRFIDListener />
@@ -210,3 +241,4 @@ export default function App() {
     </AuthProvider>
   );
 }
+

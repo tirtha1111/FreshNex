@@ -110,13 +110,20 @@ export const DashboardPage: React.FC = () => {
     );
   }, [assignedDeviceId, activeItem]);
 
+  const isMilkProduct = useMemo(() => {
+    return (
+      productInfo.id === 'YGS-FD-124' ||
+      productInfo.name.toLowerCase().includes('milk')
+    );
+  }, [productInfo]);
+
   // Live sensor values used for Freshness Level, Interactive Card, and Report
   const liveTelemetry = useMemo(() => {
     const baseTemp = Number(
       targetDev?.temperature_c ??
         targetDev?.temperature ??
         sensorData?.temperature ??
-        (productInfo.id === 'YGS-FD-124' ? 30.6 : 31.6)
+        (isMilkProduct ? 30.6 : 31.6)
     );
     const temperature = Number(baseTemp.toFixed(1));
     const humidity = Number(
@@ -124,20 +131,20 @@ export const DashboardPage: React.FC = () => {
         targetDev?.humidity_percent ??
           targetDev?.humidity ??
           sensorData?.humidity ??
-          (productInfo.id === 'YGS-FD-124' ? 72.2 : 71.2)
+          (isMilkProduct ? 72.2 : 71.2)
       ).toFixed(1)
     );
     const gas = Number(
       targetDev?.mq135_raw ??
         sensorData?.gas ??
-        (productInfo.id === 'YGS-FD-124' ? 47 : 79)
+        (isMilkProduct ? 47 : 79)
     );
     const impact = Number(
       Number(
         targetDev?.acceleration_change ??
           targetDev?.impact ??
           sensorData?.impact ??
-          (productInfo.id === 'YGS-FD-124' ? 0 : 0.147)
+          (isMilkProduct ? 0 : 0.147)
       ).toFixed(3)
     );
     const light = Number(
@@ -145,11 +152,11 @@ export const DashboardPage: React.FC = () => {
         targetDev?.light_lux ??
           targetDev?.light ??
           sensorData?.light ??
-          (productInfo.id === 'YGS-FD-124' ? 33.3 : 12.5)
+          (isMilkProduct ? 33.3 : 12.5)
       ).toFixed(1)
     );
-    const gpsLat = Number(targetDev?.gpsLat ?? sensorData?.gpsLat ?? 28.6139);
-    const gpsLng = Number(targetDev?.gpsLng ?? sensorData?.gpsLng ?? 77.2090);
+    const gpsLat = 31.2536;
+    const gpsLng = 75.7037;
     const gpsSats = Number(
       targetDev?.gps_satellites ??
         targetDev?.gpsSats ??
@@ -194,7 +201,7 @@ export const DashboardPage: React.FC = () => {
       ph: phObj.ph,
       acidityClass: phObj.acidityClassification
     };
-  }, [targetDev, sensorData, productInfo]);
+  }, [targetDev, sensorData, productInfo, isMilkProduct]);
 
   // Compute live freshness score & status
   const freshnessReport = useMemo(() => {
@@ -360,14 +367,19 @@ export const DashboardPage: React.FC = () => {
   const batchNumber = productInfo.id === 'YGS-FD-124' ? 'BATCH-MK-0124' : 'BATCH-AP-0001';
 
   const handleCopySummary = () => {
-    const summaryText = [
+    const lines = [
       `FreshNex Product Report — ${productInfo.name} (${productInfo.id})`,
       `Category: ${productInfo.category} | Batch: ${batchNumber}`,
       `Freshness Level: ${freshnessReport.score}% (${freshnessReport.status})`,
       `Fresora Shelf Life: ${prediction?.remainingDays ?? '--'} Days + ${prediction?.remainingHours ?? '--'} hrs (Est. Expiry: ${prediction?.estimatedExpiryDate ?? '--'})`,
-      `Telemetry: Temp ${liveTelemetry.temperature}°C | Humidity ${liveTelemetry.humidity}% | Moisture ${liveTelemetry.moisture} g/m³ | pH ${liveTelemetry.ph} | Gas ${liveTelemetry.gas} ppm`,
-      `GPS: ${liveTelemetry.gpsLat.toFixed(4)}°N, ${liveTelemetry.gpsLng.toFixed(4)}°E (${liveTelemetry.gpsSats} Sats)`
-    ].join('\n');
+      `Telemetry: Temp ${liveTelemetry.temperature}°C | Humidity ${liveTelemetry.humidity}% | Moisture ${liveTelemetry.moisture} g/m³ | pH ${liveTelemetry.ph} | Gas ${liveTelemetry.gas} ppm | Light ${liveTelemetry.light} lx${!isMilkProduct ? ` | Impact ${liveTelemetry.impact.toFixed(2)} G` : ''}`,
+    ];
+    if (!isMilkProduct) {
+      lines.push(
+        `GPS: ${liveTelemetry.gpsLat.toFixed(4)}° N, ${liveTelemetry.gpsLng.toFixed(4)}° E (${liveTelemetry.gpsSats} Sats)`
+      );
+    }
+    const summaryText = lines.join('\n');
 
     if (navigator.clipboard) {
       navigator.clipboard.writeText(summaryText);
@@ -499,7 +511,7 @@ export const DashboardPage: React.FC = () => {
             className="neo-btn-primary px-5 py-2.5 rounded-xl text-xs font-black flex items-center gap-2 cursor-pointer glow-emerald shadow-md active:scale-97 transition-transform"
           >
             <Activity className="w-4 h-4 text-[#20E79A]" />
-            <span>Open Live Reading &amp; Map</span>
+            <span>{isMilkProduct ? 'Open Live Reading' : 'Open Live Reading & Map'}</span>
             <ArrowRight className="w-3.5 h-3.5 text-[#20E79A]" />
           </button>
         </div>
@@ -905,24 +917,26 @@ export const DashboardPage: React.FC = () => {
                       </span>
                     </div>
 
-                    <div className="p-3 rounded-xl bg-[#F4F7F6]/70 border border-[#13493B]/10 sm:col-span-2 flex items-center justify-between">
-                      <div>
-                        <span className="text-[10px] font-bold uppercase text-[#5C7F75] block">
-                          NEO-6M GPS Coordinates
-                        </span>
-                        <span className="font-mono font-bold text-[#07221A]">
-                          {liveTelemetry.gpsLat.toFixed(4)}°N, {liveTelemetry.gpsLng.toFixed(4)}°E ({liveTelemetry.gpsSats} Satellites Locked)
-                        </span>
+                    {!isMilkProduct && (
+                      <div className="p-3 rounded-xl bg-[#F4F7F6]/70 border border-[#13493B]/10 sm:col-span-2 flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] font-bold uppercase text-[#5C7F75] block">
+                            NEO-6M GPS Coordinates
+                          </span>
+                          <span className="font-mono font-bold text-[#07221A]">
+                            {liveTelemetry.gpsLat.toFixed(4)}° N, {liveTelemetry.gpsLng.toFixed(4)}° E ({liveTelemetry.gpsSats} Satellites Locked)
+                          </span>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => navigate(`/live-data/${productInfo.id}`)}
+                          className="px-3 py-1.5 rounded-xl bg-[#07221A] text-[#20E79A] text-[10px] font-black cursor-pointer flex items-center gap-1"
+                        >
+                          <MapPin className="w-3 h-3" />
+                          <span>View Map</span>
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => navigate(`/live-data/${productInfo.id}`)}
-                        className="px-3 py-1.5 rounded-xl bg-[#07221A] text-[#20E79A] text-[10px] font-black cursor-pointer flex items-center gap-1"
-                      >
-                        <MapPin className="w-3 h-3" />
-                        <span>View Map</span>
-                      </button>
-                    </div>
+                    )}
                   </div>
                 </motion.div>
               )}
@@ -950,7 +964,7 @@ export const DashboardPage: React.FC = () => {
                 onClick={() => navigate(`/live-data/${productInfo.id}`)}
                 className="text-xs font-black text-[#13493B] hover:text-[#07221A] flex items-center gap-1.5 cursor-pointer group"
               >
-                <span>All Sensor Readings &amp; Map</span>
+                <span>{isMilkProduct ? 'All Sensor Readings' : 'All Sensor Readings & Map'}</span>
                 <ArrowRight className="w-3.5 h-3.5 text-[#20E79A] transition-transform group-hover:translate-x-1" />
               </button>
             </div>
@@ -1119,7 +1133,7 @@ export const DashboardPage: React.FC = () => {
                 Comprehensive Product, Sensor &amp; Shelf-Life Report
               </h2>
               <p className="text-xs text-[#5C7F75] font-semibold">
-                Consolidated report containing basic product metadata, live 8-sensor telemetry readings, and Fresora shelf-life intelligence.
+                Consolidated report containing basic product metadata, live {isMilkProduct ? '6-sensor' : '8-sensor'} telemetry readings, and Fresora shelf-life intelligence.
               </p>
             </div>
           </div>
@@ -1246,11 +1260,11 @@ export const DashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Complete 8-Channel Sensor Data Table included in PDF */}
+        {/* Complete Sensor Data Table included in PDF */}
         <div className="rounded-2xl border border-[#13493B]/10 overflow-hidden bg-white">
           <div className="px-4 py-2.5 bg-[#F4F7F6] border-b border-[#13493B]/10 flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-wider text-[#07221A]">
-              4. Complete 8-Channel Sensor Telemetry Data (Included in PDF Export)
+              4. Complete {isMilkProduct ? '6-Channel' : '8-Channel'} Sensor Telemetry Data (Included in PDF Export)
             </span>
             <div className="flex items-center gap-2">
               <span
@@ -1272,58 +1286,101 @@ export const DashboardPage: React.FC = () => {
               </span>
             </div>
           </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#13493B]/10 text-xs">
-            <div className="p-3 space-y-0.5">
-              <span className="text-[10px] text-[#5C7F75] font-bold block">1. Ambient Temp</span>
-              <span className="font-mono font-black text-[#07221A] text-sm">
-                {liveTelemetry.temperature} °C
-              </span>
+          {isMilkProduct ? (
+            <div className="grid grid-cols-2 sm:grid-cols-3 divide-y sm:divide-y-0 sm:divide-x divide-[#13493B]/10 text-xs">
+              <div className="p-3 space-y-0.5">
+                <span className="text-[10px] text-[#5C7F75] font-bold block">1. Ambient Temp</span>
+                <span className="font-mono font-black text-[#07221A] text-sm">
+                  {liveTelemetry.temperature} °C
+                </span>
+              </div>
+              <div className="p-3 space-y-0.5">
+                <span className="text-[10px] text-[#5C7F75] font-bold block">2. Relative Humidity</span>
+                <span className="font-mono font-black text-[#07221A] text-sm">
+                  {liveTelemetry.humidity} %
+                </span>
+              </div>
+              <div className="p-3 space-y-0.5">
+                <span className="text-[10px] text-[#5C7F75] font-bold block">3. Calc. Moisture</span>
+                <span className="font-mono font-black text-[#07221A] text-sm">
+                  {liveTelemetry.moisture} g/m³ (Dew {liveTelemetry.dewPoint}°C)
+                </span>
+              </div>
+              <div className="p-3 space-y-0.5 border-t border-[#13493B]/10">
+                <span className="text-[10px] text-[#5C7F75] font-bold block">4. Calculated pH</span>
+                <span className="font-mono font-black text-[#07221A] text-sm">
+                  pH {liveTelemetry.ph} ({liveTelemetry.acidityClass})
+                </span>
+              </div>
+              <div className="p-3 space-y-0.5 border-t border-[#13493B]/10">
+                <span className="text-[10px] text-[#5C7F75] font-bold block">5. MQ-135 VOC Gas</span>
+                <span className="font-mono font-black text-[#07221A] text-sm">
+                  {liveTelemetry.gas} ppm
+                </span>
+              </div>
+              <div className="p-3 space-y-0.5 border-t border-[#13493B]/10">
+                <span className="text-[10px] text-[#5C7F75] font-bold block">6. Light Exposure</span>
+                <span className="font-mono font-black text-[#07221A] text-sm">
+                  {liveTelemetry.light} lx
+                </span>
+              </div>
             </div>
-            <div className="p-3 space-y-0.5">
-              <span className="text-[10px] text-[#5C7F75] font-bold block">2. Relative Humidity</span>
-              <span className="font-mono font-black text-[#07221A] text-sm">
-                {liveTelemetry.humidity} %
-              </span>
-            </div>
-            <div className="p-3 space-y-0.5">
-              <span className="text-[10px] text-[#5C7F75] font-bold block">3. Calc. Moisture</span>
-              <span className="font-mono font-black text-[#07221A] text-sm">
-                {liveTelemetry.moisture} g/m³ (Dew {liveTelemetry.dewPoint}°C)
-              </span>
-            </div>
-            <div className="p-3 space-y-0.5">
-              <span className="text-[10px] text-[#5C7F75] font-bold block">4. Calculated pH</span>
-              <span className="font-mono font-black text-[#07221A] text-sm">
-                pH {liveTelemetry.ph} ({liveTelemetry.acidityClass})
-              </span>
-            </div>
-          </div>
-          <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#13493B]/10 border-t border-[#13493B]/10 text-xs">
-            <div className="p-3 space-y-0.5">
-              <span className="text-[10px] text-[#5C7F75] font-bold block">5. MQ-135 VOC Gas</span>
-              <span className="font-mono font-black text-[#07221A] text-sm">
-                {liveTelemetry.gas} ppm
-              </span>
-            </div>
-            <div className="p-3 space-y-0.5">
-              <span className="text-[10px] text-[#5C7F75] font-bold block">6. Impact Sensor</span>
-              <span className="font-mono font-black text-[#07221A] text-sm">
-                {liveTelemetry.impact.toFixed(2)} G
-              </span>
-            </div>
-            <div className="p-3 space-y-0.5">
-              <span className="text-[10px] text-[#5C7F75] font-bold block">7. Light Exposure</span>
-              <span className="font-mono font-black text-[#07221A] text-sm">
-                {liveTelemetry.light} lx
-              </span>
-            </div>
-            <div className="p-3 space-y-0.5">
-              <span className="text-[10px] text-[#5C7F75] font-bold block">8. NEO-6M GPS Lock</span>
-              <span className="font-mono font-black text-[#07221A] text-sm">
-                {liveTelemetry.gpsLat.toFixed(3)}°N, {liveTelemetry.gpsLng.toFixed(3)}°E ({liveTelemetry.gpsSats} Sats)
-              </span>
-            </div>
-          </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#13493B]/10 text-xs">
+                <div className="p-3 space-y-0.5">
+                  <span className="text-[10px] text-[#5C7F75] font-bold block">1. Ambient Temp</span>
+                  <span className="font-mono font-black text-[#07221A] text-sm">
+                    {liveTelemetry.temperature} °C
+                  </span>
+                </div>
+                <div className="p-3 space-y-0.5">
+                  <span className="text-[10px] text-[#5C7F75] font-bold block">2. Relative Humidity</span>
+                  <span className="font-mono font-black text-[#07221A] text-sm">
+                    {liveTelemetry.humidity} %
+                  </span>
+                </div>
+                <div className="p-3 space-y-0.5">
+                  <span className="text-[10px] text-[#5C7F75] font-bold block">3. Calc. Moisture</span>
+                  <span className="font-mono font-black text-[#07221A] text-sm">
+                    {liveTelemetry.moisture} g/m³ (Dew {liveTelemetry.dewPoint}°C)
+                  </span>
+                </div>
+                <div className="p-3 space-y-0.5">
+                  <span className="text-[10px] text-[#5C7F75] font-bold block">4. Calculated pH</span>
+                  <span className="font-mono font-black text-[#07221A] text-sm">
+                    pH {liveTelemetry.ph} ({liveTelemetry.acidityClass})
+                  </span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#13493B]/10 border-t border-[#13493B]/10 text-xs">
+                <div className="p-3 space-y-0.5">
+                  <span className="text-[10px] text-[#5C7F75] font-bold block">5. MQ-135 VOC Gas</span>
+                  <span className="font-mono font-black text-[#07221A] text-sm">
+                    {liveTelemetry.gas} ppm
+                  </span>
+                </div>
+                <div className="p-3 space-y-0.5">
+                  <span className="text-[10px] text-[#5C7F75] font-bold block">6. Impact Sensor</span>
+                  <span className="font-mono font-black text-[#07221A] text-sm">
+                    {liveTelemetry.impact.toFixed(2)} G
+                  </span>
+                </div>
+                <div className="p-3 space-y-0.5">
+                  <span className="text-[10px] text-[#5C7F75] font-bold block">7. Light Exposure</span>
+                  <span className="font-mono font-black text-[#07221A] text-sm">
+                    {liveTelemetry.light} lx
+                  </span>
+                </div>
+                <div className="p-3 space-y-0.5">
+                  <span className="text-[10px] text-[#5C7F75] font-bold block">8. NEO-6M GPS Lock</span>
+                  <span className="font-mono font-black text-[#07221A] text-sm">
+                    {liveTelemetry.gpsLat.toFixed(4)}° N, {liveTelemetry.gpsLng.toFixed(4)}° E ({liveTelemetry.gpsSats} Sats)
+                  </span>
+                </div>
+              </div>
+            </>
+          )}
         </div>
       </div>
     </motion.div>

@@ -101,12 +101,25 @@ export const LiveDataPage: React.FC = () => {
     );
   }, [resolvedDeviceId, activeItem]);
 
+  const isMilkProduct = useMemo(() => {
+    return (
+      factualProduct.id === 'YGS-FD-124' ||
+      factualProduct.name.toLowerCase().includes('milk')
+    );
+  }, [factualProduct]);
+
+  useEffect(() => {
+    if (isMilkProduct && activeMetricTab === 'impact') {
+      setActiveMetricTab('temp');
+    }
+  }, [isMilkProduct, activeMetricTab]);
+
   const liveTemp = Number(
     Number(
       targetDev?.temperature_c ??
         targetDev?.temperature ??
         sensorData?.temperature ??
-        (factualProduct.id === 'YGS-FD-124' ? 30.6 : 31.6)
+        (isMilkProduct ? 30.6 : 31.6)
     ).toFixed(1)
   );
   const liveHumidity = Number(
@@ -114,20 +127,20 @@ export const LiveDataPage: React.FC = () => {
       targetDev?.humidity_percent ??
         targetDev?.humidity ??
         sensorData?.humidity ??
-        (factualProduct.id === 'YGS-FD-124' ? 72.2 : 71.2)
+        (isMilkProduct ? 72.2 : 71.2)
     ).toFixed(1)
   );
   const liveGas = Number(
     targetDev?.mq135_raw ??
       sensorData?.gas ??
-      (factualProduct.id === 'YGS-FD-124' ? 47 : 79)
+      (isMilkProduct ? 47 : 79)
   );
   const liveImpact = Number(
     Number(
       targetDev?.acceleration_change ??
         targetDev?.impact ??
         sensorData?.impact ??
-        (factualProduct.id === 'YGS-FD-124' ? 0 : 0.147)
+        (isMilkProduct ? 0 : 0.147)
     ).toFixed(3)
   );
   const liveLight = Number(
@@ -135,11 +148,12 @@ export const LiveDataPage: React.FC = () => {
       targetDev?.light_lux ??
         targetDev?.light ??
         sensorData?.light ??
-        (factualProduct.id === 'YGS-FD-124' ? 33.3 : 12.5)
+        (isMilkProduct ? 33.3 : 12.5)
     ).toFixed(1)
   );
-  const liveGpsLat = Number(targetDev?.gpsLat ?? sensorData?.gpsLat ?? 28.6139);
-  const liveGpsLng = Number(targetDev?.gpsLng ?? sensorData?.gpsLng ?? 77.2090);
+  // Apple location strictly uses 31.2536° N, 75.7037° E
+  const liveGpsLat = 31.2536;
+  const liveGpsLng = 75.7037;
   const liveGpsSats = Number(
     targetDev?.gps_satellites ??
       targetDev?.gpsSats ??
@@ -150,7 +164,6 @@ export const LiveDataPage: React.FC = () => {
   const isTempBreached = liveTemp > thresholds.tempMax;
   const isGasBreached = liveGas > 500 ? liveGas > 1400 : liveGas > thresholds.gasWarning;
   const isHumidityBreached = liveHumidity > thresholds.humidityMax || liveHumidity < thresholds.humidityMin;
-  const hasActiveBreach = isTempBreached || isGasBreached || isHumidityBreached;
 
   const liveMoisture = calculateMoisture(liveTemp, liveHumidity);
 
@@ -221,7 +234,7 @@ export const LiveDataPage: React.FC = () => {
   };
 
   const handleExportData = () => {
-    const isMilk = factualProduct.id === 'YGS-FD-124';
+    const isMilk = isMilkProduct;
     const fallbackDays = isMilk ? 5 : 14;
     const expDate = new Date(Date.now() + fallbackDays * 86400000).toLocaleDateString('en-GB', {
       day: '2-digit',
@@ -271,7 +284,7 @@ export const LiveDataPage: React.FC = () => {
     category: factualProduct.category,
     tagId: factualProduct.tagId,
     image: factualProduct.image,
-    batchNumber: factualProduct.id === 'YGS-FD-124' ? 'MK-0124' : 'AP-0001'
+    batchNumber: isMilkProduct ? 'MK-0124' : 'AP-0001'
   };
 
   const metricConfig = {
@@ -285,8 +298,25 @@ export const LiveDataPage: React.FC = () => {
     gps: { name: 'NEO-6M GPS', unit: 'Sats', color: '#06B6D4', bg: '#CFFAFE' },
   };
 
-  // Small map bounding box around liveGpsLat, liveGpsLng
-  const mapEmbedUrl = `https://www.openstreetmap.org/export/embed.html?bbox=${(liveGpsLng - 0.012).toFixed(5)}%2C${(liveGpsLat - 0.008).toFixed(5)}%2C${(liveGpsLng + 0.012).toFixed(5)}%2C${(liveGpsLat + 0.008).toFixed(5)}&layer=mapnik&marker=${liveGpsLat.toFixed(5)}%2C${liveGpsLng.toFixed(5)}`;
+  // Google Maps Static API URL for APPLE (31.2536° N, 75.7037° E)
+  const googleStaticMapUrl = useMemo(() => {
+    const params = new URLSearchParams({
+      center: `${liveGpsLat.toFixed(4)},${liveGpsLng.toFixed(4)}`,
+      zoom: '14',
+      size: '640x400',
+      scale: '2',
+      maptype: 'roadmap',
+      markers: `color:0x10B981|label:A|${liveGpsLat.toFixed(4)},${liveGpsLng.toFixed(4)}`,
+      key: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
+      solution_id: 'gmp_mcp_codeassist_v1_aistudio',
+    });
+    return `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`;
+  }, [liveGpsLat, liveGpsLng]);
+
+  const availableMetricTabs = useMemo(() => {
+    const baseTabs = ['temp', 'humidity', 'moisture', 'ph', 'gas', 'impact', 'light'] as const;
+    return isMilkProduct ? baseTabs.filter((t) => t !== 'impact') : baseTabs;
+  }, [isMilkProduct]);
 
   return (
     <motion.div 
@@ -309,7 +339,9 @@ export const LiveDataPage: React.FC = () => {
           </motion.button>
           <div>
             <div className="flex items-center gap-2">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#5C7F75]">Live Sensor Reading &amp; GPS Telemetry</span>
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#5C7F75]">
+                {isMilkProduct ? 'Live Sensor Reading Telemetry' : 'Live Sensor Reading & GPS Telemetry'}
+              </span>
               <span
                 className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
                   isDeviceOnline
@@ -366,8 +398,12 @@ export const LiveDataPage: React.FC = () => {
         </div>
       </div>
 
-      {/* EIGHT LIVE SENSOR READING CARDS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 sm:gap-4">
+      {/* LIVE SENSOR READING CARDS */}
+      <div
+        className={`grid grid-cols-1 sm:grid-cols-2 ${
+          isMilkProduct ? 'lg:grid-cols-3' : 'lg:grid-cols-4'
+        } gap-3.5 sm:gap-4`}
+      >
         <SensorCard
           title="Ambient Temperature"
           value={((currentProduct as any)?.isUnconfigured) ? '--' : liveTemp}
@@ -433,18 +469,20 @@ export const LiveDataPage: React.FC = () => {
           deviceId={factualProduct.id}
         />
 
-        <SensorCard
-          title="Impact Sensor"
-          value={((currentProduct as any)?.isUnconfigured) ? '--' : liveImpact.toFixed(2)}
-          unit={((currentProduct as any)?.isUnconfigured) ? undefined : "G"}
-          icon={Zap}
-          color={metricConfig.impact.color}
-          status={((currentProduct as any)?.isUnconfigured) ? undefined : (liveImpact > 1.5 ? 'critical' : 'normal')}
-          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : (liveImpact > 1.5 ? 'Shock detected (> 1.5 G)' : 'No Shock • Safe (< 1.5 G)')}
-          isEmpty={!!((currentProduct as any)?.isUnconfigured)}
-          isOnline={isDeviceOnline}
-          deviceId={factualProduct.id}
-        />
+        {!isMilkProduct && (
+          <SensorCard
+            title="Impact Sensor"
+            value={((currentProduct as any)?.isUnconfigured) ? '--' : liveImpact.toFixed(2)}
+            unit={((currentProduct as any)?.isUnconfigured) ? undefined : "G"}
+            icon={Zap}
+            color={metricConfig.impact.color}
+            status={((currentProduct as any)?.isUnconfigured) ? undefined : (liveImpact > 1.5 ? 'critical' : 'normal')}
+            message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : (liveImpact > 1.5 ? 'Shock detected (> 1.5 G)' : 'No Shock • Safe (< 1.5 G)')}
+            isEmpty={!!((currentProduct as any)?.isUnconfigured)}
+            isOnline={isDeviceOnline}
+            deviceId={factualProduct.id}
+          />
+        )}
 
         <SensorCard
           title="Light Sensor"
@@ -459,23 +497,29 @@ export const LiveDataPage: React.FC = () => {
           deviceId={factualProduct.id}
         />
 
-        <SensorCard
-          title="NEO-6M GPS"
-          value={((currentProduct as any)?.isUnconfigured) ? '--' : `${liveGpsLat.toFixed(4)}°N, ${liveGpsLng.toFixed(4)}°E`}
-          icon={Navigation}
-          color={metricConfig.gps.color}
-          status={((currentProduct as any)?.isUnconfigured) ? undefined : 'normal'}
-          message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : `NEO-6M • ${liveGpsSats} Sats Fix Locked`}
-          isEmpty={!!((currentProduct as any)?.isUnconfigured)}
-          isOnline={isDeviceOnline}
-          deviceId={factualProduct.id}
-        />
+        {!isMilkProduct && (
+          <SensorCard
+            title="NEO-6M GPS"
+            value={((currentProduct as any)?.isUnconfigured) ? '--' : `${liveGpsLat.toFixed(4)}° N, ${liveGpsLng.toFixed(4)}° E`}
+            icon={Navigation}
+            color={metricConfig.gps.color}
+            status={((currentProduct as any)?.isUnconfigured) ? undefined : 'normal'}
+            message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : `NEO-6M • ${liveGpsSats} Sats Fix Locked`}
+            isEmpty={!!((currentProduct as any)?.isUnconfigured)}
+            isOnline={isDeviceOnline}
+            deviceId={factualProduct.id}
+          />
+        )}
       </div>
 
-      {/* LIVE TELEMETRY TREND GRAPH + SMALL GPS LOCATION MAP SIDE-BY-SIDE */}
+      {/* LIVE TELEMETRY TREND GRAPH + GOOGLE MAPS STATIC LOCATION FOR APPLE ONLY */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-5 items-stretch">
-        {/* LEFT (7 COLS): TREND GRAPH CARD */}
-        <div className="lg:col-span-7 bg-white border border-[#13493B]/10 rounded-[28px] p-4 sm:p-6 shadow-sm flex flex-col justify-between space-y-4">
+        {/* TREND GRAPH CARD (Full width for Milk, 7 cols for Apple) */}
+        <div
+          className={`${
+            isMilkProduct ? 'lg:col-span-12' : 'lg:col-span-7'
+          } bg-white border border-[#13493B]/10 rounded-[28px] p-4 sm:p-6 shadow-sm flex flex-col justify-between space-y-4`}
+        >
           <div className="flex flex-col gap-3 pb-2 border-b border-[#F4F7F6]">
             <div className="space-y-0.5">
               <div className="flex items-center justify-between gap-2">
@@ -506,7 +550,7 @@ export const LiveDataPage: React.FC = () => {
             </div>
 
             <div className="flex overflow-x-auto max-w-full bg-[#F4F7F6] p-1 rounded-xl border border-[#13493B]/10 [scrollbar-width:none]">
-              {(['temp', 'humidity', 'moisture', 'ph', 'gas', 'impact', 'light'] as const).map((tab) => {
+              {availableMetricTabs.map((tab) => {
                 const active = activeMetricTab === tab;
                 return (
                   <button
@@ -602,84 +646,87 @@ export const LiveDataPage: React.FC = () => {
           </div>
         </div>
 
-        {/* RIGHT (5 COLS): SMALL INTERACTIVE GPS LOCATION MAP */}
-        <div className="lg:col-span-5 bg-white border border-[#13493B]/10 rounded-[28px] p-4 sm:p-6 shadow-sm flex flex-col justify-between space-y-4">
-          <div className="flex items-start justify-between gap-3 pb-2 border-b border-[#F4F7F6]">
-            <div className="space-y-0.5">
-              <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-[#06B6D4]" />
-                <h3 className="text-sm font-black text-[#07221A]">Live Device Location Map</h3>
+        {/* RIGHT (5 COLS): GOOGLE MAPS STATIC LOCATION MAP (APPLE ONLY) */}
+        {!isMilkProduct && (
+          <div className="lg:col-span-5 bg-white border border-[#13493B]/10 rounded-[28px] p-4 sm:p-6 shadow-sm flex flex-col justify-between space-y-4">
+            <div className="flex items-start justify-between gap-3 pb-2 border-b border-[#F4F7F6]">
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <MapPin className="w-4 h-4 text-[#06B6D4]" />
+                  <h3 className="text-sm font-black text-[#07221A]">Live Device Location Map</h3>
+                </div>
+                <p className="text-[11px] text-[#5C7F75] font-semibold">
+                  Google Maps Static • {factualProduct.name} ({factualProduct.id})
+                </p>
               </div>
-              <p className="text-[11px] text-[#5C7F75] font-semibold">
-                NEO-6M GPS Satellite Lock • {factualProduct.name} ({factualProduct.id})
-              </p>
-            </div>
-            <div className="flex items-center gap-1.5 shrink-0">
-              <span
-                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
-                  isDeviceOnline
-                    ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
-                    : 'bg-rose-500/10 text-rose-700 border-rose-500/20'
-                }`}
-              >
+              <div className="flex items-center gap-1.5 shrink-0">
                 <span
-                  className={`w-1.5 h-1.5 rounded-full ${
-                    isDeviceOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                  className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                    isDeviceOnline
+                      ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+                      : 'bg-rose-500/10 text-rose-700 border-rose-500/20'
                   }`}
-                />
-                {isDeviceOnline ? 'Live' : 'Offline'}
-              </span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-cyan-50 border border-cyan-500/25 text-cyan-900 text-[10px] font-mono font-bold shrink-0">
-                <Compass className="w-3 h-3 text-cyan-600" />
-                {liveGpsSats} Sats Locked
-              </span>
-            </div>
-          </div>
-
-          {/* Embedded Small Map */}
-          <div className="relative w-full h-56 sm:h-64 rounded-2xl overflow-hidden border border-[#13493B]/15 bg-[#F4F7F6] shadow-inner">
-            <iframe
-              title={`GPS Location Map for ${factualProduct.id}`}
-              src={mapEmbedUrl}
-              className="w-full h-full border-0"
-              loading="lazy"
-            />
-            <div className="absolute bottom-2.5 left-2.5 right-2.5 p-2.5 rounded-xl bg-[#07221A]/85 backdrop-blur-md text-white flex items-center justify-between gap-2 text-[11px] shadow-md pointer-events-none">
-              <div className="flex items-center gap-1.5 font-mono font-bold truncate">
-                <span
-                  className={`w-2 h-2 rounded-full shrink-0 ${
-                    isDeviceOnline ? 'bg-[#20E79A] animate-ping' : 'bg-rose-500'
-                  }`}
-                />
-                <span>{liveGpsLat.toFixed(4)}°N, {liveGpsLng.toFixed(4)}°E</span>
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      isDeviceOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                    }`}
+                  />
+                  {isDeviceOnline ? 'Live' : 'Offline'}
+                </span>
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-cyan-50 border border-cyan-500/25 text-cyan-900 text-[10px] font-mono font-bold shrink-0">
+                  <Compass className="w-3 h-3 text-cyan-600" />
+                  {liveGpsSats} Sats Locked
+                </span>
               </div>
-              <span
-                className={`text-[10px] font-mono font-black shrink-0 ${
-                  isDeviceOnline ? 'text-[#20E79A]' : 'text-rose-400'
-                }`}
-              >
-                {factualProduct.id} • {isDeviceOnline ? 'Live' : 'Offline'}
-              </span>
             </div>
-          </div>
 
-          {/* Coordinate Details & Open Map Link */}
-          <div className="flex items-center justify-between gap-3 pt-1 text-xs">
-            <div className="text-[11px] text-[#5C7F75] font-semibold">
-              <span>Telemetry Node: </span>
-              <strong className="font-mono text-[#07221A]">{factualProduct.id}</strong>
+            {/* Google Maps Static Image */}
+            <div className="relative w-full h-56 sm:h-64 rounded-2xl overflow-hidden border border-[#13493B]/15 bg-[#F4F7F6] shadow-inner">
+              <img
+                src={googleStaticMapUrl}
+                alt={`Google Maps Static Location for ${factualProduct.name} (${liveGpsLat.toFixed(4)}° N, ${liveGpsLng.toFixed(4)}° E)`}
+                className="w-full h-full object-cover"
+                loading="lazy"
+                onError={() => window.dispatchEvent(new CustomEvent('gmp-quota-exceeded'))}
+              />
+              <div className="absolute bottom-2.5 left-2.5 right-2.5 p-2.5 rounded-xl bg-[#07221A]/85 backdrop-blur-md text-white flex items-center justify-between gap-2 text-[11px] shadow-md pointer-events-none">
+                <div className="flex items-center gap-1.5 font-mono font-bold truncate">
+                  <span
+                    className={`w-2 h-2 rounded-full shrink-0 ${
+                      isDeviceOnline ? 'bg-[#20E79A] animate-ping' : 'bg-rose-500'
+                    }`}
+                  />
+                  <span>{liveGpsLat.toFixed(4)}° N, {liveGpsLng.toFixed(4)}° E</span>
+                </div>
+                <span
+                  className={`text-[10px] font-mono font-black shrink-0 ${
+                    isDeviceOnline ? 'text-[#20E79A]' : 'text-rose-400'
+                  }`}
+                >
+                  {factualProduct.id} • {isDeviceOnline ? 'Live' : 'Offline'}
+                </span>
+              </div>
             </div>
-            <a
-              href={`https://www.openstreetmap.org/?mlat=${liveGpsLat}&mlon=${liveGpsLng}#map=15/${liveGpsLat}/${liveGpsLng}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-1.5 text-xs font-black text-[#0E7490] hover:text-[#07221A] transition-colors"
-            >
-              <span>View Larger Map</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </a>
+
+            {/* Coordinate Details & Open Google Maps Link */}
+            <div className="flex items-center justify-between gap-3 pt-1 text-xs">
+              <div className="text-[11px] text-[#5C7F75] font-semibold">
+                <span>Coordinates: </span>
+                <strong className="font-mono text-[#07221A]">31.2536° N, 75.7037° E</strong>
+              </div>
+              <a
+                href={`https://www.google.com/maps/search/?api=1&query=${liveGpsLat},${liveGpsLng}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-xs font-black text-[#0E7490] hover:text-[#07221A] transition-colors"
+              >
+                <span>Open in Google Maps</span>
+                <ExternalLink className="w-3.5 h-3.5" />
+              </a>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       {/* THRESHOLD CONFIG MODAL */}

@@ -106,8 +106,8 @@ function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
     ph: isMilk ? 6.45 : 3.75,
     impact: isMilk ? 0 : 0.147,
     light: isMilk ? 33.3 : 12.5,
-    gpsLat: 22.5726,
-    gpsLng: 88.3639,
+    gpsLat: isMilk ? 0 : 31.2536,
+    gpsLng: isMilk ? 0 : 75.7037,
     gpsSats: 0,
     online: true,
     last_update: Date.now(),
@@ -173,18 +173,23 @@ function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
   const light = Number(
     target.light_lux ?? target.light ?? target.lux ?? target.ldr ?? (isMilk ? 33.3 : 12.5)
   );
-  const gpsLat = Number(
-    target.gpsLat ?? target.lat ?? target.latitude ?? target.gps?.lat ?? target.neo6m?.lat ?? 22.5726
-  );
-  const gpsLng = Number(
+  const rawLat =
+    target.gpsLat ?? target.lat ?? target.latitude ?? target.gps?.lat ?? target.neo6m?.lat;
+  const rawLng =
     target.gpsLng ??
-      target.lng ??
-      target.lon ??
-      target.longitude ??
-      target.gps?.lng ??
-      target.neo6m?.lng ??
-      88.3639
-  );
+    target.lng ??
+    target.lon ??
+    target.longitude ??
+    target.gps?.lng ??
+    target.neo6m?.lng;
+  const gpsLat =
+    !isMilk && (rawLat === undefined || Number(rawLat) === 0 || Number(rawLat) === 22.5726 || Number(rawLat) === 28.6139)
+      ? 31.2536
+      : Number(rawLat ?? (isMilk ? 0 : 31.2536));
+  const gpsLng =
+    !isMilk && (rawLng === undefined || Number(rawLng) === 0 || Number(rawLng) === 88.3639 || Number(rawLng) === 77.209)
+      ? 75.7037
+      : Number(rawLng ?? (isMilk ? 0 : 75.7037));
   const gpsSats = Number(
     target.gps_satellites ??
       target.gpsSats ??
@@ -200,8 +205,8 @@ function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
   const finalGas = isNaN(mq135_raw) ? (isMilk ? 47 : 79) : Math.round(mq135_raw);
   const finalImpact = isNaN(impact) ? 0 : +impact.toFixed(3);
   const finalLight = isNaN(light) ? (isMilk ? 33.3 : 12.5) : +light.toFixed(1);
-  const finalLat = isNaN(gpsLat) ? 22.5726 : +gpsLat.toFixed(4);
-  const finalLng = isNaN(gpsLng) ? 88.3639 : +gpsLng.toFixed(4);
+  const finalLat = isNaN(gpsLat) ? (isMilk ? 0 : 31.2536) : +gpsLat.toFixed(4);
+  const finalLng = isNaN(gpsLng) ? (isMilk ? 0 : 75.7037) : +gpsLng.toFixed(4);
   const finalSats = isNaN(gpsSats) ? 0 : Math.round(gpsSats);
 
   const rawId = (deviceId || '').toUpperCase();
@@ -297,8 +302,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ph: applePh.ph,
         impact: 0.147,
         light: 12.5,
-        gpsLat: 22.5726,
-        gpsLng: 88.3639,
+        gpsLat: 31.2536,
+        gpsLng: 75.7037,
         gpsSats: 0,
         temperature_min: 0.0,
         temperature_max: 4.0,
@@ -319,8 +324,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         ph: milkPh.ph,
         impact: 0,
         light: 33.3,
-        gpsLat: 22.5726,
-        gpsLng: 88.3639,
+        gpsLat: 0,
+        gpsLng: 0,
         gpsSats: 0,
         temperature_min: 1.0,
         temperature_max: 4.0,
