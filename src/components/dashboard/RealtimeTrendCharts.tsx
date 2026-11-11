@@ -403,9 +403,21 @@ export const RealtimeTrendCharts: React.FC<RealtimeTrendChartsProps> = ({
                 <h3 className="text-sm sm:text-base font-black text-[#07221A] tracking-tight">
                   Real-Time Environmental & Freshness Trends
                 </h3>
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#EBFBF4] border border-[#20E79A]/30 text-[9px] font-bold text-[#07221A]">
-                  <span className={`w-1.5 h-1.5 rounded-full ${isLiveStreaming ? 'bg-[#20E79A] animate-ping' : 'bg-slate-400'}`} />
-                  {isLiveStreaming ? 'LIVE IOT FEED' : 'STREAM PAUSED'}
+                <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-[9px] font-bold ${
+                  currentSensorData?.online === false 
+                    ? 'bg-slate-100 border-slate-300 text-slate-600' 
+                    : isLiveStreaming 
+                    ? 'bg-[#EBFBF4] border-[#20E79A]/30 text-[#07221A]' 
+                    : 'bg-slate-100 border-slate-300 text-slate-600'
+                }`}>
+                  <span className={`w-1.5 h-1.5 rounded-full ${
+                    currentSensorData?.online === false 
+                      ? 'bg-slate-400' 
+                      : isLiveStreaming 
+                      ? 'bg-[#20E79A] animate-ping' 
+                      : 'bg-slate-400'
+                  }`} />
+                  {currentSensorData?.online === false ? 'FEED OFFLINE' : isLiveStreaming ? 'LIVE IOT FEED' : 'STREAM PAUSED'}
                 </span>
               </div>
               <p className="text-[11px] sm:text-xs text-[#5C7F75] font-semibold mt-0.5">

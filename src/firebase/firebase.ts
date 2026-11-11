@@ -1,5 +1,5 @@
 import { initializeApp, getApps, getApp, FirebaseApp } from 'firebase/app';
-import { getAuth, setPersistence, browserLocalPersistence, Auth } from 'firebase/auth';
+import { getAuth, setPersistence, browserLocalPersistence, signInAnonymously, Auth } from 'firebase/auth';
 import { getDatabase, Database } from 'firebase/database';
 import { getFirestore, Firestore, doc, getDocFromServer } from 'firebase/firestore';
 import appletConfig from '../../firebase-applet-config.json';
@@ -97,6 +97,7 @@ let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let database: Database | null = null;
 let db: Firestore | null = null;
+let pendingAnonAuthPromise: Promise<any> | null = null;
 
 function initFirebaseServices(config: FreshNexFirebaseCredentials, appName?: string) {
   if (!config.apiKey) return;
@@ -138,6 +139,34 @@ function initFirebaseServices(config: FreshNexFirebaseCredentials, appName?: str
 }
 
 initFirebaseServices(firebaseConfig);
+
+/**
+ * Ensures the existing Firebase Auth instance has an active authenticated session
+ * so Realtime Database paths (/warehouse_scans, /rfid_registry) are accessible.
+ */
+export async function ensureFirebaseAuthenticated(): Promise<any> {
+  if (!auth) {
+    const activeCfg = getActiveFirebaseConfig();
+    initFirebaseServices(activeCfg);
+  }
+  if (!auth) return null;
+  if (auth.currentUser) return auth.currentUser;
+  if (pendingAnonAuthPromise) return pendingAnonAuthPromise;
+
+  pendingAnonAuthPromise = signInAnonymously(auth)
+    .then((cred) => {
+      pendingAnonAuthPromise = null;
+      return cred.user;
+    })
+    .catch((err) => {
+      pendingAnonAuthPromise = null;
+      if (auth?.currentUser) return auth.currentUser;
+      console.warn('[FRESHNEX RFID] Firebase anonymous session initialization notice:', err?.message || err);
+      return null;
+    });
+
+  return pendingAnonAuthPromise;
+}
 
 // Validate connection to Firestore on startup
 async function testConnection() {

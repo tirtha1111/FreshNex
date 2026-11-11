@@ -44,6 +44,14 @@
     "sensorData": {
       ".read": true,
       ".write": true
+    },
+    "warehouse_scans": {
+      ".read": true,
+      ".write": true
+    },
+    "rfid_registry": {
+      ".read": true,
+      ".write": true
     }
   }
 }

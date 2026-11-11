@@ -541,6 +541,73 @@ app.get('/api/health', (req: Request, res: Response) => {
   });
 });
 
+let serverIdToken: string | null = null;
+let serverIdTokenExpiry = 0;
+
+async function getServerIdToken(): Promise<string | null> {
+  const now = Date.now();
+  if (serverIdToken && now < serverIdTokenExpiry) {
+    return serverIdToken;
+  }
+  const apiKey = firebaseConfig?.apiKey;
+  if (!apiKey) return null;
+
+  try {
+    const res = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${apiKey}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ returnSecureToken: true }),
+    });
+    if (res.ok) {
+      const data: any = await res.json();
+      if (data?.idToken) {
+        serverIdToken = data.idToken;
+        serverIdTokenExpiry = now + 50 * 60 * 1000;
+        return serverIdToken;
+      }
+    }
+  } catch (e) {
+    console.warn('Server idToken fetch error:', e);
+  }
+  return null;
+}
+
+// Dedicated Warehouse Scans Proxy Route
+app.get('/api/warehouse/scans', async (req: Request, res: Response) => {
+  try {
+    const token = await getServerIdToken();
+    const dbUrl = firebaseConfig?.databaseURL || 'https://freshnex-9bf3f-default-rtdb.firebaseio.com';
+    const authParam = token ? `?auth=${encodeURIComponent(token)}` : '';
+    const rtdbRes = await fetch(`${dbUrl.replace(/\/$/, '')}/warehouse_scans.json${authParam}`);
+    if (rtdbRes.ok) {
+      const data = await rtdbRes.json();
+      res.json(data || {});
+      return;
+    }
+    res.status(rtdbRes.status).json({ error: 'Failed to fetch warehouse scans' });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Internal server error' });
+  }
+});
+
+// Dedicated Warehouse Registry Proxy Route
+app.get('/api/warehouse/registry', async (req: Request, res: Response) => {
+  try {
+    const token = await getServerIdToken();
+    const dbUrl = firebaseConfig?.databaseURL || 'https://freshnex-9bf3f-default-rtdb.firebaseio.com';
+    const authParam = token ? `?auth=${encodeURIComponent(token)}` : '';
+    const rtdbRes = await fetch(`${dbUrl.replace(/\/$/, '')}/rfid_registry.json${authParam}`);
+    if (rtdbRes.ok) {
+      const data = await rtdbRes.json();
+      res.json(data || {});
+      return;
+    }
+    res.status(rtdbRes.status).json({ error: 'Failed to fetch rfid registry' });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Internal server error' });
+  }
+});
+
 // AI Research & Threshold Auto-Configuration API
 app.post('/api/ai/suggest-thresholds', async (req: Request, res: Response) => {
   const { productName = '', category = '', storageContext = '' } = req.body;
@@ -894,8 +961,22 @@ async function startServer() {
     });
   }
 
-  httpServer.listen(PORT, '0.0.0.0', () => {
-    console.log(`FreshNex Full-Stack Server running on port ${PORT}`);
+  let port = 3000;
+  const portArgIdx = process.argv.indexOf('--port');
+  if (portArgIdx !== -1 && process.argv[portArgIdx + 1]) {
+    port = parseInt(process.argv[portArgIdx + 1], 10) || 3000;
+  } else if (process.env.PORT) {
+    port = parseInt(process.env.PORT, 10) || 3000;
+  }
+
+  let host = '0.0.0.0';
+  const hostArgIdx = process.argv.indexOf('--host');
+  if (hostArgIdx !== -1 && process.argv[hostArgIdx + 1]) {
+    host = process.argv[hostArgIdx + 1];
+  }
+
+  httpServer.listen(port, host, () => {
+    console.log(`FreshNex Full-Stack Server running on port ${port}`);
   });
 }
 

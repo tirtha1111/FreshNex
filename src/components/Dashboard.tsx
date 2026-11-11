@@ -42,9 +42,13 @@ export const Dashboard: React.FC = () => {
             onClick={() => navigate(`/products/${activeDevice.device_id}`)}
             className="glass-card p-3 rounded-2xl flex items-center gap-3 cursor-pointer hover:border-[#FF6A00]/60 transition-all shadow-lg border border-[#FF6A00]/25"
           >
-            <div className="w-8 h-8 rounded-xl bg-emerald-500/15 text-emerald-400 flex items-center justify-center font-bold text-xs relative border border-emerald-500/30">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping mr-1" />
-              LIVE
+            <div className={`w-8 h-8 rounded-xl flex items-center justify-center font-bold text-xs relative border ${
+              activeDevice.online
+                ? 'bg-emerald-500/15 text-emerald-400 border-emerald-500/30'
+                : 'bg-slate-500/15 text-slate-400 border-slate-500/30'
+            }`}>
+              {activeDevice.online && <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping mr-1" />}
+              {activeDevice.online ? 'LIVE' : 'OFF'}
             </div>
             <div>
               <p className="text-xs font-bold text-[#FDF8F5]">{activeProd} ({activeDevice.device_id})</p>
@@ -196,8 +200,12 @@ export const Dashboard: React.FC = () => {
                   </div>
 
                   <div className="text-right">
-                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
-                      LIVE
+                    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold border ${
+                      deviceData.online
+                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                        : 'bg-slate-800 text-slate-400 border-slate-700'
+                    }`}>
+                      {deviceData.online ? 'ONLINE' : 'OFFLINE'}
                     </span>
                     <p className="text-xs font-bold text-[#FDF8F5] mt-1 font-mono">
                       {deviceData.temperature}°C | {deviceData.humidity}% | pH {scanPH.ph}

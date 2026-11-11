@@ -15,20 +15,33 @@ import {
   isFirebaseConfigured,
   getActiveFirebaseConfig,
   reinitializeFirebaseWithConfig,
+  ensureFirebaseAuthenticated,
 } from '../firebase/firebase';
 import { getDirectDatabase, getDirectFirestore } from '../services/firebaseService';
 import { UserProfile, UserSettings } from '../types';
 import { resolveFactualProduct } from '../data/initialData';
 
+export interface WarehouseSession {
+  tagUid: string;
+  deviceId: string;
+  product: string;
+  warehouseId: string;
+  warehouseDevice?: string;
+  authenticatedAt: number;
+}
+
 interface AuthContextType {
   currentUser: User | null;
   userProfile: UserProfile;
   userSettings: UserSettings;
+  warehouseSession: WarehouseSession | null;
   isLoading: boolean;
   isDemoMode: boolean;
   authError: string | null;
   login: (email: string, pass: string) => Promise<void>;
   loginWithProductId: (productId: string) => Promise<void>;
+  loginWithWarehouseRFID: (session: WarehouseSession) => Promise<void>;
+  logoutWarehouse: () => Promise<void>;
   signup: (name: string, email: string, pass: string) => Promise<void>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
@@ -157,6 +170,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return localStorage.getItem('freshnex_demo_user') === 'true';
   });
 
+  const [warehouseSession, setWarehouseSession] = useState<WarehouseSession | null>(() => {
+    try {
+      const stored =
+        sessionStorage.getItem('freshnex_warehouse_session') ||
+        localStorage.getItem('freshnex_warehouse_session');
+      if (stored) {
+        return JSON.parse(stored);
+      }
+    } catch (e) {
+      console.warn('Error reading warehouse session', e);
+    }
+    return null;
+  });
+
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
     try {
       const stored = localStorage.getItem('freshnex_profile');
@@ -283,7 +310,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       auth,
       (user) => {
         clearTimeout(timer);
-        if (user) {
+        if (user && !user.isAnonymous) {
           setCurrentUser(user);
           setIsDemoMode(false);
           localStorage.removeItem('freshnex_demo_user');
@@ -312,8 +339,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           if (currentStored) {
             try {
               const p = JSON.parse(currentStored);
-              // Only restore Device ID consumer sessions when Firebase Auth user is null.
-              // Admin sessions MUST have an active Firebase Auth user.
+              // Only restore Device ID consumer sessions when Firebase Auth user is null or anonymous.
+              // Admin sessions MUST have an active non-anonymous Firebase Auth user.
               if (p && p.uid && p.role === 'user' && p.uid !== 'admin_realtirtharaj_101') {
                 setCurrentUser({
                   uid: p.uid,
@@ -497,11 +524,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const loginWithWarehouseRFID = async (session: WarehouseSession) => {
+    setAuthError(null);
+    setWarehouseSession(session);
+    try {
+      sessionStorage.setItem('freshnex_warehouse_session', JSON.stringify(session));
+      localStorage.setItem('freshnex_warehouse_session', JSON.stringify(session));
+    } catch (e) {
+      console.warn('Error saving warehouse session', e);
+    }
+  };
+
+  const logoutWarehouse = async () => {
+    setWarehouseSession(null);
+    try {
+      sessionStorage.removeItem('freshnex_warehouse_session');
+      localStorage.removeItem('freshnex_warehouse_session');
+    } catch (e) {
+      console.warn('Error removing warehouse session', e);
+    }
+
+    if (userProfile.role === 'warehouse') {
+      setIsDemoMode(false);
+      localStorage.removeItem('freshnex_demo_user');
+      localStorage.removeItem('freshnex_profile');
+      setUserProfile(DEFAULT_PROFILE);
+      setCurrentUser(null);
+    }
+
+    // Keep background Firebase Auth connection active so RTDB listeners stay connected
+    await ensureFirebaseAuthenticated();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('freshnex_warehouse_logout'));
+    }
+  };
+
   const logout = async () => {
     setIsLoading(true);
     setIsDemoMode(false);
     localStorage.removeItem('freshnex_demo_user');
     localStorage.removeItem('freshnex_profile');
+    localStorage.removeItem('freshnex_warehouse_session');
+    sessionStorage.removeItem('freshnex_warehouse_session');
+    setWarehouseSession(null);
     setUserProfile(DEFAULT_PROFILE);
     if (auth) {
       try {
@@ -511,6 +576,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     setCurrentUser(null);
+    // Immediately restore background session so /warehouse_scans and /rfid_registry maintain read access on the login screen
+    await ensureFirebaseAuthenticated();
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('freshnex_warehouse_logout'));
+    }
     setIsLoading(false);
   };
 
@@ -555,11 +625,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           : currentUser,
         userProfile,
         userSettings,
+        warehouseSession,
         isLoading,
         isDemoMode,
         authError,
         login,
         loginWithProductId,
+        loginWithWarehouseRFID,
+        logoutWarehouse,
         signup,
         logout,
         resetPassword,

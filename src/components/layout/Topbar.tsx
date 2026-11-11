@@ -10,11 +10,12 @@ import {
   Sliders, 
   Volume2, 
   VolumeX, 
-  ExternalLink
+  ExternalLink,
+  LogOut
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useFreshness } from '../../context/FreshnessContext';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { ThresholdConfigModal } from '../common/ThresholdConfigModal';
 
 interface TopbarProps {
@@ -22,7 +23,7 @@ interface TopbarProps {
 }
 
 export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
-  const { userProfile } = useAuth();
+  const { currentUser, userProfile, warehouseSession, logoutWarehouse } = useAuth();
   const { 
     alerts, 
     unreadCount, 
@@ -40,6 +41,13 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const notifRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  const isWarehouseView =
+    location.pathname.startsWith('/warehouse') ||
+    (!currentUser && Boolean(warehouseSession)) ||
+    userProfile?.role === 'warehouse';
+  const isAdmin = !isWarehouseView && userProfile?.role === 'admin';
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -54,11 +62,13 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
   const handleSearchSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (searchQuery.trim()) {
-      navigate(`/history?q=${encodeURIComponent(searchQuery.trim())}`);
+      if (isWarehouseView) {
+        navigate(`/warehouse?q=${encodeURIComponent(searchQuery.trim())}`);
+      } else {
+        navigate(`/history?q=${encodeURIComponent(searchQuery.trim())}`);
+      }
     }
   };
-
-  const isAdmin = userProfile?.role === 'admin';
 
   return (
     <>
@@ -83,7 +93,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search devices or tags..."
+              placeholder={isWarehouseView ? 'Search warehouse scans or RFID UID...' : 'Search devices or tags...'}
               className="w-full pl-9 pr-3 py-2 neo-input text-xs font-semibold text-[#07221A] placeholder-[#5C7F75] truncate"
             />
           </div>
@@ -91,7 +101,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
 
         {/* Right Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
-          {/* Threshold Config Quick Button - Admin Only (removed from user login) */}
+          {/* Threshold Config Quick Button - Admin Only (removed from user & warehouse login) */}
           {isAdmin && (
             <button
               type="button"
@@ -194,7 +204,7 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
                                 onClick={() => markAlertAsRead(n.id)}
                                 className="text-[10px] text-[#13493B] font-bold hover:underline cursor-pointer"
                               >
-                                Clear
+                                  Clear
                               </button>
                             </div>
                           </div>
@@ -210,22 +220,47 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
           {/* Quick User Badge */}
           <button
             type="button"
-            onClick={() => navigate('/profile')}
+            onClick={() => {
+              if (!isWarehouseView) {
+                navigate('/profile');
+              }
+            }}
             className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-[#13493B]/10 cursor-pointer group"
-            title="View User Profile"
+            title={isWarehouseView ? 'Active Warehouse RFID Session' : 'View User Profile'}
           >
             <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-full bg-gradient-to-br from-[#13493B] to-[#20E79A] text-white flex items-center justify-center font-bold text-xs shadow-sm border border-[#20E79A]/30 shrink-0">
-              {userProfile?.name?.charAt(0) || 'A'}
+              {isWarehouseView ? 'W' : userProfile?.name?.charAt(0) || 'A'}
             </div>
             <div className="hidden md:block text-left">
               <span className="text-xs font-extrabold text-[#07221A] block leading-tight truncate max-w-[120px] group-hover:text-[#13493B]">
-                {userProfile?.name || (userProfile?.role === 'admin' ? 'Admin' : 'Product Access')}
+                {isWarehouseView
+                  ? 'Warehouse Operator'
+                  : userProfile?.name || (userProfile?.role === 'admin' ? 'Admin' : 'Product Access')}
               </span>
               <span className="text-[9px] text-[#5C7F75] font-semibold block uppercase tracking-wider truncate">
-                {userProfile?.role === 'admin' ? 'Administrator' : `Device (${userProfile?.assignedProductId || 'YGS-FD-001'})`}
+                {isWarehouseView
+                  ? `RFID (${warehouseSession?.tagUid || 'Verified'})`
+                  : userProfile?.role === 'admin'
+                  ? 'Administrator'
+                  : `Device (${userProfile?.assignedProductId || 'Assigned'})`}
               </span>
             </div>
           </button>
+
+          {isWarehouseView && (
+            <button
+              type="button"
+              onClick={async () => {
+                await logoutWarehouse();
+                navigate('/login');
+              }}
+              title="Warehouse Logout"
+              className="neo-btn px-2.5 sm:px-3 py-2 h-10 rounded-xl text-rose-700 hover:bg-rose-50 text-xs font-bold flex items-center justify-center gap-1.5 cursor-pointer shadow-sm border-rose-200"
+            >
+              <LogOut className="w-4 h-4 text-rose-600 shrink-0" />
+              <span className="hidden sm:inline">Warehouse Logout</span>
+            </button>
+          )}
         </div>
       </header>
 

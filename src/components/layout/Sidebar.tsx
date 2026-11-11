@@ -14,7 +14,8 @@ import {
   LogOut,
   X,
   Sliders,
-  Activity
+  Activity,
+  Warehouse
 } from 'lucide-react';
 import { Logo } from '../common/Logo';
 import { useAuth } from '../../context/AuthContext';
@@ -26,13 +27,16 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
-  const { userProfile, logout } = useAuth();
-  const { activeItem, unreadCount } = useFreshness();
+  const { currentUser, userProfile, warehouseSession, logout, logoutWarehouse } = useAuth();
+  const { activeItem } = useFreshness();
   const navigate = useNavigate();
   const location = useLocation();
 
-  const liveDataPath = activeItem ? `/live-data/${activeItem.id}` : '/live-data';
-  const isAdmin = userProfile?.role === 'admin';
+  const isWarehouseView =
+    location.pathname.startsWith('/warehouse') ||
+    (!currentUser && Boolean(warehouseSession)) ||
+    userProfile?.role === 'warehouse';
+  const isAdmin = !isWarehouseView && userProfile?.role === 'admin';
 
   interface NavItem {
     name: string;
@@ -55,10 +59,22 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
     { name: 'Live Reading', path: '/live-data', matchPrefix: '/live-data', icon: Activity },
   ];
 
-  const navItems = isAdmin ? adminNavItems : userNavItems;
+  const warehouseNavItems: NavItem[] = [
+    { name: 'Warehouse', path: '/warehouse', matchPrefix: '/warehouse', icon: Warehouse },
+  ];
+
+  const navItems = isWarehouseView
+    ? warehouseNavItems
+    : isAdmin
+    ? adminNavItems
+    : userNavItems;
 
   const handleLogout = async () => {
-    await logout();
+    if (isWarehouseView) {
+      await logoutWarehouse();
+    } else {
+      await logout();
+    }
     navigate('/login');
     if (onCloseMobile) onCloseMobile();
   };
@@ -70,7 +86,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
         <div className="flex-1 flex flex-col min-h-0">
           {/* Brand Logo with integrated mobile close button */}
           <div className="pb-4 sm:pb-5 mb-1 sm:mb-2 border-b border-[#13493B]/30 flex items-center justify-between gap-2 shrink-0">
-            <Logo size="md" variant="dark" showTagline={true} linkTo={isAdmin ? "/admin/devices" : "/dashboard"} />
+            <Logo
+              size="md"
+              variant="dark"
+              showTagline={true}
+              linkTo={isWarehouseView ? '/warehouse' : isAdmin ? '/devices' : '/dashboard'}
+            />
             {onCloseMobile && (
               <button
                 type="button"
@@ -226,14 +247,20 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
           <div className="flex items-center gap-2.5 min-w-0">
             {/* Avatar Pill with Glow */}
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#13493B] via-[#20E79A] to-[#10B981] flex items-center justify-center font-black text-[#07221A] text-xs shrink-0 shadow-[0_0_12px_rgba(32,231,154,0.4)] border border-white/40">
-              {userProfile?.name?.charAt(0) || 'A'}
+              {isWarehouseView ? 'W' : userProfile?.name?.charAt(0) || 'A'}
             </div>
             <div className="min-w-0">
               <p className="text-xs font-bold text-white truncate">
-                {userProfile?.name || (isAdmin ? 'Admin' : 'Product Access')}
+                {isWarehouseView
+                  ? 'Warehouse Operator'
+                  : userProfile?.name || (isAdmin ? 'Admin' : 'Product Access')}
               </p>
               <span className="text-[9px] font-semibold text-[#20E79A] block uppercase tracking-wider truncate">
-                {isAdmin ? 'Administrator' : `Device ${userProfile?.assignedProductId || 'YGS-FD-001'}`}
+                {isWarehouseView
+                  ? `Device ${warehouseSession?.deviceId || 'RFID Verified'}`
+                  : isAdmin
+                  ? 'Administrator'
+                  : `Device ${userProfile?.assignedProductId || 'Assigned'}`}
               </span>
             </div>
           </div>
@@ -243,7 +270,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
             whileHover={{ scale: 1.15, rotate: 6 }}
             whileTap={{ scale: 0.9 }}
             onClick={handleLogout}
-            title="Log Out"
+            title={isWarehouseView ? 'Warehouse Logout' : 'Log Out'}
             className="p-2 text-[#5C7F75] hover:text-[#FF5A67] hover:bg-[#FF5A67]/15 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-[#FF5A67]/30 shadow-sm"
           >
             <LogOut className="w-3.5 h-3.5" />

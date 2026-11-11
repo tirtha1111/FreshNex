@@ -1,6 +1,6 @@
 import { FreshnessStatus } from '../utils/freshnessEngine';
 
-export type Role = 'user' | 'admin';
+export type Role = 'user' | 'admin' | 'warehouse';
 
 export interface FoodItem {
   id: string;
