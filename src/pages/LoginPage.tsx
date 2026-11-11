@@ -223,9 +223,8 @@ export const LoginPage: React.FC = () => {
       await loginWarehouse(cleanId, cleanPass);
       navigate('/warehouse');
     } catch (err: any) {
-      setLocalError(
-        err.message || 'Invalid Warehouse ID or Password. Please verify your credentials.'
-      );
+      const { getErrorMessage } = await import('../services/warehouseAuthService');
+      setLocalError(getErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }

@@ -16,6 +16,41 @@ export interface WarehouseLoginResponse {
 }
 
 /**
+ * Safely extracts a string error message from any unknown error or object,
+ * preventing `[object Object]` rendering issues.
+ */
+export function getErrorMessage(error: unknown): string {
+  if (error instanceof Error) {
+    return error.message;
+  }
+
+  if (typeof error === 'string') {
+    return error;
+  }
+
+  if (error && typeof error === 'object') {
+    const value = error as Record<string, unknown>;
+
+    if (typeof value.message === 'string') {
+      return value.message;
+    }
+
+    if (typeof value.error === 'string') {
+      return value.error;
+    }
+
+    try {
+      const stringified = JSON.stringify(error);
+      if (stringified && stringified !== '{}') {
+        return stringified;
+      }
+    } catch {}
+  }
+
+  return 'An unexpected Warehouse login error occurred.';
+}
+
+/**
  * Resolves the production or development API endpoint URL.
  * Uses VITE_API_BASE_URL if configured, otherwise defaults to relative same-origin path.
  */

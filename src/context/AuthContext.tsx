@@ -583,9 +583,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return session;
     } catch (err: any) {
-      const msg = err.message || 'Failed to authenticate warehouse account.';
+      const { getErrorMessage } = await import('../services/warehouseAuthService');
+      const msg = getErrorMessage(err);
       setAuthError(msg);
-      throw err;
+      throw new Error(msg);
     } finally {
       setIsLoading(false);
     }
