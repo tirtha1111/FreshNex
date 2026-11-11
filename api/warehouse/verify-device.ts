@@ -2,7 +2,7 @@ import {
   WAREHOUSE_ACCOUNTS,
   extractWarehouseTokenFromHeaders,
   verifySignedWarehouseToken,
-} from './_auth';
+} from './_auth.js';
 
 function parseRequestBody(body: any): Record<string, any> {
   if (!body) return {};
