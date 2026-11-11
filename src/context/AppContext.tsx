@@ -89,20 +89,26 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 // Normalization helper for ESP32 hardware telemetry payloads from Realtime Database (all 9 parameters)
 function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
+  const isMilk =
+    String(deviceId || '').toUpperCase().includes('124') ||
+    String(rawDevice?.device_type || rawDevice?.product || '')
+      .toLowerCase()
+      .includes('milk');
+
   const defaultFallback: DeviceData = {
     device_id: deviceId,
-    product: 'IoT Node',
-    temperature: 4.0,
-    humidity: 60.0,
-    mq135_raw: 120,
-    moisture: 4.0,
-    dewPoint: -2.0,
-    ph: 5.5,
-    impact: 0.1,
-    light: 15,
+    product: isMilk ? 'Milk' : 'Apple',
+    temperature: isMilk ? 30.6 : 31.6,
+    humidity: isMilk ? 72.2 : 71.2,
+    mq135_raw: isMilk ? 47 : 79,
+    moisture: isMilk ? 22.8 : 23.7,
+    dewPoint: isMilk ? 25.0 : 25.7,
+    ph: isMilk ? 6.45 : 3.75,
+    impact: isMilk ? 0 : 0.147,
+    light: isMilk ? 33.3 : 12.5,
     gpsLat: 22.5726,
     gpsLng: 88.3639,
-    gpsSats: 8,
+    gpsSats: 0,
     online: true,
     last_update: Date.now(),
   };
@@ -114,16 +120,18 @@ function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
   let target = rawDevice;
   if (
     !(
+      'temperature_c' in rawDevice ||
       'temperature' in rawDevice ||
       'temp' in rawDevice ||
       't' in rawDevice ||
+      'humidity_percent' in rawDevice ||
       'humidity' in rawDevice ||
       'hum' in rawDevice ||
       'gas' in rawDevice ||
       'mq135_raw' in rawDevice
     )
   ) {
-    const keys = Object.keys(rawDevice);
+    const keys = Object.keys(rawDevice).filter((k) => k !== 'commands' && k !== 'rfid_scans');
     if (keys.length > 0) {
       const lastKey = keys[keys.length - 1];
       if (typeof rawDevice[lastKey] === 'object' && rawDevice[lastKey] !== null) {
@@ -132,23 +140,39 @@ function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
     }
   }
 
-  const temperature = Number(target.temperature ?? target.temp ?? target.t ?? 3.5);
-  const humidity = Number(target.humidity ?? target.hum ?? target.h ?? 58.0);
-  const mq135_raw = Number(target.mq135_raw ?? target.gas ?? target.mq135 ?? 110);
+  // Prefer hardware-native RTDB fields (temperature_c, humidity_percent) first
+  const temperature = Number(
+    target.temperature_c ?? target.temperature ?? target.temp ?? target.t ?? (isMilk ? 30.6 : 31.6)
+  );
+  const humidity = Number(
+    target.humidity_percent ?? target.humidity ?? target.hum ?? target.h ?? (isMilk ? 72.2 : 71.2)
+  );
+  const mq135_raw = Number(
+    target.mq135_raw ?? target.gas ?? target.mq135 ?? (isMilk ? 47 : 79)
+  );
 
   // Compute live impact/acceleration from Firebase Realtime Database (acceleration_change, accel_x/y/z, or impact)
-  let rawImpactVal = target.acceleration_change ?? target.acceleration ?? target.impact ?? target.shock ?? target.vibration;
-  if (rawImpactVal === undefined && (target.accel_x !== undefined || target.accel_y !== undefined || target.accel_z !== undefined)) {
+  let rawImpactVal =
+    target.acceleration_change ??
+    target.acceleration ??
+    target.impact ??
+    target.shock ??
+    target.vibration;
+  if (
+    rawImpactVal === undefined &&
+    (target.accel_x !== undefined || target.accel_y !== undefined || target.accel_z !== undefined)
+  ) {
     const ax = Number(target.accel_x || 0);
     const ay = Number(target.accel_y || 0);
     const az = Number(target.accel_z || 0);
-    // Vector magnitude normalized relative to 1G gravity
     const mag = Math.sqrt(ax * ax + ay * ay + az * az);
     rawImpactVal = Math.abs(mag - 9.8) / 9.8;
   }
-  const impact = Number(rawImpactVal ?? 0.08);
+  const impact = Number(rawImpactVal ?? (isMilk ? 0 : 0.147));
 
-  const light = Number(target.light_lux ?? target.light ?? target.lux ?? target.ldr ?? 18);
+  const light = Number(
+    target.light_lux ?? target.light ?? target.lux ?? target.ldr ?? (isMilk ? 33.3 : 12.5)
+  );
   const gpsLat = Number(
     target.gpsLat ?? target.lat ?? target.latitude ?? target.gps?.lat ?? target.neo6m?.lat ?? 22.5726
   );
@@ -162,29 +186,43 @@ function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
       88.3639
   );
   const gpsSats = Number(
-    target.gpsSats ?? target.sats ?? target.satellites ?? target.gps?.sats ?? target.neo6m?.sats ?? (target.gps_satellites ?? 8)
+    target.gps_satellites ??
+      target.gpsSats ??
+      target.sats ??
+      target.satellites ??
+      target.gps?.sats ??
+      target.neo6m?.sats ??
+      0
   );
 
-  const finalTemp = isNaN(temperature) ? 3.5 : +temperature.toFixed(1);
-  const finalHum = isNaN(humidity) ? 58.0 : +humidity.toFixed(1);
-  const finalGas = isNaN(mq135_raw) ? 110 : Math.round(mq135_raw);
-  const finalImpact = isNaN(impact) ? 0.08 : +impact.toFixed(3);
-  const finalLight = isNaN(light) ? 18 : +light.toFixed(1);
+  const finalTemp = isNaN(temperature) ? (isMilk ? 30.6 : 31.6) : +temperature.toFixed(1);
+  const finalHum = isNaN(humidity) ? (isMilk ? 72.2 : 71.2) : +humidity.toFixed(1);
+  const finalGas = isNaN(mq135_raw) ? (isMilk ? 47 : 79) : Math.round(mq135_raw);
+  const finalImpact = isNaN(impact) ? 0 : +impact.toFixed(3);
+  const finalLight = isNaN(light) ? (isMilk ? 33.3 : 12.5) : +light.toFixed(1);
   const finalLat = isNaN(gpsLat) ? 22.5726 : +gpsLat.toFixed(4);
   const finalLng = isNaN(gpsLng) ? 88.3639 : +gpsLng.toFixed(4);
-  const finalSats = isNaN(gpsSats) ? 8 : Math.round(gpsSats);
+  const finalSats = isNaN(gpsSats) ? 0 : Math.round(gpsSats);
 
   const rawId = (deviceId || '').toUpperCase();
   let defaultProduct = 'Apple';
-  if (rawId.includes('124') || rawId.includes('MILK')) {
+  if (rawId.includes('124') || rawId.includes('MILK') || isMilk) {
     defaultProduct = 'Milk';
   } else if (rawId.includes('001') || rawId.includes('APPLE')) {
     defaultProduct = 'Apple';
   }
-  const rawProd = target.product_name || target.product || target.name;
-  const product = (!rawProd || rawProd === 'Cold Drinks' || rawProd === 'Meat' || rawProd === 'IoT Node')
-    ? defaultProduct
-    : rawProd;
+  const rawProd = target.product_name || target.product || target.device_type || target.name;
+  const formattedProd =
+    rawProd && typeof rawProd === 'string'
+      ? rawProd.charAt(0).toUpperCase() + rawProd.slice(1).toLowerCase()
+      : '';
+  const product =
+    !formattedProd ||
+    formattedProd === 'Cold drinks' ||
+    formattedProd === 'Meat' ||
+    formattedProd === 'Iot node'
+      ? defaultProduct
+      : formattedProd;
   const moistureCalc = calculateMoisture(finalTemp, finalHum);
   const phCalc = calculatePH(finalTemp, finalHum, moistureCalc.absoluteMoisture, {
     category: product,
@@ -213,9 +251,9 @@ function normalizeDeviceData(rawDevice: any, deviceId: string): DeviceData {
     temperature: finalTemp,
     humidity: finalHum,
     mq135_raw: finalGas,
-    moisture: target.moisture ?? moistureCalc.absoluteMoisture,
-    dewPoint: target.dewPoint ?? moistureCalc.dewPoint,
-    ph: target.ph ?? phCalc.ph,
+    moisture: moistureCalc.absoluteMoisture,
+    dewPoint: moistureCalc.dewPoint,
+    ph: phCalc.ph,
     impact: finalImpact,
     light: finalLight,
     gpsLat: finalLat,
@@ -236,21 +274,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [configVersion, setConfigVersion] = useState<number>(0);
 
   const [devicesMap, setDevicesMap] = useState<Record<string, DeviceData>>(() => {
+    const appleMoisture = calculateMoisture(31.6, 71.2);
+    const applePh = calculatePH(31.6, 71.2, appleMoisture.absoluteMoisture, {
+      category: 'Apple',
+      gas: 79,
+    });
+    const milkMoisture = calculateMoisture(30.6, 72.2);
+    const milkPh = calculatePH(30.6, 72.2, milkMoisture.absoluteMoisture, {
+      category: 'Milk',
+      gas: 47,
+    });
+
     const defaultHardware: Record<string, DeviceData> = {
       'YGS-FD-001': {
         device_id: 'YGS-FD-001',
         product: 'Apple',
-        temperature: 3.5,
-        humidity: 88.0,
-        mq135_raw: 95,
-        moisture: 6.5,
-        dewPoint: 2.1,
-        ph: 4.1,
-        impact: 0.08,
-        light: 25,
+        temperature: 31.6,
+        humidity: 71.2,
+        mq135_raw: 79,
+        moisture: appleMoisture.absoluteMoisture,
+        dewPoint: appleMoisture.dewPoint,
+        ph: applePh.ph,
+        impact: 0.147,
+        light: 12.5,
         gpsLat: 22.5726,
         gpsLng: 88.3639,
-        gpsSats: 9,
+        gpsSats: 0,
         temperature_min: 0.0,
         temperature_max: 4.0,
         humidity_min: 85,
@@ -262,17 +311,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       'YGS-FD-124': {
         device_id: 'YGS-FD-124',
         product: 'Milk',
-        temperature: 2.8,
-        humidity: 70.0,
-        mq135_raw: 120,
-        moisture: 5.1,
-        dewPoint: -1.2,
-        ph: 6.6,
-        impact: 0.10,
-        light: 15,
+        temperature: 30.6,
+        humidity: 72.2,
+        mq135_raw: 47,
+        moisture: milkMoisture.absoluteMoisture,
+        dewPoint: milkMoisture.dewPoint,
+        ph: milkPh.ph,
+        impact: 0,
+        light: 33.3,
         gpsLat: 22.5726,
         gpsLng: 88.3639,
-        gpsSats: 8,
+        gpsSats: 0,
         temperature_min: 1.0,
         temperature_max: 4.0,
         humidity_min: 65,
@@ -289,13 +338,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const parsed = JSON.parse(stored);
         delete parsed['YGS-FD-000124'];
         delete parsed['YGS-FD-112233'];
-        if (parsed['YGS-FD-001']) {
-          parsed['YGS-FD-001'].product = 'Apple';
-        }
-        if (parsed['YGS-FD-124']) {
-          parsed['YGS-FD-124'].product = 'Milk';
-        }
-        return { ...defaultHardware, ...parsed };
+        const normalizedStored: Record<string, DeviceData> = {};
+        Object.keys(parsed).forEach((k) => {
+          normalizedStored[k] = normalizeDeviceData(parsed[k], k);
+        });
+        return { ...defaultHardware, ...normalizedStored };
       }
     } catch {}
     return defaultHardware;

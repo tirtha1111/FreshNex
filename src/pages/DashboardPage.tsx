@@ -113,26 +113,60 @@ export const DashboardPage: React.FC = () => {
   // Live sensor values used for Freshness Level, Interactive Card, and Report
   const liveTelemetry = useMemo(() => {
     const baseTemp = Number(
-      targetDev?.temperature ??
+      targetDev?.temperature_c ??
+        targetDev?.temperature ??
         sensorData?.temperature ??
-        (productInfo.id === 'YGS-FD-124' ? 3.8 : 4.2)
+        (productInfo.id === 'YGS-FD-124' ? 30.6 : 31.6)
     );
     const temperature = Number(baseTemp.toFixed(1));
     const humidity = Number(
-      targetDev?.humidity ??
-        sensorData?.humidity ??
-        (productInfo.id === 'YGS-FD-124' ? 68.0 : 85.0)
+      Number(
+        targetDev?.humidity_percent ??
+          targetDev?.humidity ??
+          sensorData?.humidity ??
+          (productInfo.id === 'YGS-FD-124' ? 72.2 : 71.2)
+      ).toFixed(1)
     );
     const gas = Number(
       targetDev?.mq135_raw ??
         sensorData?.gas ??
-        (productInfo.id === 'YGS-FD-124' ? 95 : 84)
+        (productInfo.id === 'YGS-FD-124' ? 47 : 79)
     );
-    const impact = Number(targetDev?.impact ?? sensorData?.impact ?? 0.08);
-    const light = Math.round(Number(targetDev?.light ?? sensorData?.light ?? 16));
+    const impact = Number(
+      Number(
+        targetDev?.acceleration_change ??
+          targetDev?.impact ??
+          sensorData?.impact ??
+          (productInfo.id === 'YGS-FD-124' ? 0 : 0.147)
+      ).toFixed(3)
+    );
+    const light = Number(
+      Number(
+        targetDev?.light_lux ??
+          targetDev?.light ??
+          sensorData?.light ??
+          (productInfo.id === 'YGS-FD-124' ? 33.3 : 12.5)
+      ).toFixed(1)
+    );
     const gpsLat = Number(targetDev?.gpsLat ?? sensorData?.gpsLat ?? 28.6139);
     const gpsLng = Number(targetDev?.gpsLng ?? sensorData?.gpsLng ?? 77.2090);
-    const gpsSats = Number(targetDev?.gpsSats ?? sensorData?.gpsSats ?? 9);
+    const gpsSats = Number(
+      targetDev?.gps_satellites ??
+        targetDev?.gpsSats ??
+        sensorData?.gpsSats ??
+        0
+    );
+
+    const dht22Ok = targetDev?.dht22_ok ?? true;
+    const lightSensorOk = targetDev?.light_sensor_ok ?? true;
+    const mq135AdcVoltage = Number(
+      targetDev?.mq135_adc_voltage ?? (productInfo.id === 'YGS-FD-124' ? 0.03788 : 0.063663)
+    );
+    const mq135SensorVoltage = Number(
+      targetDev?.mq135_sensor_voltage ?? Number((mq135AdcVoltage * 2).toFixed(5))
+    );
+    const lastTagUid =
+      targetDev?.last_tag_uid || (productInfo.id === 'YGS-FD-124' ? '61896F06' : '6D66F406');
 
     const moistureObj = calculateMoisture(temperature, humidity);
     const phObj = calculatePH(temperature, humidity, moistureObj.absoluteMoisture, {
@@ -150,6 +184,11 @@ export const DashboardPage: React.FC = () => {
       gpsLat,
       gpsLng,
       gpsSats,
+      dht22Ok,
+      lightSensorOk,
+      mq135AdcVoltage,
+      mq135SensorVoltage,
+      lastTagUid,
       moisture: moistureObj.absoluteMoisture,
       dewPoint: moistureObj.dewPoint,
       ph: phObj.ph,
@@ -186,13 +225,18 @@ export const DashboardPage: React.FC = () => {
     return { tempScore, humScore, gasScore };
   }, [liveTelemetry, thresholds]);
 
+  const [realtimeStatus, setRealtimeStatus] = useState<'online' | 'offline'>(() =>
+    socketTelemetryService.getLatestStatus(productInfo.id)
+  );
   const [lastResponseTs, setLastResponseTs] = useState<number>(() =>
     socketTelemetryService.getLastResponseTimestamp(productInfo.id)
   );
 
   useEffect(() => {
+    setRealtimeStatus(socketTelemetryService.getLatestStatus(productInfo.id));
     setLastResponseTs(socketTelemetryService.getLastResponseTimestamp(productInfo.id));
-    const unsub = socketTelemetryService.subscribeStatus(productInfo.id, (_status, meta) => {
+    const unsub = socketTelemetryService.subscribeStatus(productInfo.id, (status, meta) => {
+      setRealtimeStatus(status);
       const nextTs = meta?.lastResponseAt || meta?.lastDataAt;
       if (nextTs) {
         setLastResponseTs(nextTs);
@@ -200,6 +244,8 @@ export const DashboardPage: React.FC = () => {
     });
     return () => unsub();
   }, [productInfo.id]);
+
+  const isDeviceOnline = realtimeStatus === 'online';
 
   const lastResponseInfo = useMemo(() => {
     const rawTs =
@@ -306,10 +352,10 @@ export const DashboardPage: React.FC = () => {
     }
   }, [productInfo, liveTelemetry, freshnessReport.score, freshnessReport.status]);
 
-  // Trigger AI AGENT FRESORA shelf-life prediction on mount or when product Device ID changes
+  // Trigger AI AGENT FRESORA shelf-life prediction on mount or when live RTDB telemetry updates
   useEffect(() => {
     fetchFresoraPrediction();
-  }, [productInfo.id]);
+  }, [productInfo.id, liveTelemetry.temperature, liveTelemetry.humidity, liveTelemetry.gas]);
 
   const batchNumber = productInfo.id === 'YGS-FD-124' ? 'BATCH-MK-0124' : 'BATCH-AP-0001';
 
@@ -406,8 +452,26 @@ export const DashboardPage: React.FC = () => {
         <div className="space-y-1">
           <div className="flex flex-wrap items-center gap-2">
             <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-xl bg-[#07221A] text-[#20E79A] text-[10px] font-mono font-bold tracking-wider uppercase">
-              <span className="w-2 h-2 rounded-full bg-[#20E79A] animate-pulse" />
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isDeviceOnline ? 'bg-[#20E79A] animate-pulse' : 'bg-rose-500'
+                }`}
+              />
               UNIQUE DEVICE ID: {productInfo.id}
+            </span>
+            <span
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-bold border ${
+                isDeviceOnline
+                  ? 'bg-emerald-500/15 text-emerald-800 border-emerald-500/30'
+                  : 'bg-rose-500/15 text-rose-700 border-rose-500/30'
+              }`}
+            >
+              <span
+                className={`w-1.5 h-1.5 rounded-full ${
+                  isDeviceOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                }`}
+              />
+              {isDeviceOnline ? 'Live' : 'Offline'}
             </span>
             <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-emerald-50 border border-emerald-500/25 text-emerald-900 text-[10px] font-bold">
               <Clock className="w-3 h-3 text-emerald-600" />
@@ -470,7 +534,21 @@ export const DashboardPage: React.FC = () => {
               </div>
 
               {/* Active Product Badge (Strictly shows only the logged-in product: Apple OR Milk) */}
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl text-[10px] font-bold border ${
+                    isDeviceOnline
+                      ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/25'
+                      : 'bg-rose-500/10 text-rose-700 border-rose-500/25'
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      isDeviceOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                    }`}
+                  />
+                  {isDeviceOnline ? 'Live' : 'Offline'}
+                </span>
                 <span className="px-3 py-1.5 rounded-xl bg-[#07221A] text-[#20E79A] text-[10.5px] font-mono font-black shadow-xs">
                   {productInfo.id} ({productInfo.name})
                 </span>
@@ -622,7 +700,7 @@ export const DashboardPage: React.FC = () => {
                       <div className="w-full flex flex-col items-center justify-center p-4 rounded-[24px] bg-[#F4F7F6]/90 border border-[#13493B]/10 shadow-inner">
                         <div className="w-full flex items-center justify-between mb-1">
                           <span className="text-[10px] font-black uppercase tracking-widest text-[#5C7F75]">
-                            Live Freshness Level
+                            {isDeviceOnline ? 'Live Freshness Level' : 'Offline Freshness Level'}
                           </span>
                           <StatusBadge status={freshnessReport.status} />
                         </div>
@@ -661,70 +739,114 @@ export const DashboardPage: React.FC = () => {
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 pt-1">
                     <div
                       onClick={() => navigate(`/live-data/${productInfo.id}`)}
-                      className="p-2.5 rounded-xl bg-white border border-[#13493B]/10 hover:border-[#20E79A]/50 transition-all cursor-pointer flex items-center gap-2.5 shadow-2xs"
+                      className="p-2.5 rounded-xl bg-white border border-[#13493B]/10 hover:border-[#20E79A]/50 transition-all cursor-pointer flex items-center justify-between gap-2 shadow-2xs"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
-                        <Thermometer className="w-4 h-4" />
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
+                          <Thermometer className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[9px] font-bold uppercase text-[#5C7F75] block">
+                            Temp
+                          </span>
+                          <span className="text-xs font-mono font-black text-[#07221A] truncate block">
+                            {liveTelemetry.temperature} °C
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-[9px] font-bold uppercase text-[#5C7F75] block">
-                          Temp
-                        </span>
-                        <span className="text-xs font-mono font-black text-[#07221A]">
-                          {liveTelemetry.temperature} °C
-                        </span>
-                      </div>
+                      <span
+                        className={`px-1.5 py-0.5 rounded-full text-[8.5px] font-bold shrink-0 ${
+                          isDeviceOnline
+                            ? 'bg-emerald-500/10 text-emerald-600'
+                            : 'bg-rose-500/10 text-rose-600'
+                        }`}
+                      >
+                        {isDeviceOnline ? 'Live' : 'Offline'}
+                      </span>
                     </div>
 
                     <div
                       onClick={() => navigate(`/live-data/${productInfo.id}`)}
-                      className="p-2.5 rounded-xl bg-white border border-[#13493B]/10 hover:border-[#20E79A]/50 transition-all cursor-pointer flex items-center gap-2.5 shadow-2xs"
+                      className="p-2.5 rounded-xl bg-white border border-[#13493B]/10 hover:border-[#20E79A]/50 transition-all cursor-pointer flex items-center justify-between gap-2 shadow-2xs"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
-                        <Droplets className="w-4 h-4" />
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 text-blue-600 flex items-center justify-center shrink-0">
+                          <Droplets className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[9px] font-bold uppercase text-[#5C7F75] block">
+                            Humidity
+                          </span>
+                          <span className="text-xs font-mono font-black text-[#07221A] truncate block">
+                            {liveTelemetry.humidity} %
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-[9px] font-bold uppercase text-[#5C7F75] block">
-                          Humidity
-                        </span>
-                        <span className="text-xs font-mono font-black text-[#07221A]">
-                          {liveTelemetry.humidity} %
-                        </span>
-                      </div>
+                      <span
+                        className={`px-1.5 py-0.5 rounded-full text-[8.5px] font-bold shrink-0 ${
+                          isDeviceOnline
+                            ? 'bg-emerald-500/10 text-emerald-600'
+                            : 'bg-rose-500/10 text-rose-600'
+                        }`}
+                      >
+                        {isDeviceOnline ? 'Live' : 'Offline'}
+                      </span>
                     </div>
 
                     <div
                       onClick={() => navigate(`/live-data/${productInfo.id}`)}
-                      className="p-2.5 rounded-xl bg-white border border-[#13493B]/10 hover:border-[#20E79A]/50 transition-all cursor-pointer flex items-center gap-2.5 shadow-2xs"
+                      className="p-2.5 rounded-xl bg-white border border-[#13493B]/10 hover:border-[#20E79A]/50 transition-all cursor-pointer flex items-center justify-between gap-2 shadow-2xs"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
-                        <Activity className="w-4 h-4" />
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                          <Activity className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[9px] font-bold uppercase text-[#5C7F75] block">
+                            Calc. pH
+                          </span>
+                          <span className="text-xs font-mono font-black text-[#07221A] truncate block">
+                            pH {liveTelemetry.ph}
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-[9px] font-bold uppercase text-[#5C7F75] block">
-                          Calc. pH
-                        </span>
-                        <span className="text-xs font-mono font-black text-[#07221A]">
-                          pH {liveTelemetry.ph}
-                        </span>
-                      </div>
+                      <span
+                        className={`px-1.5 py-0.5 rounded-full text-[8.5px] font-bold shrink-0 ${
+                          isDeviceOnline
+                            ? 'bg-emerald-500/10 text-emerald-600'
+                            : 'bg-rose-500/10 text-rose-600'
+                        }`}
+                      >
+                        {isDeviceOnline ? 'Live' : 'Offline'}
+                      </span>
                     </div>
 
                     <div
                       onClick={() => navigate(`/live-data/${productInfo.id}`)}
-                      className="p-2.5 rounded-xl bg-white border border-[#13493B]/10 hover:border-[#20E79A]/50 transition-all cursor-pointer flex items-center gap-2.5 shadow-2xs"
+                      className="p-2.5 rounded-xl bg-white border border-[#13493B]/10 hover:border-[#20E79A]/50 transition-all cursor-pointer flex items-center justify-between gap-2 shadow-2xs"
                     >
-                      <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
-                        <Wind className="w-4 h-4" />
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className="w-8 h-8 rounded-lg bg-purple-50 text-purple-600 flex items-center justify-center shrink-0">
+                          <Wind className="w-4 h-4" />
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-[9px] font-bold uppercase text-[#5C7F75] block">
+                            VOC Gas
+                          </span>
+                          <span className="text-xs font-mono font-black text-[#07221A] truncate block">
+                            {liveTelemetry.gas} ppm
+                          </span>
+                        </div>
                       </div>
-                      <div>
-                        <span className="text-[9px] font-bold uppercase text-[#5C7F75] block">
-                          VOC Gas
-                        </span>
-                        <span className="text-xs font-mono font-black text-[#07221A]">
-                          {liveTelemetry.gas} ppm
-                        </span>
-                      </div>
+                      <span
+                        className={`px-1.5 py-0.5 rounded-full text-[8.5px] font-bold shrink-0 ${
+                          isDeviceOnline
+                            ? 'bg-emerald-500/10 text-emerald-600'
+                            : 'bg-rose-500/10 text-rose-600'
+                        }`}
+                      >
+                        {isDeviceOnline ? 'Live' : 'Offline'}
+                      </span>
                     </div>
                   </div>
                 </motion.div>
@@ -1130,9 +1252,25 @@ export const DashboardPage: React.FC = () => {
             <span className="text-[10px] font-black uppercase tracking-wider text-[#07221A]">
               4. Complete 8-Channel Sensor Telemetry Data (Included in PDF Export)
             </span>
-            <span className="text-[10px] font-mono font-bold text-[#5C7F75]">
-              Node: {productInfo.id}
-            </span>
+            <div className="flex items-center gap-2">
+              <span
+                className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9.5px] font-bold border ${
+                  isDeviceOnline
+                    ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+                    : 'bg-rose-500/10 text-rose-700 border-rose-500/20'
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    isDeviceOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                  }`}
+                />
+                {isDeviceOnline ? 'Live' : 'Offline'}
+              </span>
+              <span className="text-[10px] font-mono font-bold text-[#5C7F75]">
+                Node: {productInfo.id}
+              </span>
+            </div>
           </div>
           <div className="grid grid-cols-2 sm:grid-cols-4 divide-y sm:divide-y-0 sm:divide-x divide-[#13493B]/10 text-xs">
             <div className="p-3 space-y-0.5">

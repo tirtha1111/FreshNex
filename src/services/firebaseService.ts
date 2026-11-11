@@ -78,6 +78,161 @@ export function subscribeToDeviceStatus(
 }
 
 /**
+ * Verify a User Login parameter (Device ID, Tag UID, or Product Name) directly against
+ * the Firebase Realtime Database (/devices and /rfid_registry) and return the resolved device & live data.
+ */
+export async function verifyDeviceLoginInRTDB(loginInput: string): Promise<{
+  deviceId: string;
+  productName: string;
+  tagUid?: string;
+  rawDeviceData?: any;
+}> {
+  const raw = (loginInput || '').trim().toUpperCase().replace(/^#/, '');
+  if (!raw) {
+    throw new Error('Please enter a valid Device ID (e.g. YGS-FD-001 or YGS-FD-124).');
+  }
+
+  let devicesObj: Record<string, any> | null = null;
+  let registryObj: Record<string, any> | null = null;
+
+  const db = getDirectDatabase();
+  if (db) {
+    try {
+      const [devSnap, regSnap] = await Promise.all([
+        get(ref(db, 'devices')).catch(() => null),
+        get(ref(db, 'rfid_registry')).catch(() => null),
+      ]);
+      if (devSnap && devSnap.exists()) {
+        devicesObj = devSnap.val();
+      }
+      if (regSnap && regSnap.exists()) {
+        registryObj = regSnap.val();
+      }
+    } catch {
+      // Fallback to REST if SDK read fails
+    }
+  }
+
+  if (!devicesObj || !registryObj) {
+    try {
+      const cfg = getActiveFirebaseConfig();
+      const base = (cfg.databaseURL || REALTIME_DATABASE_URL).replace(/\/$/, '');
+      const [devRes, regRes] = await Promise.all([
+        !devicesObj ? fetch(`${base}/devices.json`, { signal: AbortSignal.timeout(3500) }).catch(() => null) : null,
+        !registryObj ? fetch(`${base}/rfid_registry.json`, { signal: AbortSignal.timeout(3500) }).catch(() => null) : null,
+      ]);
+      if (devRes && devRes.ok) {
+        devicesObj = await devRes.json();
+      }
+      if (regRes && regRes.ok) {
+        registryObj = await regRes.json();
+      }
+    } catch {
+      // Non-blocking fallback
+    }
+  }
+
+  // 1. Check if input matches an RFID Tag UID in /rfid_registry
+  if (registryObj && typeof registryObj === 'object') {
+    for (const [uidKey, regVal] of Object.entries(registryObj)) {
+      if (!regVal || typeof regVal !== 'object') continue;
+      const regDevId = String(regVal.device_id || '').trim().toUpperCase();
+      const regProd = String(regVal.product || '').trim().toUpperCase();
+      if (
+        uidKey.trim().toUpperCase() === raw ||
+        regDevId === raw ||
+        (raw.length >= 3 && regDevId.endsWith(`-${raw}`)) ||
+        regProd === raw
+      ) {
+        const resolvedId = regDevId || (regProd === 'MILK' ? 'YGS-FD-124' : 'YGS-FD-001');
+        const rawDev = devicesObj?.[resolvedId] || null;
+        const prodName =
+          regProd === 'MILK' || resolvedId.includes('124')
+            ? 'Milk'
+            : regProd === 'APPLE' || resolvedId.includes('001')
+            ? 'Apple'
+            : regVal.product
+            ? String(regVal.product).charAt(0).toUpperCase() + String(regVal.product).slice(1).toLowerCase()
+            : 'Apple';
+        return {
+          deviceId: resolvedId,
+          productName: prodName,
+          tagUid: uidKey.trim().toUpperCase(),
+          rawDeviceData: rawDev,
+        };
+      }
+    }
+  }
+
+  // 2. Check if input matches any device in /devices
+  if (devicesObj && typeof devicesObj === 'object') {
+    for (const [devKey, devVal] of Object.entries(devicesObj)) {
+      if (devKey === 'YGS-FD-000124' || devKey === 'YGS-FD-112233') continue;
+      if (!devVal || typeof devVal !== 'object') continue;
+      const cleanKey = devKey.trim().toUpperCase();
+      const devIdField = String(devVal.device_id || devKey).trim().toUpperCase();
+      const devType = String(devVal.device_type || devVal.product || devVal.product_name || '').trim().toUpperCase();
+      const lastTagUid = String(devVal.last_tag_uid || '').trim().toUpperCase();
+
+      if (
+        cleanKey === raw ||
+        devIdField === raw ||
+        (raw.length >= 3 && cleanKey.endsWith(`-${raw}`)) ||
+        (devType && devType === raw) ||
+        (lastTagUid && lastTagUid === raw) ||
+        (raw === 'APPLE' && cleanKey === 'YGS-FD-001') ||
+        (raw === 'MILK' && cleanKey === 'YGS-FD-124')
+      ) {
+        const prodName =
+          devType === 'MILK' || cleanKey.includes('124')
+            ? 'Milk'
+            : devType === 'APPLE' || cleanKey.includes('001')
+            ? 'Apple'
+            : devType
+            ? devType.charAt(0) + devType.slice(1).toLowerCase()
+            : 'Apple';
+        return {
+          deviceId: cleanKey,
+          productName: prodName,
+          tagUid: lastTagUid || undefined,
+          rawDeviceData: devVal,
+        };
+      }
+    }
+
+    // If RTDB was reachable and had devices, but the user's input matched neither /devices nor /rfid_registry:
+    const availableIds = Object.keys(devicesObj).filter(
+      (k) => k !== 'YGS-FD-000124' && k !== 'YGS-FD-112233'
+    );
+    if (availableIds.length > 0) {
+      throw new Error(
+        `Device ID "${raw}" was not found in Firebase Realtime Database. Registered devices: ${availableIds.join(', ')}.`
+      );
+    }
+  }
+
+  // 3. Offline fallback if RTDB could not be reached
+  if (raw === '124' || raw === 'MILK' || raw === 'YGS-FD-124' || raw === '61896F06') {
+    return {
+      deviceId: 'YGS-FD-124',
+      productName: 'Milk',
+      tagUid: '61896F06',
+    };
+  }
+  if (raw === '001' || raw === 'APPLE' || raw === 'YGS-FD-001' || raw === '6D66F406') {
+    return {
+      deviceId: 'YGS-FD-001',
+      productName: 'Apple',
+      tagUid: '6D66F406',
+    };
+  }
+
+  throw new Error(
+    `Device ID "${raw}" is not registered. Please enter a valid Device ID (e.g. YGS-FD-001 or YGS-FD-124).`
+  );
+}
+
+/**
  * Retrieve item metadata by ID directly from Realtime Database or catalogue
  */
 export async function getItemById(itemId: string): Promise<FoodItem | null> {
@@ -87,6 +242,7 @@ export async function getItemById(itemId: string): Promise<FoodItem | null> {
     cleanId === 'MILK' ||
     cleanId === '124' ||
     cleanId === 'YGS-FD-124' ||
+    cleanId === '61896F06' ||
     cleanId.includes('124') ||
     cleanId.includes('MILK') ||
     cleanId.includes('DAIRY')
@@ -97,6 +253,7 @@ export async function getItemById(itemId: string): Promise<FoodItem | null> {
     cleanId === 'APPLE' ||
     cleanId === '001' ||
     cleanId === 'YGS-FD-001' ||
+    cleanId === '6D66F406' ||
     cleanId.includes('001') ||
     cleanId.includes('APPLE') ||
     cleanId.includes('FRESORA') ||
@@ -110,21 +267,24 @@ export async function getItemById(itemId: string): Promise<FoodItem | null> {
 
 /**
  * Normalizes a raw Firebase device/sensor payload into a complete SensorData object
- * containing all 9 parameters (Temperature, Humidity, Moisture, Dew Point, pH, Gas, Impact, Light, NEO-6M GPS).
+ * containing all 9 parameters (Temperature, Humidity, Moisture, Dew Point, pH, Gas, Impact, Light, NEO-6M GPS)
+ * plus hardware diagnostics from Firebase Realtime Database.
  */
 export function parseFullSensorPayload(
   val: any,
   isMeat: boolean = false,
   isReal: boolean = false
-): (SensorData & { isReal?: boolean }) | null {
+): (SensorData & { isReal?: boolean; [key: string]: any }) | null {
   if (!val || typeof val !== 'object') return null;
 
   let target = val;
   if (
     !(
+      'temperature_c' in val ||
       'temperature' in val ||
       'temp' in val ||
       't' in val ||
+      'humidity_percent' in val ||
       'humidity' in val ||
       'hum' in val ||
       'gas' in val ||
@@ -136,7 +296,7 @@ export function parseFullSensorPayload(
       'gpsLat' in val
     )
   ) {
-    const keys = Object.keys(val).filter((k) => k !== 'commands');
+    const keys = Object.keys(val).filter((k) => k !== 'commands' && k !== 'rfid_scans');
     if (keys.length > 0) {
       const lastKey = keys[keys.length - 1];
       if (typeof val[lastKey] === 'object' && val[lastKey] !== null) {
@@ -145,17 +305,31 @@ export function parseFullSensorPayload(
     }
   }
 
-  const defaultTemp = isMeat ? 3.5 : 4.2;
-  const defaultHum = isMeat ? 68.0 : 62.0;
-  const defaultGas = isMeat ? 980 : 120;
-  const defaultImpact = isMeat ? 0.15 : 0.12;
-  const defaultLight = isMeat ? 12 : 18;
+  const devIdHint = String(target.device_id || target.id || (isMeat ? 'MEAT' : 'YGS-FD-001'))
+    .trim()
+    .toUpperCase();
+  const isMilkDevice =
+    devIdHint.includes('124') ||
+    String(target.device_type || target.product || '')
+      .toLowerCase()
+      .includes('milk');
+
+  const defaultTemp = isMeat ? 3.5 : isMilkDevice ? 30.6 : 31.6;
+  const defaultHum = isMeat ? 68.0 : isMilkDevice ? 72.2 : 71.2;
+  const defaultGas = isMeat ? 980 : isMilkDevice ? 47 : 79;
+  const defaultImpact = isMeat ? 0.15 : isMilkDevice ? 0 : 0.147;
+  const defaultLight = isMeat ? 12 : isMilkDevice ? 33.3 : 12.5;
   const defaultLat = 22.5726;
   const defaultLng = 88.3639;
-  const defaultSats = 8;
+  const defaultSats = target.gps_satellites !== undefined ? Number(target.gps_satellites) : 0;
 
-  const temperature = Number(target.temperature ?? target.temp ?? target.t ?? defaultTemp);
-  const humidity = Number(target.humidity ?? target.hum ?? target.h ?? defaultHum);
+  // Prefer hardware-native RTDB fields (temperature_c, humidity_percent) first
+  const temperature = Number(
+    target.temperature_c ?? target.temperature ?? target.temp ?? target.t ?? defaultTemp
+  );
+  const humidity = Number(
+    target.humidity_percent ?? target.humidity ?? target.hum ?? target.h ?? defaultHum
+  );
   const gas = Number(
     target.mq135_raw ??
       target.gas ??
@@ -221,8 +395,8 @@ export function parseFullSensorPayload(
       defaultLng
   );
   const gpsSatsRaw = Number(
-    target.gpsSats ??
-      target.gps_satellites ??
+    target.gps_satellites ??
+      target.gpsSats ??
       target.gps_sats ??
       target.sats ??
       target.satellites ??
@@ -233,7 +407,6 @@ export function parseFullSensorPayload(
       defaultSats
   );
 
-  const devIdHint = target.device_id || target.id || (isMeat ? 'MEAT' : 'YGS-FD-001');
   const timestamp = socketTelemetryService.getLastResponseTimestamp(devIdHint);
 
   const finalTemp = isNaN(temperature) ? defaultTemp : +temperature.toFixed(1);
@@ -247,22 +420,14 @@ export function parseFullSensorPayload(
 
   const moistureReading = calculateMoisture(finalTemp, finalHum);
   const phReading = calculatePH(finalTemp, finalHum, moistureReading.absoluteMoisture, {
-    category: isMeat ? 'meat' : 'dairy',
+    category: isMeat ? 'meat' : isMilkDevice ? 'milk' : 'apple',
     gas: finalGas,
   });
 
-  const finalMoisture =
-    target.moisture !== undefined && !isNaN(Number(target.moisture))
-      ? +Number(target.moisture).toFixed(2)
-      : moistureReading.absoluteMoisture;
-  const finalDewPoint =
-    target.dewPoint !== undefined && !isNaN(Number(target.dewPoint))
-      ? +Number(target.dewPoint).toFixed(1)
-      : moistureReading.dewPoint;
-  const finalPh =
-    target.ph !== undefined && !isNaN(Number(target.ph))
-      ? +Number(target.ph).toFixed(2)
-      : phReading.ph;
+  // Always derive moisture, dewPoint, and pH from the live hardware temperature/humidity/gas
+  const finalMoisture = moistureReading.absoluteMoisture;
+  const finalDewPoint = moistureReading.dewPoint;
+  const finalPh = phReading.ph;
 
   return {
     temperature: finalTemp,
@@ -278,7 +443,69 @@ export function parseFullSensorPayload(
     gpsSats: finalSats,
     timestamp,
     isReal,
+    device_id: devIdHint,
+    device_type: target.device_type,
+    dht22_ok: target.dht22_ok,
+    light_sensor_ok: target.light_sensor_ok,
+    mq135_adc_voltage: target.mq135_adc_voltage,
+    mq135_sensor_voltage: target.mq135_sensor_voltage,
+    last_tag_uid: target.last_tag_uid,
+    gps_valid: target.gps_valid,
+    impact_detected: target.impact_detected,
+    accel_x: target.accel_x,
+    accel_y: target.accel_y,
+    accel_z: target.accel_z,
+    gyro_x: target.gyro_x,
+    gyro_y: target.gyro_y,
+    gyro_z: target.gyro_z,
+    online: target.online,
   };
+}
+
+/**
+ * Fetches the current live sensor reading for a device directly from Firebase Realtime Database (/devices/{deviceId})
+ */
+export async function fetchLiveSensorData(
+  itemId: string
+): Promise<(SensorData & { isReal?: boolean; [key: string]: any }) | null> {
+  const raw = (itemId || '').trim().toUpperCase().replace(/^#/, '');
+  const cleanId =
+    raw === '124' || raw === 'MILK' || raw.includes('124') || raw === '61896F06'
+      ? 'YGS-FD-124'
+      : raw === '001' || raw === 'APPLE' || raw.includes('001') || raw === '6D66F406'
+      ? 'YGS-FD-001'
+      : raw;
+
+  const db = getDirectDatabase();
+  if (db) {
+    try {
+      const snap = await get(ref(db, `devices/${cleanId}`));
+      if (snap.exists()) {
+        const val = snap.val();
+        return parseFullSensorPayload({ ...val, device_id: cleanId }, false, true);
+      }
+    } catch {
+      // Fallback to REST
+    }
+  }
+
+  try {
+    const cfg = getActiveFirebaseConfig();
+    const base = (cfg.databaseURL || REALTIME_DATABASE_URL).replace(/\/$/, '');
+    const res = await fetch(`${base}/devices/${cleanId}.json`, {
+      signal: AbortSignal.timeout(3000),
+    });
+    if (res.ok) {
+      const val = await res.json();
+      if (val && typeof val === 'object') {
+        return parseFullSensorPayload({ ...val, device_id: cleanId }, false, true);
+      }
+    }
+  } catch {
+    // Ignore
+  }
+
+  return null;
 }
 
 /**
@@ -424,17 +651,8 @@ export function subscribeToSensorData(
       try {
         candidatePaths.forEach((pathId) => {
           const deviceRef = ref(db, `devices/${pathId}`);
-          const sensorRef = ref(db, `sensorData/${pathId}`);
 
           const handleDevVal = (snapshot: any) => {
-            if (snapshot.exists()) {
-              gotRealData = true;
-              const rawVal = snapshot.val();
-              processSensorPayload(rawVal, true);
-            }
-          };
-
-          const handleSensorVal = (snapshot: any) => {
             if (snapshot.exists()) {
               gotRealData = true;
               const rawVal = snapshot.val();
@@ -447,17 +665,10 @@ export function subscribeToSensorData(
               console.warn(`Realtime device listener warning for ${pathId}:`, err);
             }
           });
-          const unsubSensor = onValue(sensorRef, handleSensorVal, (err) => {
-            if (!err?.message?.includes('PERMISSION_DENIED')) {
-              console.warn(`Realtime sensor listener warning for ${pathId}:`, err);
-            }
-          });
 
           activeCleanups.push(() => {
             unsubDev();
-            unsubSensor();
             off(deviceRef, 'value', handleDevVal);
-            off(sensorRef, 'value', handleSensorVal);
           });
         });
 
@@ -679,6 +890,8 @@ export async function clearScanHistory(userUid?: string): Promise<void> {
 
 export class FirebaseService {
   static getItemById = getItemById;
+  static verifyDeviceLoginInRTDB = verifyDeviceLoginInRTDB;
+  static fetchLiveSensorData = fetchLiveSensorData;
   static subscribeToSensorData = subscribeToSensorData;
   static subscribeToDeviceStatus = subscribeToDeviceStatus;
   static syncSensorTelemetryToFirebase = syncSensorTelemetryToFirebase;

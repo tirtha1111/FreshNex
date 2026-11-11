@@ -17,7 +17,12 @@ import {
   reinitializeFirebaseWithConfig,
   ensureFirebaseAuthenticated,
 } from '../firebase/firebase';
-import { getDirectDatabase, getDirectFirestore } from '../services/firebaseService';
+import {
+  getDirectDatabase,
+  getDirectFirestore,
+  verifyDeviceLoginInRTDB,
+} from '../services/firebaseService';
+import { socketTelemetryService } from '../services/socketService';
 import { UserProfile, UserSettings } from '../types';
 import { resolveFactualProduct } from '../data/initialData';
 
@@ -80,18 +85,19 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 async function syncProfileToFirebase(profile: UserProfile) {
   if (!profile.uid) return;
   const rtdb = getDirectDatabase();
-  if (rtdb) {
+  // Only write to /users/$userId in RTDB when auth.currentUser.uid matches profile.uid per database.rules.json
+  if (rtdb && auth?.currentUser?.uid === profile.uid) {
     try {
       await dbUpdate(ref(rtdb, `users/${profile.uid}`), {
         ...profile,
         updatedAt: Date.now(),
       });
-    } catch (e) {
-      console.warn('RTDB profile sync warning:', e);
+    } catch {
+      // Ignore if restricted by RTDB rules
     }
   }
   const fs = getDirectFirestore();
-  if (fs) {
+  if (fs && auth?.currentUser?.uid === profile.uid) {
     try {
       await setDoc(
         doc(fs, 'users', profile.uid),
@@ -101,8 +107,8 @@ async function syncProfileToFirebase(profile: UserProfile) {
         },
         { merge: true }
       );
-    } catch (e) {
-      console.warn('Firestore profile sync warning:', e);
+    } catch {
+      // Ignore
     }
   }
 }
@@ -110,18 +116,18 @@ async function syncProfileToFirebase(profile: UserProfile) {
 async function syncSettingsToFirebase(uid: string, settings: UserSettings) {
   if (!uid) return;
   const rtdb = getDirectDatabase();
-  if (rtdb) {
+  if (rtdb && auth?.currentUser?.uid === uid) {
     try {
       await dbSet(ref(rtdb, `userSettings/${uid}`), {
         ...settings,
         updatedAt: Date.now(),
       });
-    } catch (e) {
-      console.warn('RTDB userSettings sync warning:', e);
+    } catch {
+      // Ignore
     }
   }
   const fs = getDirectFirestore();
-  if (fs) {
+  if (fs && auth?.currentUser?.uid === uid) {
     try {
       await setDoc(
         doc(fs, 'users', uid),
@@ -131,8 +137,8 @@ async function syncSettingsToFirebase(uid: string, settings: UserSettings) {
         },
         { merge: true }
       );
-    } catch (e) {
-      console.warn('Firestore userSettings sync warning:', e);
+    } catch {
+      // Ignore
     }
   }
 }
@@ -461,41 +467,49 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       throw new Error(msg);
     }
 
-    const cleanDeviceId =
-      rawTag === '124' || rawTag === 'MILK' || rawTag === 'YGS-FD-124' || rawTag.includes('124')
-        ? 'YGS-FD-124'
-        : rawTag === '001' || rawTag === 'APPLE' || rawTag === 'YGS-FD-001' || rawTag.includes('001')
-        ? 'YGS-FD-001'
-        : rawTag;
+    try {
+      await ensureFirebaseAuthenticated();
+      const verified = await verifyDeviceLoginInRTDB(rawTag);
+      const cleanDeviceId = verified.deviceId;
+      const factualProduct = resolveFactualProduct(cleanDeviceId);
+      const productName = verified.productName || factualProduct.name;
 
-    const factualProduct = resolveFactualProduct(cleanDeviceId);
-    const productName = factualProduct.name;
+      if (verified.rawDeviceData) {
+        socketTelemetryService.reportFrontendDataReceived(cleanDeviceId, verified.rawDeviceData, false);
+      }
 
-    const mockUser = {
-      uid: `device_user_${cleanDeviceId.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
-      email: `${cleanDeviceId.toLowerCase()}@user.freshnex.com`,
-      displayName: `${productName} Consumer`,
-    } as any;
+      const mockUser = {
+        uid: `device_user_${cleanDeviceId.toLowerCase().replace(/[^a-z0-9]/g, '_')}`,
+        email: `${cleanDeviceId.toLowerCase()}@user.freshnex.com`,
+        displayName: `${productName} Consumer`,
+      } as any;
 
-    setCurrentUser(mockUser);
-    setIsDemoMode(true);
-    localStorage.setItem('freshnex_demo_user', 'true');
+      setCurrentUser(mockUser);
+      setIsDemoMode(true);
+      localStorage.setItem('freshnex_demo_user', 'true');
 
-    const userProf: UserProfile = {
-      uid: mockUser.uid,
-      email: mockUser.email,
-      name: `${productName} Access`,
-      role: 'user',
-      assignedProductId: cleanDeviceId,
-      assignedProductName: productName,
-      memberSince: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
-      organization: 'Product Consumer Access',
-    };
+      const userProf: UserProfile = {
+        uid: mockUser.uid,
+        email: mockUser.email,
+        name: `${productName} Access`,
+        role: 'user',
+        assignedProductId: cleanDeviceId,
+        assignedProductName: productName,
+        memberSince: new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
+        organization: 'Product Consumer Access',
+      };
 
-    setUserProfile(userProf);
-    localStorage.setItem('freshnex_profile', JSON.stringify(userProf));
-    await syncProfileToFirebase(userProf);
-    setIsLoading(false);
+      setUserProfile(userProf);
+      localStorage.setItem('freshnex_profile', JSON.stringify(userProf));
+      await syncProfileToFirebase(userProf);
+    } catch (err: any) {
+      const msg =
+        err?.message || 'Failed to verify Device ID in Firebase Realtime Database.';
+      setAuthError(msg);
+      throw new Error(msg);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   const signup = async (name: string, email: string, pass: string) => {

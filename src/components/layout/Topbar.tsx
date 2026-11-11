@@ -17,6 +17,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useFreshness } from '../../context/FreshnessContext';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { ThresholdConfigModal } from '../common/ThresholdConfigModal';
+import { socketTelemetryService } from '../../services/socketService';
 
 interface TopbarProps {
   onOpenMobileMenu?: () => void;
@@ -25,6 +26,7 @@ interface TopbarProps {
 export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
   const { currentUser, userProfile, warehouseSession, logoutWarehouse } = useAuth();
   const { 
+    activeItem,
     alerts, 
     unreadCount, 
     markNotificationsAsRead, 
@@ -48,6 +50,24 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
     (!currentUser && Boolean(warehouseSession)) ||
     userProfile?.role === 'warehouse';
   const isAdmin = !isWarehouseView && userProfile?.role === 'admin';
+
+  const targetDeviceId = React.useMemo(() => {
+    const raw = (userProfile?.assignedProductId || activeItem?.id || 'YGS-FD-001').trim().toUpperCase();
+    if (raw.includes('124') || raw.includes('MILK')) return 'YGS-FD-124';
+    return 'YGS-FD-001';
+  }, [userProfile?.assignedProductId, activeItem?.id]);
+
+  const [deviceStatus, setDeviceStatus] = useState<'online' | 'offline'>(() =>
+    socketTelemetryService.getLatestStatus(targetDeviceId)
+  );
+
+  useEffect(() => {
+    setDeviceStatus(socketTelemetryService.getLatestStatus(targetDeviceId));
+    const unsub = socketTelemetryService.subscribeStatus(targetDeviceId, (status) => {
+      setDeviceStatus(status);
+    });
+    return () => unsub();
+  }, [targetDeviceId]);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -101,6 +121,25 @@ export const Topbar: React.FC<TopbarProps> = ({ onOpenMobileMenu }) => {
 
         {/* Right Controls */}
         <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          {/* Synchronized Admin Panel Live/Offline Badge for User Login */}
+          {!isAdmin && !isWarehouseView && (
+            <div
+              className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[10px] font-bold border ${
+                deviceStatus === 'online'
+                  ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/25'
+                  : 'bg-rose-500/10 text-rose-700 border-rose-500/25'
+              }`}
+              title={`Device ${targetDeviceId} status synced with Admin Panel`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  deviceStatus === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                }`}
+              />
+              <span>{deviceStatus === 'online' ? 'Live' : 'Offline'}</span>
+            </div>
+          )}
+
           {/* Threshold Config Quick Button - Admin Only (removed from user & warehouse login) */}
           {isAdmin && (
             <button

@@ -20,6 +20,7 @@ import {
 import { Logo } from '../common/Logo';
 import { useAuth } from '../../context/AuthContext';
 import { useFreshness } from '../../context/FreshnessContext';
+import { socketTelemetryService } from '../../services/socketService';
 import farmLandscapeImg from '../../assets/images/freshnex_farm_landscape_1789921215887.jpg';
 
 interface SidebarProps {
@@ -37,6 +38,24 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
     (!currentUser && Boolean(warehouseSession)) ||
     userProfile?.role === 'warehouse';
   const isAdmin = !isWarehouseView && userProfile?.role === 'admin';
+
+  const targetDeviceId = React.useMemo(() => {
+    const raw = (userProfile?.assignedProductId || activeItem?.id || 'YGS-FD-001').trim().toUpperCase();
+    if (raw.includes('124') || raw.includes('MILK')) return 'YGS-FD-124';
+    return 'YGS-FD-001';
+  }, [userProfile?.assignedProductId, activeItem?.id]);
+
+  const [deviceStatus, setDeviceStatus] = React.useState<'online' | 'offline'>(() =>
+    socketTelemetryService.getLatestStatus(targetDeviceId)
+  );
+
+  React.useEffect(() => {
+    setDeviceStatus(socketTelemetryService.getLatestStatus(targetDeviceId));
+    const unsub = socketTelemetryService.subscribeStatus(targetDeviceId, (status) => {
+      setDeviceStatus(status);
+    });
+    return () => unsub();
+  }, [targetDeviceId]);
 
   interface NavItem {
     name: string;
@@ -188,11 +207,39 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
                         </span>
                       )}
 
+                      {/* Live Reading Status Badge synced with Admin Panel */}
+                      {item.name === 'Live Reading' && (
+                        <span
+                          className={`ml-auto px-2 py-0.5 rounded-full text-[9px] font-black border relative z-10 shrink-0 flex items-center gap-1 ${
+                            deviceStatus === 'online'
+                              ? 'bg-[#20E79A]/15 text-[#20E79A] border-[#20E79A]/30'
+                              : 'bg-rose-500/15 text-rose-400 border-rose-500/30'
+                          }`}
+                        >
+                          <span
+                            className={`w-1.5 h-1.5 rounded-full ${
+                              deviceStatus === 'online' ? 'bg-[#20E79A] animate-pulse' : 'bg-rose-400'
+                            }`}
+                          />
+                          {deviceStatus === 'online' ? 'Live' : 'Offline'}
+                        </span>
+                      )}
+
                       {/* Live Device Telemetry Active Ping */}
                       {item.name === 'Devices' && activeItem && (
                         <span className="ml-auto relative flex h-2 w-2 z-10 shrink-0">
-                          <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#20E79A] opacity-75"></span>
-                          <span className="relative inline-flex rounded-full h-2 w-2 bg-[#20E79A] shadow-[0_0_8px_#20E79A]"></span>
+                          <span
+                            className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${
+                              deviceStatus === 'online' ? 'animate-ping bg-[#20E79A]' : 'bg-rose-500'
+                            }`}
+                          />
+                          <span
+                            className={`relative inline-flex rounded-full h-2 w-2 ${
+                              deviceStatus === 'online'
+                                ? 'bg-[#20E79A] shadow-[0_0_8px_#20E79A]'
+                                : 'bg-rose-500'
+                            }`}
+                          />
                         </span>
                       )}
                     </div>

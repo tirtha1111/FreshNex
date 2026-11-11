@@ -50,8 +50,10 @@ export const DEFAULT_ITEMS: Record<string, CustomFoodItem> = {
 // Aliases for direct lookup
 DEFAULT_ITEMS['001'] = DEFAULT_ITEMS['APPLE'];
 DEFAULT_ITEMS['YGS-FD-001'] = DEFAULT_ITEMS['APPLE'];
+DEFAULT_ITEMS['6D66F406'] = DEFAULT_ITEMS['APPLE'];
 DEFAULT_ITEMS['124'] = DEFAULT_ITEMS['MILK'];
 DEFAULT_ITEMS['YGS-FD-124'] = DEFAULT_ITEMS['MILK'];
+DEFAULT_ITEMS['61896F06'] = DEFAULT_ITEMS['MILK'];
 
 export function resolveFactualProduct(tagOrName?: string | null, currentImage?: string | null): CustomFoodItem {
   const raw = (tagOrName || '').trim().toUpperCase().replace(/^#/, '');
@@ -60,6 +62,7 @@ export function resolveFactualProduct(tagOrName?: string | null, currentImage?: 
     raw === 'MILK' ||
     raw === '124' ||
     raw === 'YGS-FD-124' ||
+    raw === '61896F06' ||
     raw.includes('MILK') ||
     raw.includes('DAIRY') ||
     raw.includes('124')
@@ -70,6 +73,7 @@ export function resolveFactualProduct(tagOrName?: string | null, currentImage?: 
     raw === 'APPLE' ||
     raw === '001' ||
     raw === 'YGS-FD-001' ||
+    raw === '6D66F406' ||
     raw.includes('APPLE') ||
     raw.includes('FRESORA') ||
     raw.includes('001') ||
@@ -173,38 +177,40 @@ export function resolveFactualProduct(tagOrName?: string | null, currentImage?: 
 
 export const DEFAULT_SENSOR_DATA: Record<string, SensorData> = {
   'APPLE': {
-    temperature: 4.0,
-    humidity: 88,
-    gas: 45,
-    moisture: 6.5,
-    dewPoint: 2.1,
-    ph: 4.1,
-    impact: 0.08,
-    light: 25,
-    gpsLat: 22.5726,
-    gpsLng: 88.3639,
-    gpsSats: 9,
+    temperature: 31.6,
+    humidity: 71.2,
+    gas: 79,
+    moisture: 23.5,
+    dewPoint: 25.8,
+    ph: 3.7,
+    impact: 0.147,
+    light: 12.5,
+    gpsLat: 28.6139,
+    gpsLng: 77.2090,
+    gpsSats: 0,
     timestamp: Date.now(),
   },
   'MILK': {
-    temperature: 2.5,
-    humidity: 70,
-    gas: 85,
-    moisture: 5.1,
-    dewPoint: -1.2,
-    ph: 6.6,
-    impact: 0.10,
-    light: 15,
-    gpsLat: 22.5726,
-    gpsLng: 88.3639,
-    gpsSats: 8,
+    temperature: 30.6,
+    humidity: 72.2,
+    gas: 47,
+    moisture: 22.6,
+    dewPoint: 25.1,
+    ph: 6.3,
+    impact: 0,
+    light: 33.3,
+    gpsLat: 28.6139,
+    gpsLng: 77.2090,
+    gpsSats: 0,
     timestamp: Date.now(),
   }
 };
 
 DEFAULT_SENSOR_DATA['001'] = DEFAULT_SENSOR_DATA['APPLE'];
 DEFAULT_SENSOR_DATA['YGS-FD-001'] = DEFAULT_SENSOR_DATA['APPLE'];
+DEFAULT_SENSOR_DATA['6D66F406'] = DEFAULT_SENSOR_DATA['APPLE'];
 DEFAULT_SENSOR_DATA['124'] = DEFAULT_SENSOR_DATA['MILK'];
 DEFAULT_SENSOR_DATA['YGS-FD-124'] = DEFAULT_SENSOR_DATA['MILK'];
+DEFAULT_SENSOR_DATA['61896F06'] = DEFAULT_SENSOR_DATA['MILK'];
 
 export const DEFAULT_SCAN_HISTORY: ScanHistoryRecord[] = [];

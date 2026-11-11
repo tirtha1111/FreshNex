@@ -328,42 +328,58 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       const factualItem = resolveFactualProduct(assignedTag || assignedName);
       const tagId = factualItem.id;
       const prodName = factualItem.name;
-      const initSensor = DEFAULT_SENSOR_DATA[tagId] || DEFAULT_SENSOR_DATA['APPLE'];
-
-      const hasItem = scanHistory.some(
-        (s) =>
-          s.itemId.toUpperCase() === tagId.toUpperCase() ||
-          s.itemName.toLowerCase().includes(prodName.toLowerCase()) ||
-          s.tagId.toLowerCase().includes(tagId.toLowerCase())
-      );
-      if (!hasItem) {
-        const defaultRecord: ScanHistoryRecord = {
-          id: `scan-default-${tagId}-${Math.random().toString(36).substring(2, 8)}`,
-          itemId: tagId,
-          itemName: prodName,
-          tagId: factualItem.tagId,
-          itemImage: factualItem.image,
-          temperature: initSensor.temperature,
-          humidity: initSensor.humidity,
-          moisture: initSensor.moisture ?? 6.5,
-          ph: initSensor.ph ?? 4.1,
-          gas: initSensor.gas,
-          impact: initSensor.impact ?? 0.08,
-          light: initSensor.light ?? 25,
-          gpsLat: initSensor.gpsLat ?? 22.5726,
-          gpsLng: initSensor.gpsLng ?? 88.3639,
-          gpsSats: initSensor.gpsSats ?? 9,
-          freshnessScore: 98,
-          status: 'Fresh',
-          timestamp: Date.now(),
-        };
-        setScanHistory((prev) => [defaultRecord, ...prev]);
-      }
+      const fallbackSensor = DEFAULT_SENSOR_DATA[tagId] || DEFAULT_SENSOR_DATA['APPLE'];
 
       if (!activeItem || activeItem.id.toUpperCase() !== tagId.toUpperCase()) {
         setActiveItem(factualItem as any);
-        handleSensorTelemetry(initSensor, factualItem as any);
+        handleSensorTelemetry(fallbackSensor, factualItem as any);
       }
+
+      FirebaseService.fetchLiveSensorData(tagId)
+        .then((liveReading) => {
+          const sensorToUse = liveReading || fallbackSensor;
+          handleSensorTelemetry(sensorToUse, factualItem as any);
+
+          const report = calculateFreshness({
+            temperature: sensorToUse.temperature,
+            humidity: sensorToUse.humidity,
+            gas: sensorToUse.gas,
+            category: factualItem.category,
+            activeThresholdRules: thresholds,
+          });
+
+          setScanHistory((prev) => {
+            const hasItem = prev.some(
+              (s) =>
+                s.itemId.toUpperCase() === tagId.toUpperCase() ||
+                s.itemName.toLowerCase().includes(prodName.toLowerCase()) ||
+                s.tagId.toLowerCase().includes(tagId.toLowerCase())
+            );
+            if (hasItem) return prev;
+            const defaultRecord: ScanHistoryRecord = {
+              id: `scan-default-${tagId}-${Math.random().toString(36).substring(2, 8)}`,
+              itemId: tagId,
+              itemName: prodName,
+              tagId: factualItem.tagId,
+              itemImage: factualItem.image,
+              temperature: sensorToUse.temperature,
+              humidity: sensorToUse.humidity,
+              moisture: sensorToUse.moisture ?? 6.5,
+              ph: sensorToUse.ph ?? 4.1,
+              gas: sensorToUse.gas,
+              impact: sensorToUse.impact ?? 0.08,
+              light: sensorToUse.light ?? 25,
+              gpsLat: sensorToUse.gpsLat ?? 28.6139,
+              gpsLng: sensorToUse.gpsLng ?? 77.2090,
+              gpsSats: sensorToUse.gpsSats ?? 0,
+              freshnessScore: report.score,
+              status: report.status,
+              timestamp: Date.now(),
+            };
+            return [defaultRecord, ...prev];
+          });
+        })
+        .catch(() => {});
     } else if (isAdmin && !activeItem) {
       const initialAdminItem =
         scanHistory.length > 0
@@ -372,8 +388,15 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
       setActiveItem(initialAdminItem as any);
       const initSensor = DEFAULT_SENSOR_DATA[initialAdminItem.id] || DEFAULT_SENSOR_DATA['APPLE'];
       handleSensorTelemetry(initSensor, initialAdminItem as any);
+      FirebaseService.fetchLiveSensorData(initialAdminItem.id)
+        .then((liveReading) => {
+          if (liveReading) {
+            handleSensorTelemetry(liveReading, initialAdminItem as any);
+          }
+        })
+        .catch(() => {});
     }
-  }, [isAdmin, assignedName, assignedTag, scanHistory, activeItem, handleSensorTelemetry]);
+  }, [isAdmin, assignedName, assignedTag, scanHistory, activeItem, handleSensorTelemetry, thresholds]);
 
   // 4. Real-time sensor listener whenever activeItem or Firebase credentials change
   useEffect(() => {
@@ -401,15 +424,16 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
       setActiveItem(item);
 
-      const initSensor = DEFAULT_SENSOR_DATA[item.id] || {
-        temperature: 4.2,
-        humidity: 62,
-        gas: 120,
-        impact: 0.12,
-        light: 18,
-        gpsLat: 22.5726,
-        gpsLng: 88.3639,
-        gpsSats: 8,
+      const liveSensor = await FirebaseService.fetchLiveSensorData(item.id);
+      const initSensor = liveSensor || DEFAULT_SENSOR_DATA[item.id] || {
+        temperature: 31.6,
+        humidity: 71.2,
+        gas: 79,
+        impact: 0.147,
+        light: 12.5,
+        gpsLat: 28.6139,
+        gpsLng: 77.2090,
+        gpsSats: 0,
         timestamp: Date.now(),
       };
 
@@ -446,11 +470,11 @@ export const FreshnessProvider: React.FC<{ children: React.ReactNode }> = ({ chi
         gas: initSensor.gas,
         moisture: initSensor.moisture ?? initMoisture.absoluteMoisture,
         ph: initSensor.ph ?? initPH.ph,
-        impact: initSensor.impact ?? 0.12,
-        light: initSensor.light ?? 18,
-        gpsLat: initSensor.gpsLat ?? 22.5726,
-        gpsLng: initSensor.gpsLng ?? 88.3639,
-        gpsSats: initSensor.gpsSats ?? 8,
+        impact: initSensor.impact ?? 0,
+        light: initSensor.light ?? 12.5,
+        gpsLat: initSensor.gpsLat ?? 28.6139,
+        gpsLng: initSensor.gpsLng ?? 77.2090,
+        gpsSats: initSensor.gpsSats ?? 0,
         freshnessScore: report.score,
         status: report.status,
         timestamp: Date.now(),

@@ -101,14 +101,51 @@ export const LiveDataPage: React.FC = () => {
     );
   }, [resolvedDeviceId, activeItem]);
 
-  const liveTemp = Number(targetDev?.temperature ?? sensorData?.temperature ?? (factualProduct.id === 'YGS-FD-124' ? 3.8 : 4.2));
-  const liveHumidity = Number(targetDev?.humidity ?? sensorData?.humidity ?? (factualProduct.id === 'YGS-FD-124' ? 68.0 : 85.0));
-  const liveGas = Number(targetDev?.mq135_raw ?? sensorData?.gas ?? (factualProduct.id === 'YGS-FD-124' ? 95 : 84));
-  const liveImpact = Number(targetDev?.impact ?? sensorData?.impact ?? 0.08);
-  const liveLight = Math.round(Number(targetDev?.light ?? sensorData?.light ?? 14));
+  const liveTemp = Number(
+    Number(
+      targetDev?.temperature_c ??
+        targetDev?.temperature ??
+        sensorData?.temperature ??
+        (factualProduct.id === 'YGS-FD-124' ? 30.6 : 31.6)
+    ).toFixed(1)
+  );
+  const liveHumidity = Number(
+    Number(
+      targetDev?.humidity_percent ??
+        targetDev?.humidity ??
+        sensorData?.humidity ??
+        (factualProduct.id === 'YGS-FD-124' ? 72.2 : 71.2)
+    ).toFixed(1)
+  );
+  const liveGas = Number(
+    targetDev?.mq135_raw ??
+      sensorData?.gas ??
+      (factualProduct.id === 'YGS-FD-124' ? 47 : 79)
+  );
+  const liveImpact = Number(
+    Number(
+      targetDev?.acceleration_change ??
+        targetDev?.impact ??
+        sensorData?.impact ??
+        (factualProduct.id === 'YGS-FD-124' ? 0 : 0.147)
+    ).toFixed(3)
+  );
+  const liveLight = Number(
+    Number(
+      targetDev?.light_lux ??
+        targetDev?.light ??
+        sensorData?.light ??
+        (factualProduct.id === 'YGS-FD-124' ? 33.3 : 12.5)
+    ).toFixed(1)
+  );
   const liveGpsLat = Number(targetDev?.gpsLat ?? sensorData?.gpsLat ?? 28.6139);
   const liveGpsLng = Number(targetDev?.gpsLng ?? sensorData?.gpsLng ?? 77.2090);
-  const liveGpsSats = Number(targetDev?.gpsSats ?? sensorData?.gpsSats ?? 9);
+  const liveGpsSats = Number(
+    targetDev?.gps_satellites ??
+      targetDev?.gpsSats ??
+      sensorData?.gpsSats ??
+      0
+  );
 
   const isTempBreached = liveTemp > thresholds.tempMax;
   const isGasBreached = liveGas > 500 ? liveGas > 1400 : liveGas > thresholds.gasWarning;
@@ -124,13 +161,18 @@ export const LiveDataPage: React.FC = () => {
     { category: factualProduct.category, gas: liveGas }
   );
 
+  const [realtimeStatus, setRealtimeStatus] = useState<'online' | 'offline'>(() =>
+    socketTelemetryService.getLatestStatus(factualProduct.id)
+  );
   const [lastResponseTs, setLastResponseTs] = useState<number>(() =>
     socketTelemetryService.getLastResponseTimestamp(factualProduct.id)
   );
 
   useEffect(() => {
+    setRealtimeStatus(socketTelemetryService.getLatestStatus(factualProduct.id));
     setLastResponseTs(socketTelemetryService.getLastResponseTimestamp(factualProduct.id));
-    const unsub = socketTelemetryService.subscribeStatus(factualProduct.id, (_status, meta) => {
+    const unsub = socketTelemetryService.subscribeStatus(factualProduct.id, (status, meta) => {
+      setRealtimeStatus(status);
       const nextTs = meta?.lastResponseAt || meta?.lastDataAt;
       if (nextTs) {
         setLastResponseTs(nextTs);
@@ -138,6 +180,8 @@ export const LiveDataPage: React.FC = () => {
     });
     return () => unsub();
   }, [factualProduct.id]);
+
+  const isDeviceOnline = realtimeStatus === 'online';
 
   const lastResponseFormatted = useMemo(() => {
     const raw =
@@ -156,7 +200,7 @@ export const LiveDataPage: React.FC = () => {
     { time: '10:15', timestamp: 4, temperature: Number(liveTemp.toFixed(1)), humidity: Math.round(liveHumidity), gas: Math.max(20, liveGas - 1), moisture: calculateMoisture(liveTemp, liveHumidity).absoluteMoisture, ph: calculatePH(liveTemp, liveHumidity, calculateMoisture(liveTemp, liveHumidity).absoluteMoisture).ph, impact: 0.09, light: liveLight },
     { time: '10:30', timestamp: 5, temperature: Number((liveTemp - 0.1).toFixed(1)), humidity: Math.round(liveHumidity - 1), gas: liveGas, moisture: calculateMoisture(liveTemp - 0.1, liveHumidity - 1).absoluteMoisture, ph: calculatePH(liveTemp - 0.1, liveHumidity - 1, calculateMoisture(liveTemp - 0.1, liveHumidity - 1).absoluteMoisture).ph, impact: 0.06, light: Math.max(5, liveLight - 1) },
     { 
-      time: 'Live', 
+      time: isDeviceOnline ? 'Live' : 'Offline', 
       timestamp: 6, 
       temperature: liveTemp, 
       humidity: liveHumidity, 
@@ -266,9 +310,19 @@ export const LiveDataPage: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-black uppercase tracking-wider text-[#5C7F75]">Live Sensor Reading &amp; GPS Telemetry</span>
-              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#20E79A]/15 text-[#07221A]">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#20E79A] animate-pulse" />
-                Live Node Connected
+              <span
+                className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                  isDeviceOnline
+                    ? 'bg-[#20E79A]/15 text-[#07221A] border-[#20E79A]/30'
+                    : 'bg-rose-500/15 text-rose-700 border-rose-500/25'
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    isDeviceOnline ? 'bg-[#20E79A] animate-pulse' : 'bg-rose-500'
+                  }`}
+                />
+                {isDeviceOnline ? 'Live' : 'Offline'}
               </span>
             </div>
             <h1 className="text-xl sm:text-2xl font-serif italic font-black text-[#07221A]">
@@ -323,6 +377,8 @@ export const LiveDataPage: React.FC = () => {
           status={((currentProduct as any)?.isUnconfigured) ? undefined : (isTempBreached ? 'critical' : 'normal')}
           message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : (isTempBreached ? 'Elevated temperature' : 'Safe cooling bounds')}
           isEmpty={!!((currentProduct as any)?.isUnconfigured)}
+          isOnline={isDeviceOnline}
+          deviceId={factualProduct.id}
         />
 
         <SensorCard
@@ -334,6 +390,8 @@ export const LiveDataPage: React.FC = () => {
           status={((currentProduct as any)?.isUnconfigured) ? undefined : (isHumidityBreached ? 'critical' : 'normal')}
           message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : "Moisture level steady"}
           isEmpty={!!((currentProduct as any)?.isUnconfigured)}
+          isOnline={isDeviceOnline}
+          deviceId={factualProduct.id}
         />
 
         <SensorCard
@@ -345,6 +403,8 @@ export const LiveDataPage: React.FC = () => {
           status={((currentProduct as any)?.isUnconfigured) ? undefined : (liveMoisture.status === 'Condensation Hazard' ? 'critical' : liveMoisture.status === 'Elevated' ? 'warning' : 'normal')}
           message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : `Dew: ${liveMoisture.dewPoint}°C • ${liveMoisture.status}`}
           isEmpty={!!((currentProduct as any)?.isUnconfigured)}
+          isOnline={isDeviceOnline}
+          deviceId={factualProduct.id}
         />
 
         <SensorCard
@@ -356,6 +416,8 @@ export const LiveDataPage: React.FC = () => {
           status={((currentProduct as any)?.isUnconfigured) ? undefined : (livePH.status === 'Acidic / Fermenting' ? 'critical' : livePH.status === 'Mild Acidic' ? 'warning' : 'normal')}
           message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : `${livePH.status} • ${livePH.acidityClassification}`}
           isEmpty={!!((currentProduct as any)?.isUnconfigured)}
+          isOnline={isDeviceOnline}
+          deviceId={factualProduct.id}
         />
 
         <SensorCard
@@ -367,6 +429,8 @@ export const LiveDataPage: React.FC = () => {
           status={((currentProduct as any)?.isUnconfigured) ? undefined : (isGasBreached ? 'critical' : 'normal')}
           message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : (isGasBreached ? 'Gas threshold breach' : 'Stable atmosphere')}
           isEmpty={!!((currentProduct as any)?.isUnconfigured)}
+          isOnline={isDeviceOnline}
+          deviceId={factualProduct.id}
         />
 
         <SensorCard
@@ -378,6 +442,8 @@ export const LiveDataPage: React.FC = () => {
           status={((currentProduct as any)?.isUnconfigured) ? undefined : (liveImpact > 1.5 ? 'critical' : 'normal')}
           message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : (liveImpact > 1.5 ? 'Shock detected (> 1.5 G)' : 'No Shock • Safe (< 1.5 G)')}
           isEmpty={!!((currentProduct as any)?.isUnconfigured)}
+          isOnline={isDeviceOnline}
+          deviceId={factualProduct.id}
         />
 
         <SensorCard
@@ -389,6 +455,8 @@ export const LiveDataPage: React.FC = () => {
           status={((currentProduct as any)?.isUnconfigured) ? undefined : (liveLight > 50 ? 'warning' : 'normal')}
           message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : (liveLight > 50 ? 'Light exposed (> 50 lx)' : 'Dark Sealed (< 50 lx)')}
           isEmpty={!!((currentProduct as any)?.isUnconfigured)}
+          isOnline={isDeviceOnline}
+          deviceId={factualProduct.id}
         />
 
         <SensorCard
@@ -399,6 +467,8 @@ export const LiveDataPage: React.FC = () => {
           status={((currentProduct as any)?.isUnconfigured) ? undefined : 'normal'}
           message={((currentProduct as any)?.isUnconfigured) ? 'Not Configured Yet' : `NEO-6M • ${liveGpsSats} Sats Fix Locked`}
           isEmpty={!!((currentProduct as any)?.isUnconfigured)}
+          isOnline={isDeviceOnline}
+          deviceId={factualProduct.id}
         />
       </div>
 
@@ -408,11 +478,27 @@ export const LiveDataPage: React.FC = () => {
         <div className="lg:col-span-7 bg-white border border-[#13493B]/10 rounded-[28px] p-4 sm:p-6 shadow-sm flex flex-col justify-between space-y-4">
           <div className="flex flex-col gap-3 pb-2 border-b border-[#F4F7F6]">
             <div className="space-y-0.5">
-              <h3 className="text-sm font-black text-[#07221A]">Live Bio-Telemetry Trends</h3>
+              <div className="flex items-center justify-between gap-2">
+                <h3 className="text-sm font-black text-[#07221A]">Live Bio-Telemetry Trends</h3>
+                <span
+                  className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${
+                    isDeviceOnline
+                      ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+                      : 'bg-rose-500/10 text-rose-700 border-rose-500/20'
+                  }`}
+                >
+                  <span
+                    className={`w-1.5 h-1.5 rounded-full ${
+                      isDeviceOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                    }`}
+                  />
+                  {isDeviceOnline ? 'Live' : 'Offline'}
+                </span>
+              </div>
               <p className="text-[11px] text-[#5C7F75] font-semibold">Continuous sensor telemetry feed synced via hardware node {factualProduct.id}.</p>
               <div className="inline-flex flex-wrap items-center gap-x-2 gap-y-1 pt-1 text-[10px] font-mono text-[#5C7F75]">
                 <div className="flex items-center gap-1">
-                  <Clock className="w-3 h-3 text-[#20E79A]" />
+                  <Clock className={`w-3 h-3 ${isDeviceOnline ? 'text-[#20E79A]' : 'text-rose-500'}`} />
                   <span>Last Response:</span>
                   <strong className="text-[#07221A] font-bold">{lastResponseFormatted}</strong>
                 </div>
@@ -528,10 +614,26 @@ export const LiveDataPage: React.FC = () => {
                 NEO-6M GPS Satellite Lock • {factualProduct.name} ({factualProduct.id})
               </p>
             </div>
-            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-cyan-50 border border-cyan-500/25 text-cyan-900 text-[10px] font-mono font-bold shrink-0">
-              <Compass className="w-3 h-3 text-cyan-600" />
-              {liveGpsSats} Sats Locked
-            </span>
+            <div className="flex items-center gap-1.5 shrink-0">
+              <span
+                className={`inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-bold border ${
+                  isDeviceOnline
+                    ? 'bg-emerald-500/10 text-emerald-700 border-emerald-500/20'
+                    : 'bg-rose-500/10 text-rose-700 border-rose-500/20'
+                }`}
+              >
+                <span
+                  className={`w-1.5 h-1.5 rounded-full ${
+                    isDeviceOnline ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'
+                  }`}
+                />
+                {isDeviceOnline ? 'Live' : 'Offline'}
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-xl bg-cyan-50 border border-cyan-500/25 text-cyan-900 text-[10px] font-mono font-bold shrink-0">
+                <Compass className="w-3 h-3 text-cyan-600" />
+                {liveGpsSats} Sats Locked
+              </span>
+            </div>
           </div>
 
           {/* Embedded Small Map */}
@@ -544,11 +646,19 @@ export const LiveDataPage: React.FC = () => {
             />
             <div className="absolute bottom-2.5 left-2.5 right-2.5 p-2.5 rounded-xl bg-[#07221A]/85 backdrop-blur-md text-white flex items-center justify-between gap-2 text-[11px] shadow-md pointer-events-none">
               <div className="flex items-center gap-1.5 font-mono font-bold truncate">
-                <span className="w-2 h-2 rounded-full bg-[#20E79A] animate-ping shrink-0" />
+                <span
+                  className={`w-2 h-2 rounded-full shrink-0 ${
+                    isDeviceOnline ? 'bg-[#20E79A] animate-ping' : 'bg-rose-500'
+                  }`}
+                />
                 <span>{liveGpsLat.toFixed(4)}°N, {liveGpsLng.toFixed(4)}°E</span>
               </div>
-              <span className="text-[10px] font-mono text-[#20E79A] font-black shrink-0">
-                {factualProduct.id}
+              <span
+                className={`text-[10px] font-mono font-black shrink-0 ${
+                  isDeviceOnline ? 'text-[#20E79A]' : 'text-rose-400'
+                }`}
+              >
+                {factualProduct.id} • {isDeviceOnline ? 'Live' : 'Offline'}
               </span>
             </div>
           </div>

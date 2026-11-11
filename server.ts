@@ -51,8 +51,8 @@ try {
 
 function normalizeDeviceId(rawId: string): string {
   const clean = String(rawId || '').trim().toUpperCase().replace(/^#/, '');
-  if (clean === '001' || clean === 'APPLE' || clean.includes('001')) return 'YGS-FD-001';
-  if (clean === '124' || clean === 'MILK' || clean.includes('124')) return 'YGS-FD-124';
+  if (clean === '001' || clean === 'APPLE' || clean === '6D66F406' || clean.includes('001')) return 'YGS-FD-001';
+  if (clean === '124' || clean === 'MILK' || clean === '61896F06' || clean.includes('124')) return 'YGS-FD-124';
   return clean || 'YGS-FD-001';
 }
 
@@ -62,14 +62,18 @@ function computeSensorSignature(payload: any): string {
   if (
     !(
       'temperature' in payload ||
+      'temperature_c' in payload ||
       'temp' in payload ||
       'humidity' in payload ||
+      'humidity_percent' in payload ||
       'hum' in payload ||
       'gas' in payload ||
       'mq135_raw' in payload
     )
   ) {
-    const keys = Object.keys(payload).filter((k) => k !== 'commands' && k !== 'status' && k !== 'online');
+    const keys = Object.keys(payload).filter(
+      (k) => k !== 'commands' && k !== 'status' && k !== 'online' && k !== 'rfid_scans'
+    );
     if (keys.length > 0) {
       const lastKey = keys[keys.length - 1];
       if (typeof payload[lastKey] === 'object' && payload[lastKey] !== null) {
@@ -77,14 +81,14 @@ function computeSensorSignature(payload: any): string {
       }
     }
   }
-  const temp = Number(target.temperature ?? target.temp ?? target.t ?? 0).toFixed(2);
-  const hum = Number(target.humidity ?? target.hum ?? target.h ?? 0).toFixed(2);
+  const temp = Number(target.temperature_c ?? target.temperature ?? target.temp ?? target.t ?? 0).toFixed(2);
+  const hum = Number(target.humidity_percent ?? target.humidity ?? target.hum ?? target.h ?? 0).toFixed(2);
   const gas = Number(target.mq135_raw ?? target.gas ?? target.mq135 ?? 0).toFixed(0);
-  const impact = Number(target.impact ?? target.acceleration_change ?? 0).toFixed(3);
-  const light = Number(target.light ?? target.light_lux ?? 0).toFixed(1);
-  const lat = Number(target.gpsLat ?? target.lat ?? 0).toFixed(4);
-  const lng = Number(target.gpsLng ?? target.lng ?? 0).toFixed(4);
-  const sats = Number(target.gpsSats ?? target.sats ?? 0).toFixed(0);
+  const impact = Number(target.acceleration_change ?? target.impact ?? 0).toFixed(3);
+  const light = Number(target.light_lux ?? target.light ?? 0).toFixed(1);
+  const lat = Number(target.gps_lat ?? target.gpsLat ?? target.lat ?? 0).toFixed(4);
+  const lng = Number(target.gps_lng ?? target.gpsLng ?? target.lng ?? 0).toFixed(4);
+  const sats = Number(target.gps_satellites ?? target.gpsSats ?? target.sats ?? 0).toFixed(0);
   return `${temp}|${hum}|${gas}|${impact}|${light}|${lat}|${lng}|${sats}`;
 }
 
@@ -266,31 +270,6 @@ if (rtdb) {
       (err) => {
         console.warn('Backend RTDB devices listener notice:', err?.message || err);
       }
-    );
-
-    const sensorDataNodeRef = dbRef(rtdb, 'sensorData');
-    onValue(
-      sensorDataNodeRef,
-      (snapshot) => {
-        if (!snapshot.exists()) return;
-        const val = snapshot.val();
-        if (!val || typeof val !== 'object') return;
-
-        Object.entries(val).forEach(([rawDevId, sensorPayload]: [string, any]) => {
-          if (rawDevId === 'YGS-FD-000124' || rawDevId === 'YGS-FD-112233') return;
-          const normId = normalizeDeviceId(rawDevId);
-          const newSig = computeSensorSignature(sensorPayload);
-          const oldSig = deviceSignaturesStore.get(`sensor_${normId}`);
-
-          if (oldSig === undefined) {
-            deviceSignaturesStore.set(`sensor_${normId}`, newSig);
-          } else if (oldSig !== newSig) {
-            deviceSignaturesStore.set(`sensor_${normId}`, newSig);
-            startOrReset30sTimer(normId, sensorPayload);
-          }
-        });
-      },
-      () => {}
     );
   } catch (err) {
     console.warn('Backend RTDB listener setup warning:', err);

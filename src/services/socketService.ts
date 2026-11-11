@@ -60,13 +60,173 @@ class SocketTelemetryService {
 
   constructor() {
     if (typeof window !== 'undefined') {
-      // Seed initial 30-second timers once for active devices on app startup
-      this.startOrResetLocal30sTimer('YGS-FD-001');
-      this.startOrResetLocal30sTimer('YGS-FD-124');
+      this.restoreOrSeedWatchdogState();
       this.startCountdownTicker();
+      this.initCrossTabSync();
       this.initFirebaseNativeWebSocket();
       this.initSocketSafely();
     }
+  }
+
+  private persistWatchdogState() {
+    if (typeof window === 'undefined') return;
+    try {
+      const dump: Record<string, any> = {};
+      for (const devId of ['YGS-FD-001', 'YGS-FD-124']) {
+        dump[devId] = {
+          status: this.localStatusMap.get(devId) || 'online',
+          lastDataAt: this.localLastDataAt.get(devId) || Date.now(),
+          offlineAt: this.localOfflineAt.get(devId),
+          lastResponseAt: this.localLastResponseAt.get(devId) || Date.now(),
+          sig: this.lastDataSignatures.get(devId),
+        };
+      }
+      localStorage.setItem('freshnex_watchdog_state_v1', JSON.stringify(dump));
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  private restoreOrSeedWatchdogState() {
+    const now = Date.now();
+    let restoredAny = false;
+    try {
+      const raw = localStorage.getItem('freshnex_watchdog_state_v1');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') {
+          for (const devId of ['YGS-FD-001', 'YGS-FD-124']) {
+            const entry = parsed[devId];
+            if (entry && typeof entry === 'object' && entry.lastDataAt) {
+              restoredAny = true;
+              const lastDataAt = Number(entry.lastDataAt);
+              const elapsed = now - lastDataAt;
+              if (entry.sig) {
+                this.lastDataSignatures.set(devId, String(entry.sig));
+              }
+              if (entry.status === 'offline' || elapsed >= OFFLINE_TIMEOUT_MS) {
+                const offlineAt = Number(entry.offlineAt || lastDataAt + OFFLINE_TIMEOUT_MS);
+                this.localStatusMap.set(devId, 'offline');
+                this.localLastDataAt.set(devId, lastDataAt);
+                this.localOfflineAt.set(devId, offlineAt);
+                this.localLastResponseAt.set(devId, offlineAt);
+                this.latestStatuses.set(devId, {
+                  deviceId: devId,
+                  status: 'offline',
+                  lastDataAt,
+                  offlineAt,
+                  lastResponseAt: offlineAt,
+                  remainingMs: 0,
+                });
+              } else {
+                const remainingMs = Math.max(0, OFFLINE_TIMEOUT_MS - elapsed);
+                this.localStatusMap.set(devId, 'online');
+                this.localLastDataAt.set(devId, lastDataAt);
+                this.localOfflineAt.delete(devId);
+                this.localLastResponseAt.set(devId, lastDataAt);
+                this.latestStatuses.set(devId, {
+                  deviceId: devId,
+                  status: 'online',
+                  lastDataAt,
+                  lastResponseAt: lastDataAt,
+                  remainingMs,
+                });
+                const timer = setTimeout(() => {
+                  this.transitionDeviceToOffline(devId);
+                }, remainingMs);
+                this.localOfflineTimers.set(devId, timer);
+              }
+            }
+          }
+        }
+      }
+    } catch {
+      restoredAny = false;
+    }
+
+    if (!restoredAny) {
+      this.startOrResetLocal30sTimer('YGS-FD-001');
+      this.startOrResetLocal30sTimer('YGS-FD-124');
+    }
+  }
+
+  private initCrossTabSync() {
+    if (typeof window === 'undefined') return;
+    window.addEventListener('storage', (e) => {
+      if (e.key !== 'freshnex_watchdog_state_v1' || !e.newValue) return;
+      try {
+        const parsed = JSON.parse(e.newValue);
+        if (!parsed || typeof parsed !== 'object') return;
+        const now = Date.now();
+        for (const devId of ['YGS-FD-001', 'YGS-FD-124']) {
+          const entry = parsed[devId];
+          if (!entry) continue;
+          const lastDataAt = Number(entry.lastDataAt || now);
+          const elapsed = now - lastDataAt;
+          if (entry.sig) {
+            this.lastDataSignatures.set(devId, String(entry.sig));
+          }
+          if (entry.status === 'offline' || elapsed >= OFFLINE_TIMEOUT_MS) {
+            const offlineAt = Number(entry.offlineAt || lastDataAt + OFFLINE_TIMEOUT_MS);
+            const prevTimer = this.localOfflineTimers.get(devId);
+            if (prevTimer) clearTimeout(prevTimer);
+            this.localStatusMap.set(devId, 'offline');
+            this.localLastDataAt.set(devId, lastDataAt);
+            this.localOfflineAt.set(devId, offlineAt);
+            this.localLastResponseAt.set(devId, offlineAt);
+            const payload: DeviceStatusPayload = {
+              deviceId: devId,
+              status: 'offline',
+              lastDataAt,
+              offlineAt,
+              lastResponseAt: offlineAt,
+              remainingMs: 0,
+            };
+            this.latestStatuses.set(devId, payload);
+            this.notifyStatusListeners(devId, 'offline', payload);
+          } else {
+            const remainingMs = Math.max(0, OFFLINE_TIMEOUT_MS - elapsed);
+            this.localStatusMap.set(devId, 'online');
+            this.localLastDataAt.set(devId, lastDataAt);
+            this.localOfflineAt.delete(devId);
+            this.localLastResponseAt.set(devId, lastDataAt);
+            const payload: DeviceStatusPayload = {
+              deviceId: devId,
+              status: 'online',
+              lastDataAt,
+              lastResponseAt: lastDataAt,
+              remainingMs,
+            };
+            this.latestStatuses.set(devId, payload);
+            this.notifyStatusListeners(devId, 'online', payload);
+          }
+        }
+      } catch {
+        // Ignore parse error
+      }
+    });
+  }
+
+  private transitionDeviceToOffline(normId: string) {
+    const offlineMoment = Date.now();
+    const prevTimer = this.localOfflineTimers.get(normId);
+    if (prevTimer) clearTimeout(prevTimer);
+    this.localStatusMap.set(normId, 'offline');
+    this.localOfflineAt.set(normId, offlineMoment);
+    this.localLastResponseAt.set(normId, offlineMoment);
+    const lastDataAt = this.localLastDataAt.get(normId) || offlineMoment - OFFLINE_TIMEOUT_MS;
+
+    const offlinePayload: DeviceStatusPayload = {
+      deviceId: normId,
+      status: 'offline',
+      lastDataAt,
+      offlineAt: offlineMoment,
+      lastResponseAt: offlineMoment,
+      remainingMs: 0,
+    };
+    this.latestStatuses.set(normId, offlinePayload);
+    this.persistWatchdogState();
+    this.notifyStatusListeners(normId, 'offline', offlinePayload);
   }
 
   private getDirectDb(): Database | null {
@@ -84,8 +244,8 @@ class SocketTelemetryService {
 
   public normalizeDeviceId(rawId: string): string {
     const clean = (rawId || '').trim().toUpperCase().replace(/^#/, '');
-    if (clean === '001' || clean === 'APPLE' || clean.includes('001')) return 'YGS-FD-001';
-    if (clean === '124' || clean === 'MILK' || clean.includes('124')) return 'YGS-FD-124';
+    if (clean === '001' || clean === 'APPLE' || clean === '6D66F406' || clean.includes('001')) return 'YGS-FD-001';
+    if (clean === '124' || clean === 'MILK' || clean === '61896F06' || clean.includes('124')) return 'YGS-FD-124';
     return clean || 'YGS-FD-001';
   }
 
@@ -99,15 +259,17 @@ class SocketTelemetryService {
     if (
       !(
         'temperature' in data ||
+        'temperature_c' in data ||
         'temp' in data ||
         'humidity' in data ||
+        'humidity_percent' in data ||
         'hum' in data ||
         'gas' in data ||
         'mq135_raw' in data
       )
     ) {
       const keys = Object.keys(data).filter(
-        (k) => k !== 'commands' && k !== 'status' && k !== 'online'
+        (k) => k !== 'commands' && k !== 'status' && k !== 'online' && k !== 'rfid_scans'
       );
       if (keys.length > 0) {
         const lastKey = keys[keys.length - 1];
@@ -117,14 +279,14 @@ class SocketTelemetryService {
       }
     }
 
-    const temp = Number(target.temperature ?? target.temp ?? target.t ?? 0).toFixed(2);
-    const hum = Number(target.humidity ?? target.hum ?? target.h ?? 0).toFixed(2);
+    const temp = Number(target.temperature_c ?? target.temperature ?? target.temp ?? target.t ?? 0).toFixed(2);
+    const hum = Number(target.humidity_percent ?? target.humidity ?? target.hum ?? target.h ?? 0).toFixed(2);
     const gas = Number(target.mq135_raw ?? target.gas ?? target.mq135 ?? 0).toFixed(0);
-    const impact = Number(target.impact ?? target.acceleration_change ?? 0).toFixed(3);
-    const light = Number(target.light ?? target.light_lux ?? 0).toFixed(1);
-    const lat = Number(target.gpsLat ?? target.lat ?? 0).toFixed(4);
-    const lng = Number(target.gpsLng ?? target.lng ?? 0).toFixed(4);
-    const sats = Number(target.gpsSats ?? target.sats ?? 0).toFixed(0);
+    const impact = Number(target.acceleration_change ?? target.impact ?? 0).toFixed(3);
+    const light = Number(target.light_lux ?? target.light ?? 0).toFixed(1);
+    const lat = Number(target.gps_lat ?? target.gpsLat ?? target.lat ?? 0).toFixed(4);
+    const lng = Number(target.gps_lng ?? target.gpsLng ?? target.lng ?? 0).toFixed(4);
+    const sats = Number(target.gps_satellites ?? target.gpsSats ?? target.sats ?? 0).toFixed(0);
 
     return `${temp}|${hum}|${gas}|${impact}|${light}|${lat}|${lng}|${sats}`;
   }
@@ -179,6 +341,7 @@ class SocketTelemetryService {
       remainingMs: OFFLINE_TIMEOUT_MS,
     };
     this.latestStatuses.set(normId, onlinePayload);
+    this.persistWatchdogState();
     this.notifyStatusListeners(normId, 'online', onlinePayload);
 
     if (latestData) {
@@ -186,22 +349,7 @@ class SocketTelemetryService {
     }
 
     const timer = setTimeout(() => {
-      const offlineMoment = Date.now();
-      this.localStatusMap.set(normId, 'offline');
-      this.localOfflineAt.set(normId, offlineMoment);
-      this.localLastResponseAt.set(normId, offlineMoment);
-      const lastDataAt = this.localLastDataAt.get(normId) || offlineMoment - OFFLINE_TIMEOUT_MS;
-
-      const offlinePayload: DeviceStatusPayload = {
-        deviceId: normId,
-        status: 'offline',
-        lastDataAt,
-        offlineAt: offlineMoment,
-        lastResponseAt: offlineMoment,
-        remainingMs: 0,
-      };
-      this.latestStatuses.set(normId, offlinePayload);
-      this.notifyStatusListeners(normId, 'offline', offlinePayload);
+      this.transitionDeviceToOffline(normId);
     }, OFFLINE_TIMEOUT_MS);
 
     this.localOfflineTimers.set(normId, timer);
@@ -215,21 +363,7 @@ class SocketTelemetryService {
         const lastDataAt = this.localLastDataAt.get(devId) || now;
         const elapsed = now - lastDataAt;
         if (status === 'online' && elapsed >= OFFLINE_TIMEOUT_MS) {
-          // Transition moment from online -> offline
-          const offlineMoment = now;
-          this.localStatusMap.set(devId, 'offline');
-          this.localOfflineAt.set(devId, offlineMoment);
-          this.localLastResponseAt.set(devId, offlineMoment);
-          const offlinePayload: DeviceStatusPayload = {
-            deviceId: devId,
-            status: 'offline',
-            lastDataAt,
-            offlineAt: offlineMoment,
-            lastResponseAt: offlineMoment,
-            remainingMs: 0,
-          };
-          this.latestStatuses.set(devId, offlinePayload);
-          this.notifyStatusListeners(devId, 'offline', offlinePayload);
+          this.transitionDeviceToOffline(devId);
         } else {
           const remainingMs = status === 'online' ? Math.max(0, OFFLINE_TIMEOUT_MS - elapsed) : 0;
           const offlineAt = this.localOfflineAt.get(devId);
@@ -334,32 +468,6 @@ class SocketTelemetryService {
         () => {}
       );
       this.rtdbCleanupFns.push(unsubDevices);
-
-      const sensorDataRef = ref(db, 'sensorData');
-      const unsubSensorData = onValue(
-        sensorDataRef,
-        (snapshot) => {
-          if (!snapshot.exists()) return;
-          const val = snapshot.val();
-          if (!val || typeof val !== 'object') return;
-
-          Object.entries(val).forEach(([rawDevId, sensorPayload]: [string, any]) => {
-            if (rawDevId === 'YGS-FD-000124' || rawDevId === 'YGS-FD-112233') return;
-            const normId = this.normalizeDeviceId(rawDevId);
-            const sig = this.computeDataSignature(sensorPayload);
-            const prevSig = this.lastDataSignatures.get(`sensor_${normId}`);
-
-            if (prevSig === undefined) {
-              this.lastDataSignatures.set(`sensor_${normId}`, sig);
-            } else if (prevSig !== sig) {
-              this.lastDataSignatures.set(`sensor_${normId}`, sig);
-              this.startOrResetLocal30sTimer(normId, sensorPayload);
-            }
-          });
-        },
-        () => {}
-      );
-      this.rtdbCleanupFns.push(unsubSensorData);
     } catch {
       this.isFirebaseWsConnected = true;
       this.broadcastConnectionState();
@@ -476,6 +584,8 @@ class SocketTelemetryService {
 
     let lastResponseAt = st.lastResponseAt || st.lastDataAt || Date.now();
     if (st.status === 'offline') {
+      const prevTimer = this.localOfflineTimers.get(normId);
+      if (prevTimer) clearTimeout(prevTimer);
       const offlineMoment =
         st.offlineAt ||
         (prevStatus === 'online' ? Date.now() : this.localOfflineAt.get(normId)) ||
@@ -496,6 +606,7 @@ class SocketTelemetryService {
       lastResponseAt,
     };
     this.latestStatuses.set(normId, enriched);
+    this.persistWatchdogState();
     this.notifyStatusListeners(normId, st.status, enriched);
   }
 

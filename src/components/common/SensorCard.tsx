@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { StatusBadge } from './StatusBadge';
+import { socketTelemetryService } from '../../services/socketService';
 
 interface SensorCardProps {
   title: string;
@@ -12,6 +13,8 @@ interface SensorCardProps {
   iconBgColor?: string;
   iconColor?: string;
   isEmpty?: boolean;
+  isOnline?: boolean;
+  deviceId?: string;
   className?: string;
   message?: string;
 }
@@ -26,9 +29,26 @@ export const SensorCard: React.FC<SensorCardProps> = ({
   iconBgColor = 'bg-[#20E79A]/10',
   iconColor = 'text-[#20E79A]',
   isEmpty = false,
+  isOnline,
+  deviceId,
   className = '',
   message,
 }) => {
+  const targetDevId = deviceId || 'YGS-FD-001';
+  const [subscribedOnline, setSubscribedOnline] = useState<boolean>(
+    () => socketTelemetryService.getLatestStatus(targetDevId) === 'online'
+  );
+
+  useEffect(() => {
+    setSubscribedOnline(socketTelemetryService.getLatestStatus(targetDevId) === 'online');
+    const unsub = socketTelemetryService.subscribeStatus(targetDevId, (st) => {
+      setSubscribedOnline(st === 'online');
+    });
+    return () => unsub();
+  }, [targetDevId]);
+
+  const effectiveOnline = isOnline !== undefined ? isOnline : subscribedOnline;
+
   // Gracefully handle icon if passed as a Component rather than an Element
   const IconComponent = typeof icon === 'function' || (icon && typeof icon === 'object' && 'render' in icon)
     ? icon as React.ComponentType<any>
@@ -94,11 +114,11 @@ export const SensorCard: React.FC<SensorCardProps> = ({
         {/* Message / Status footer */}
         <div className="flex items-center justify-between gap-2 mt-2.5 pt-2 border-t border-[#F4F7F6]">
           <span className="text-[10px] font-bold text-[#5C7F75] truncate">
-            {message || (isEmpty ? 'Awaiting connection' : 'Sensor Active')}
+            {message || (isEmpty ? 'Awaiting connection' : effectiveOnline ? 'Sensor Active' : 'Sensor Offline')}
           </span>
-          {isEmpty ? (
-            <span className="text-[11px] font-medium text-[#5C7F75] flex items-center gap-1 shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#5C7F75]" />
+          {isEmpty || !effectiveOnline ? (
+            <span className="text-[10px] font-bold text-rose-700 flex items-center gap-1 bg-rose-50 px-2 py-0.5 rounded-full border border-rose-200 shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-rose-500" />
               Offline
             </span>
           ) : (
