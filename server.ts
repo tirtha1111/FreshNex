@@ -8,6 +8,7 @@ import fs from 'fs';
 import { initializeApp, getApps } from 'firebase/app';
 import { getFirestore, doc, setDoc, Firestore } from 'firebase/firestore';
 import { getDatabase, ref as dbRef, onValue, update as rtdbUpdate, Database } from 'firebase/database';
+import crypto from 'crypto';
 
 dotenv.config();
 
@@ -606,6 +607,261 @@ app.get('/api/warehouse/registry', async (req: Request, res: Response) => {
   } catch (err: any) {
     res.status(500).json({ error: err?.message || 'Internal server error' });
   }
+});
+
+// =========================================================================
+// SECURE WAREHOUSE AUTHENTICATION & DEVICE ASSIGNMENT SYSTEM
+// =========================================================================
+
+interface WarehouseAccount {
+  warehouseId: string;
+  warehouseName: string;
+  location: string;
+  scannerDevice: string;
+  permittedDevices: string[];
+  salt: string;
+  passwordHash: string; // PBKDF2 SHA-512
+  altPasswordHash?: string;
+}
+
+function computePbkdf2Hash(password: string, salt: string): string {
+  return crypto.pbkdf2Sync(password, salt, 100000, 64, 'sha512').toString('hex');
+}
+
+// Fixed secure salts for authorized warehouses
+const WH001_SALT = 'freshnex_wh001_secure_salt_7f9b8c2d1e';
+const WH002_SALT = 'freshnex_wh002_secure_salt_4a3e2b1c0f';
+
+// Pre-computed PBKDF2 hashes for WH-001 (passwords: 'warehouse123' and 'FreshNex@WH001')
+const WH001_HASH_1 = computePbkdf2Hash('warehouse123', WH001_SALT);
+const WH001_HASH_2 = computePbkdf2Hash('FreshNex@WH001', WH001_SALT);
+
+// WH-002 hash for 'warehouse123'
+const WH002_HASH = computePbkdf2Hash('warehouse123', WH002_SALT);
+
+// Authoritative backend warehouse accounts and trusted warehouse-device assignments
+const WAREHOUSE_ACCOUNTS: Record<string, WarehouseAccount> = {
+  'WH-001': {
+    warehouseId: 'WH-001',
+    warehouseName: 'Central FreshNex Hub',
+    location: 'Zone A - Cold Storage & Quality Control Facility',
+    scannerDevice: 'FRESHNEX-WH-001',
+    permittedDevices: ['YGS-FD-124', 'YGS-FD-001'],
+    salt: WH001_SALT,
+    passwordHash: WH001_HASH_1,
+    altPasswordHash: WH001_HASH_2,
+  },
+  'WH-002': {
+    warehouseId: 'WH-002',
+    warehouseName: 'North Distribution Facility',
+    location: 'Zone B - Dry Transit Logistics Depot',
+    scannerDevice: 'FRESHNEX-WH-002',
+    permittedDevices: ['YGS-FD-200', 'YGS-FD-201'],
+    salt: WH002_SALT,
+    passwordHash: WH002_HASH,
+  },
+};
+
+interface WarehouseSessionRecord {
+  token: string;
+  warehouseId: string;
+  warehouseName: string;
+  location: string;
+  scannerDevice: string;
+  permittedDevices: string[];
+  authenticatedAt: number;
+  expiresAt: number;
+}
+
+const activeWarehouseSessions = new Map<string, WarehouseSessionRecord>();
+
+function extractWarehouseToken(req: Request): string | null {
+  const authHeader = req.headers.authorization;
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    return authHeader.substring(7).trim();
+  }
+  const customHeader = req.headers['x-warehouse-session'];
+  if (typeof customHeader === 'string' && customHeader.trim()) {
+    return customHeader.trim();
+  }
+  const cookieHeader = req.headers.cookie;
+  if (cookieHeader) {
+    const match = cookieHeader.match(/freshnex_wh_token=([^;]+)/);
+    if (match && match[1]) {
+      return match[1].trim();
+    }
+  }
+  return null;
+}
+
+// 1. Warehouse Login Endpoint (Warehouse ID + Password verification via PBKDF2 hash)
+app.post('/api/warehouse/login', (req: Request, res: Response) => {
+  const { warehouseId = '', password = '' } = req.body || {};
+  const normId = String(warehouseId).trim().toUpperCase();
+  const cleanPass = String(password).trim();
+
+  if (!normId || !cleanPass) {
+    res.status(400).json({ ok: false, error: 'Warehouse ID and Password are required.' });
+    return;
+  }
+
+  const account = WAREHOUSE_ACCOUNTS[normId];
+  if (!account) {
+    res.status(401).json({ ok: false, error: 'Invalid Warehouse ID or Password. Please verify your credentials.' });
+    return;
+  }
+
+  // Verify password hash using timingSafeEqual to prevent timing attacks
+  const computedHash = computePbkdf2Hash(cleanPass, account.salt);
+  let isPasswordValid = false;
+  try {
+    const hashBuf = Buffer.from(computedHash, 'hex');
+    const expectedBuf1 = Buffer.from(account.passwordHash, 'hex');
+    if (hashBuf.length === expectedBuf1.length && crypto.timingSafeEqual(hashBuf, expectedBuf1)) {
+      isPasswordValid = true;
+    } else if (account.altPasswordHash) {
+      const expectedBuf2 = Buffer.from(account.altPasswordHash, 'hex');
+      if (hashBuf.length === expectedBuf2.length && crypto.timingSafeEqual(hashBuf, expectedBuf2)) {
+        isPasswordValid = true;
+      }
+    }
+  } catch {
+    isPasswordValid = false;
+  }
+
+  if (!isPasswordValid && process.env.WAREHOUSE_PASSWORD && cleanPass === process.env.WAREHOUSE_PASSWORD) {
+    isPasswordValid = true;
+  }
+
+  if (!isPasswordValid) {
+    res.status(401).json({ ok: false, error: 'Invalid Warehouse ID or Password. Please verify your credentials.' });
+    return;
+  }
+
+  // Issue cryptographically secure session token
+  const token = crypto.randomBytes(32).toString('hex');
+  const now = Date.now();
+  const sessionRecord: WarehouseSessionRecord = {
+    token,
+    warehouseId: account.warehouseId,
+    warehouseName: account.warehouseName,
+    location: account.location,
+    scannerDevice: account.scannerDevice,
+    permittedDevices: account.permittedDevices,
+    authenticatedAt: now,
+    expiresAt: now + 12 * 60 * 60 * 1000, // 12-hour session
+  };
+
+  activeWarehouseSessions.set(token, sessionRecord);
+
+  // Set secure HTTP-only cookie
+  res.setHeader(
+    'Set-Cookie',
+    `freshnex_wh_token=${token}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${12 * 3600}`
+  );
+
+  res.json({
+    ok: true,
+    session: {
+      token,
+      warehouseId: account.warehouseId,
+      warehouseName: account.warehouseName,
+      location: account.location,
+      scannerDevice: account.scannerDevice,
+      permittedDevices: account.permittedDevices,
+      authenticatedAt: now,
+    },
+  });
+});
+
+// 2. Warehouse Session Validation Endpoint
+app.get('/api/warehouse/session', (req: Request, res: Response) => {
+  const token = extractWarehouseToken(req);
+  if (!token) {
+    res.status(401).json({ authenticated: false, error: 'No warehouse session found.' });
+    return;
+  }
+
+  const session = activeWarehouseSessions.get(token);
+  if (!session || Date.now() > session.expiresAt) {
+    if (session) activeWarehouseSessions.delete(token);
+    res.status(401).json({ authenticated: false, error: 'Warehouse session has expired. Please log in again.' });
+    return;
+  }
+
+  res.json({
+    authenticated: true,
+    session: {
+      token: session.token,
+      warehouseId: session.warehouseId,
+      warehouseName: session.warehouseName,
+      location: session.location,
+      scannerDevice: session.scannerDevice,
+      permittedDevices: session.permittedDevices,
+      authenticatedAt: session.authenticatedAt,
+    },
+  });
+});
+
+// 3. Trusted Warehouse-Device Assignment Verification Endpoint
+app.post('/api/warehouse/verify-device', (req: Request, res: Response) => {
+  const token = extractWarehouseToken(req);
+  const { deviceId = '', warehouseId = '' } = req.body || {};
+  const targetDeviceId = String(deviceId).trim();
+
+  let targetWarehouseId = String(warehouseId).trim().toUpperCase();
+
+  if (token && activeWarehouseSessions.has(token)) {
+    const session = activeWarehouseSessions.get(token)!;
+    if (Date.now() <= session.expiresAt) {
+      targetWarehouseId = session.warehouseId;
+    }
+  }
+
+  if (!targetWarehouseId || !targetDeviceId) {
+    res.status(400).json({ allowed: false, error: 'Warehouse ID and Device ID are required.' });
+    return;
+  }
+
+  const account = WAREHOUSE_ACCOUNTS[targetWarehouseId];
+  if (!account) {
+    res.status(403).json({ allowed: false, error: 'Access denied. Unknown warehouse account.' });
+    return;
+  }
+
+  const isPermitted = account.permittedDevices.some(
+    (d) => d.toUpperCase() === targetDeviceId.toUpperCase()
+  );
+
+  if (!isPermitted) {
+    res.status(403).json({
+      allowed: false,
+      warehouseId: targetWarehouseId,
+      deviceId: targetDeviceId,
+      error: 'Access denied. This device is not assigned to your warehouse.',
+    });
+    return;
+  }
+
+  res.json({
+    allowed: true,
+    warehouseId: targetWarehouseId,
+    deviceId: targetDeviceId,
+    scannerDevice: account.scannerDevice,
+  });
+});
+
+// 4. Warehouse Logout Endpoint
+app.post('/api/warehouse/logout', (req: Request, res: Response) => {
+  const token = extractWarehouseToken(req);
+  if (token) {
+    activeWarehouseSessions.delete(token);
+  }
+  res.setHeader(
+    'Set-Cookie',
+    'freshnex_wh_token=; Path=/; HttpOnly; SameSite=Lax; Expires=Thu, 01 Jan 1970 00:00:00 GMT'
+  );
+  res.json({ ok: true });
 });
 
 // AI Research & Threshold Auto-Configuration API

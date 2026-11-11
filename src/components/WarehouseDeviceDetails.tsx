@@ -322,7 +322,7 @@ export const WarehouseDeviceDetails: React.FC<WarehouseDeviceDetailsProps> = ({
           className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-[#07221A] text-white hover:bg-[#134336] transition-all text-xs font-black cursor-pointer shadow-sm self-start sm:self-auto"
         >
           <ArrowLeft className="w-4 h-4 text-[#20E79A]" />
-          <span>Return to Warehouse Overview</span>
+          <span>Scan Another Product</span>
         </button>
 
         <div className="flex items-center gap-2 text-xs font-bold text-[#5C7F75]">

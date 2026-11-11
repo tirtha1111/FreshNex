@@ -90,9 +90,8 @@ const WarehouseRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
   const isValidWarehouseSession = Boolean(
     activeSession &&
-      activeSession.tagUid &&
-      activeSession.deviceId &&
-      activeSession.authenticatedAt
+      activeSession.token &&
+      activeSession.warehouseId
   );
 
   if (!isValidWarehouseSession) {

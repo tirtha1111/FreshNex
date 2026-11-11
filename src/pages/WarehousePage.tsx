@@ -56,14 +56,33 @@ export const WarehousePage: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const { warehouseSession, logoutWarehouse, userProfile } = useAuth();
   const [manualOverviewMode, setManualOverviewMode] = useState(false);
+  const [permissionError, setPermissionError] = useState<string | null>(null);
+
+  const isDevicePermitted = (devId: string): boolean => {
+    if (!warehouseSession || !warehouseSession.permittedDevices || warehouseSession.permittedDevices.length === 0) {
+      return true;
+    }
+    return warehouseSession.permittedDevices.some(
+      (d) => d.trim().toUpperCase() === devId.trim().toUpperCase()
+    );
+  };
 
   // Selected device query params or active RFID session device (unless user explicitly returned to overview)
   const queryDeviceId = searchParams.get('deviceId') || searchParams.get('id');
   const queryRfid = searchParams.get('rfid');
-  const selectedDeviceId =
-    queryDeviceId || (!manualOverviewMode && warehouseSession?.deviceId ? warehouseSession.deviceId : null);
+  const rawSelectedDeviceId =
+    queryDeviceId ||
+    (!manualOverviewMode && (warehouseSession?.selectedDeviceId || warehouseSession?.deviceId)
+      ? warehouseSession?.selectedDeviceId || warehouseSession?.deviceId
+      : null);
+
+  const isPermitted = rawSelectedDeviceId ? isDevicePermitted(rawSelectedDeviceId) : true;
+  const selectedDeviceId = isPermitted ? rawSelectedDeviceId : null;
   const selectedRfid =
-    queryRfid || (!manualOverviewMode && warehouseSession?.tagUid ? warehouseSession.tagUid : null);
+    queryRfid ||
+    (!manualOverviewMode && (warehouseSession?.selectedTagUid || warehouseSession?.tagUid)
+      ? warehouseSession?.selectedTagUid || warehouseSession?.tagUid
+      : null);
 
   const handleWarehouseLogout = async () => {
     await logoutWarehouse();
@@ -217,6 +236,11 @@ export const WarehousePage: React.FC = () => {
     const handleScanEvent = (e: Event) => {
       const detail = (e as CustomEvent)?.detail;
       if (detail?.deviceId) {
+        if (!isDevicePermitted(detail.deviceId)) {
+          setPermissionError('Access denied. This device is not assigned to your warehouse.');
+          return;
+        }
+        setPermissionError(null);
         setManualOverviewMode(false);
         setSearchParams({
           deviceId: detail.deviceId,
@@ -328,6 +352,11 @@ export const WarehousePage: React.FC = () => {
   }, [scansList, searchQuery, productFilter]);
 
   const handleOpenDevice = (deviceId: string, rfidUid?: string) => {
+    if (!isDevicePermitted(deviceId)) {
+      setPermissionError('Access denied. This device is not assigned to your warehouse.');
+      return;
+    }
+    setPermissionError(null);
     setManualOverviewMode(false);
     setSearchParams({
       deviceId,
@@ -336,6 +365,7 @@ export const WarehousePage: React.FC = () => {
   };
 
   const handleReturnToOverview = () => {
+    setPermissionError(null);
     setManualOverviewMode(true);
     setSearchParams({});
   };
@@ -347,6 +377,12 @@ export const WarehousePage: React.FC = () => {
       (s) => s.device_id === selectedDeviceId || (selectedRfid && s.tag_uid === selectedRfid)
     );
   }, [selectedDeviceId, selectedRfid, scansList]);
+
+  const latestScan = scansList.length > 0 ? scansList[0] : null;
+  const latestScanUid = latestScan?.tag_uid || 'None';
+  const { dateStr: lastScanDate, timeStr: lastScanTime } = latestScan?.timestamp_ms
+    ? formatRealtimeDateTime(latestScan.timestamp_ms)
+    : { dateStr: 'Awaiting scan', timeStr: '' };
 
   return (
     <div className="space-y-6 font-sans select-none">
@@ -372,7 +408,7 @@ export const WarehousePage: React.FC = () => {
               className="px-4 py-2 rounded-xl bg-white border border-[#13493B]/15 text-xs font-black text-[#07221A] hover:bg-[#F4F7F6] flex items-center gap-2 cursor-pointer shadow-sm transition-all"
             >
               <Warehouse className="w-4 h-4 text-[#20E79A]" />
-              <span>Warehouse Overview</span>
+              <span>Back to RFID Devices</span>
             </button>
           )}
           <button
@@ -386,47 +422,64 @@ export const WarehousePage: React.FC = () => {
         </div>
       </div>
 
+      {/* Permission Error Banner */}
+      {permissionError && (
+        <div className="p-4 rounded-2xl bg-rose-50 border border-rose-300 text-rose-800 text-xs font-bold flex items-center justify-between shadow-xs">
+          <div className="flex items-center gap-2.5">
+            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+            <span>{permissionError}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setPermissionError(null)}
+            className="px-3 py-1.5 rounded-xl bg-rose-600 text-white hover:bg-rose-700 text-xs font-black cursor-pointer transition-colors"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       {/* Prominent Active Warehouse Session Banner */}
       {(warehouseSession || userProfile?.role === 'warehouse') && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-4 rounded-2xl bg-[#07221A] border border-[#20E79A]/40 text-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-lg"
+          className="p-4 sm:p-5 rounded-2xl bg-[#07221A] border border-[#20E79A]/40 text-white flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-xl"
         >
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 rounded-xl bg-[#20E79A]/15 border border-[#20E79A]/40 text-[#20E79A] flex items-center justify-center shrink-0">
-              <ShieldCheck className="w-5 h-5" />
+          <div className="flex items-start sm:items-center gap-3.5 min-w-0">
+            <div className="w-12 h-12 rounded-2xl bg-[#20E79A]/15 border border-[#20E79A]/40 text-[#20E79A] flex items-center justify-center shrink-0">
+              <ShieldCheck className="w-6 h-6" />
             </div>
-            <div className="min-w-0">
+            <div className="min-w-0 space-y-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-[10px] font-black uppercase tracking-wider text-[#20E79A] bg-[#20E79A]/15 px-2 py-0.5 rounded-md border border-[#20E79A]/30">
-                  Active Warehouse Operator Session
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#20E79A] bg-[#20E79A]/15 px-2.5 py-0.5 rounded-md border border-[#20E79A]/30">
+                  Authenticated Warehouse Session
+                </span>
+                <span className="font-mono font-black text-white text-xs bg-white/10 px-2 py-0.5 rounded-md border border-white/15">
+                  ID: {warehouseSession?.warehouseId || 'WH-001'}
                 </span>
                 <span className="inline-flex items-center gap-1 text-[10px] font-mono font-bold text-emerald-400">
                   <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block" />
                   Live Verified
                 </span>
               </div>
-              <div className="text-xs font-medium text-[#D5E6DF] mt-1 flex items-center gap-2 flex-wrap">
-                <span>
-                  Authorized Device:{' '}
-                  <strong className="font-mono text-[#20E79A] font-bold">
-                    {warehouseSession?.deviceId || userProfile?.assignedProductId || 'Registered Unit'}
-                  </strong>
+              <div className="text-xs text-[#D5E6DF] flex items-center gap-2 flex-wrap">
+                <span className="font-bold text-white">
+                  {warehouseSession?.warehouseName || 'Central FreshNex Hub'}
                 </span>
-                {(warehouseSession?.product || userProfile?.assignedProductName) && (
-                  <span className="text-[#8AB5A8]">
-                    • Product: <strong>{warehouseSession?.product || userProfile?.assignedProductName}</strong>
-                  </span>
-                )}
-                {warehouseSession?.tagUid && (
-                  <span className="text-amber-300 font-mono text-[11px]">
-                    • RFID UID: <strong>{warehouseSession.tagUid}</strong>
+                {warehouseSession?.location && (
+                  <span className="text-[#8AB5A8] hidden sm:inline">
+                    • {warehouseSession.location}
                   </span>
                 )}
                 <span className="text-[#8AB5A8]">
-                  • Scanner: ESP32-RC522 ({warehouseSession?.warehouseId || 'WH-001'})
+                  • Scanner: <strong className="font-mono text-white">{warehouseSession?.scannerDevice || 'FRESHNEX-WH-001'}</strong>
                 </span>
+                {warehouseSession?.permittedDevices && warehouseSession.permittedDevices.length > 0 && (
+                  <span className="text-[#20E79A] font-mono text-[11px]">
+                    • Permitted: [{warehouseSession.permittedDevices.join(', ')}]
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -434,9 +487,9 @@ export const WarehousePage: React.FC = () => {
           <button
             type="button"
             onClick={handleWarehouseLogout}
-            className="px-3.5 py-2 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-400/40 text-rose-300 hover:text-rose-100 text-xs font-bold flex items-center gap-2 cursor-pointer transition-colors shadow-xs shrink-0 self-end sm:self-auto"
+            className="px-4 py-2.5 rounded-xl bg-rose-500/15 hover:bg-rose-500/25 border border-rose-400/40 text-rose-300 hover:text-rose-100 text-xs font-bold flex items-center gap-2 cursor-pointer transition-colors shadow-xs shrink-0 self-end md:self-auto"
           >
-            <LogOut className="w-3.5 h-3.5" />
+            <LogOut className="w-4 h-4" />
             <span>End Warehouse Session</span>
           </button>
         </motion.div>
@@ -449,348 +502,74 @@ export const WarehousePage: React.FC = () => {
             key={selectedDeviceId}
             deviceId={selectedDeviceId}
             rfidUid={selectedRfid || activeScanMeta?.tag_uid}
-            warehouseId={activeScanMeta?.warehouse_id || 'WH-001'}
-            warehouseDevice={activeScanMeta?.warehouse_device || 'FRESHNEX-WH-001'}
+            warehouseId={activeScanMeta?.warehouse_id || warehouseSession?.warehouseId || 'WH-001'}
+            warehouseDevice={activeScanMeta?.warehouse_device || warehouseSession?.scannerDevice || 'FRESHNEX-WH-001'}
             lastScanTimestamp={activeScanMeta?.timestamp_ms}
             onBack={handleReturnToOverview}
           />
         ) : (
-          /* VIEW B: WAREHOUSE OVERVIEW DASHBOARD */
+          /* VIEW B: WAREHOUSE RFID SCANNER TERMINAL */
           <motion.div
             key="overview"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.2 }}
-            className="space-y-6"
+            className="space-y-6 max-w-4xl mx-auto py-6"
           >
-            {/* Overview Metrics Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              {/* Metric 1: Registered RFID Devices */}
-              <motion.div
-                whileHover={{ y: -3 }}
-                className="p-5 rounded-2xl bg-white border border-[#13493B]/10 shadow-xs flex items-center justify-between"
-              >
-                <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#5C7F75] block">
-                    Registered RFID Devices
-                  </span>
-                  <span className="text-3xl font-black text-[#07221A] block mt-1">
-                    {totalRegisteredDevices}
-                  </span>
-                  <span className="text-[10px] font-mono text-emerald-700 font-bold block mt-0.5">
-                    Verified in /rfid_registry
-                  </span>
+            {/* RFID Scanner Terminal Card */}
+            <div className="bg-gradient-to-br from-[#07221A] via-[#0A2E23] to-[#041410] rounded-[32px] border border-[#20E79A]/40 p-8 sm:p-12 text-white shadow-[0_24px_60px_rgba(7,34,26,0.45)] relative overflow-hidden text-center space-y-6">
+              {/* Glow orb */}
+              <div className="absolute -top-24 -right-24 w-80 h-80 bg-gradient-to-bl from-[#20E79A]/25 to-transparent rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-24 -left-24 w-80 h-80 bg-gradient-to-tr from-emerald-500/20 to-transparent rounded-full blur-3xl pointer-events-none" />
+
+              <div className="relative z-15 space-y-4">
+                <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-[#20E79A]/15 text-[#20E79A] border border-[#20E79A]/40 text-xs font-black uppercase tracking-wider shadow-inner">
+                  <Radio className="w-4 h-4 text-[#20E79A] animate-pulse" /> ESP32-RC522 Hardware Scanner Active
                 </div>
-                <div className="w-12 h-12 rounded-2xl bg-[#EBFBF4] text-[#13493B] border border-[#20E79A]/30 flex items-center justify-center shrink-0">
-                  <ShieldCheck className="w-6 h-6 text-[#20E79A]" />
-                </div>
-              </motion.div>
 
-              {/* Metric 2: Total Warehouse Scans */}
-              <motion.div
-                whileHover={{ y: -3 }}
-                className="p-5 rounded-2xl bg-white border border-[#13493B]/10 shadow-xs flex items-center justify-between"
-              >
-                <div>
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#5C7F75] block">
-                    Total Warehouse Scans
+                <div className="w-24 h-24 mx-auto rounded-3xl bg-[#20E79A]/10 border border-[#20E79A]/30 flex items-center justify-center text-[#20E79A] shadow-2xl relative">
+                  <div className="absolute inset-0 rounded-3xl bg-[#20E79A]/20 animate-ping" />
+                  <Radio className="w-12 h-12 relative z-10 animate-pulse" />
+                </div>
+
+                <div className="space-y-2 max-w-lg mx-auto">
+                  <span className="text-xs font-mono font-black uppercase tracking-widest text-[#20E79A] bg-white/10 px-3 py-1 rounded-full border border-white/15 inline-block">
+                    Status: Waiting for RFID scan
                   </span>
-                  <span className="text-3xl font-black text-[#07221A] block mt-1">
-                    {totalScans}
-                  </span>
-                  <span className="text-[10px] font-mono text-[#5C7F75] font-semibold block mt-0.5">
-                    Logged in /warehouse_scans
-                  </span>
-                </div>
-                <div className="w-12 h-12 rounded-2xl bg-blue-50 text-blue-600 border border-blue-100 flex items-center justify-center shrink-0">
-                  <History className="w-6 h-6" />
-                </div>
-              </motion.div>
-
-              {/* Metric 3: Connected Warehouse Scanner Status */}
-              <motion.div
-                whileHover={{ y: -3 }}
-                className="p-5 rounded-2xl bg-white border border-[#13493B]/10 shadow-xs flex items-center justify-between"
-              >
-                <div className="min-w-0">
-                  <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#5C7F75] block truncate">
-                    Warehouse Scanner Status
-                  </span>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-base font-black text-[#07221A] truncate">
-                      ACTIVE & ONLINE
-                    </span>
-                  </div>
-                  <span className="text-[10px] font-mono text-[#5C7F75] block mt-0.5 truncate">
-                    Reader: ESP32-RC522 (WH-001)
-                  </span>
-                </div>
-                <div className="w-12 h-12 rounded-2xl bg-[#07221A] text-[#20E79A] border border-[#20E79A]/30 flex items-center justify-center shrink-0">
-                  <Radio className="w-6 h-6 animate-pulse" />
-                </div>
-              </motion.div>
-
-              {/* Metric 4: Recently Scanned Products */}
-              <motion.div
-                whileHover={{ y: -3 }}
-                className="p-5 rounded-2xl bg-white border border-[#13493B]/10 shadow-xs flex flex-col justify-between"
-              >
-                <span className="text-[10px] font-extrabold uppercase tracking-wider text-[#5C7F75] block">
-                  Recently Scanned Products
-                </span>
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {recentlyScannedProducts.length > 0 ? (
-                    recentlyScannedProducts.map((p) => (
-                      <span
-                        key={p.name}
-                        className="px-2.5 py-1 rounded-lg text-[10px] font-black bg-[#EBFBF4] text-[#07221A] border border-[#20E79A]/30 flex items-center gap-1 shadow-2xs"
-                      >
-                        <Tag className="w-3 h-3 text-[#20E79A]" />
-                        {p.name}
-                        <span className="text-[9px] font-mono text-[#5C7F75]">({p.count})</span>
-                      </span>
-                    ))
-                  ) : (
-                    <span className="text-xs font-bold text-[#5C7F75]">No scans logged yet</span>
-                  )}
-                </div>
-              </motion.div>
-            </div>
-
-            {/* Registered RFID Devices Section */}
-            <div className="space-y-4">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <h3 className="text-base font-black text-[#07221A] flex items-center gap-2">
-                    <ShieldCheck className="w-4 h-4 text-[#20E79A]" />
-                    Registered RFID Devices in Warehouse Registry
-                  </h3>
-                  <p className="text-xs text-[#5C7F75]">
-                    Authoritative devices registered in Firebase Realtime Database (/rfid_registry)
-                  </p>
-                </div>
-                <span className="text-xs font-bold font-mono text-[#13493B] bg-[#EBFBF4] px-3 py-1 rounded-full border border-[#20E79A]/30 self-start sm:self-auto">
-                  {registeredDevicesList.length} Units Active
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {registeredDevicesList.map((dev) => {
-                  const { dateStr, timeStr } = dev.lastScanMs
-                    ? formatRealtimeDateTime(dev.lastScanMs)
-                    : { dateStr: 'No Scan Recorded', timeStr: '' };
-
-                  return (
-                    <motion.div
-                      key={dev.uid}
-                      whileHover={{ y: -3 }}
-                      className="p-5 rounded-2xl bg-white border border-[#13493B]/10 hover:border-[#20E79A]/50 transition-all shadow-xs flex flex-col justify-between space-y-4"
-                    >
-                      <div className="space-y-3">
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="space-y-0.5">
-                            <span className="text-[10px] font-black uppercase tracking-wider text-[#20E79A] bg-[#07221A] px-2 py-0.5 rounded-md inline-block">
-                              {dev.product}
-                            </span>
-                            <h4 className="text-lg font-black text-[#07221A] tracking-tight">
-                              Device: {dev.deviceId}
-                            </h4>
-                          </div>
-                          <span
-                            className={`px-2.5 py-1 rounded-full text-[10px] font-black uppercase border ${
-                              dev.online
-                                ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
-                                : 'bg-slate-100 text-slate-600 border-slate-300'
-                            }`}
-                          >
-                            {dev.online ? 'Online' : 'Offline'}
-                          </span>
-                        </div>
-
-                        <div className="space-y-1.5 text-xs bg-[#F4F7F6] p-3 rounded-xl border border-[#13493B]/8">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold text-[#5C7F75] uppercase">
-                              RFID UID
-                            </span>
-                            <span className="font-mono font-black text-amber-700 bg-amber-100/80 px-2 py-0.5 rounded-md border border-amber-300">
-                              {dev.uid}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between">
-                            <span className="text-[10px] font-bold text-[#5C7F75] uppercase">
-                              Registry Status
-                            </span>
-                            <span className="font-bold text-[#13493B]">
-                              {dev.active ? 'Active Registration' : 'Inactive'}
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between pt-1 border-t border-[#13493B]/10">
-                            <span className="text-[10px] font-bold text-[#5C7F75] uppercase">
-                              Last Scan
-                            </span>
-                            <span className="font-mono text-[11px] text-[#07221A]">
-                              {dateStr} {timeStr ? `• ${timeStr}` : ''}
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-
-                      <button
-                        type="button"
-                        onClick={() => handleOpenDevice(dev.deviceId, dev.uid)}
-                        className="w-full py-2.5 px-4 rounded-xl bg-[#07221A] text-white hover:bg-[#134336] transition-all font-black text-xs flex items-center justify-center gap-2 cursor-pointer shadow-xs"
-                      >
-                        <span>Open Device Details</span>
-                        <ArrowRight className="w-3.5 h-3.5 text-[#20E79A]" />
-                      </button>
-                    </motion.div>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Real-time Warehouse Scan History Table */}
-            <div className="space-y-4 pt-4 border-t border-[#13493B]/10">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-base font-black text-[#07221A] flex items-center gap-2">
-                    <History className="w-4 h-4 text-[#20E79A]" />
-                    Real-Time Warehouse Scan History (/warehouse_scans)
-                  </h3>
-                  <p className="text-xs text-[#5C7F75]">
-                    Click any entry to automatically inspect that registered device
+                  <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight pt-1">
+                    Tap a registered RFID card on the scanner to view its live product data.
+                  </h2>
+                  <p className="text-xs font-semibold text-[#8AB5A8]">
+                    Real-time listener active on /warehouse_scans. No manual selection required.
                   </p>
                 </div>
 
-                {/* Filters */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <div className="relative min-w-[200px]">
-                    <Search className="w-3.5 h-3.5 text-[#5C7F75] absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      placeholder="Search scan, UID, device..."
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      className="w-full bg-white border border-[#13493B]/15 pl-8 pr-3 py-1.5 rounded-xl text-xs font-bold text-[#07221A] focus:outline-none focus:border-[#20E79A]"
-                    />
+                {/* Scan Telemetry Bar */}
+                <div className="pt-4 border-t border-white/10 grid grid-cols-1 sm:grid-cols-2 gap-3 max-w-md mx-auto text-xs font-mono">
+                  <div className="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
+                    <span className="text-[#8AB5A8]">Last Scanned UID:</span>
+                    <span className="font-bold text-amber-300">{latestScanUid}</span>
                   </div>
-
-                  <select
-                    value={productFilter}
-                    onChange={(e) => setProductFilter(e.target.value)}
-                    className="bg-white border border-[#13493B]/15 px-3 py-1.5 rounded-xl text-xs font-bold text-[#07221A] focus:outline-none focus:border-[#20E79A] cursor-pointer"
-                  >
-                    <option value="ALL">All Products</option>
-                    {availableProducts.map((prod) => (
-                      <option key={prod} value={prod}>
-                        {prod.charAt(0).toUpperCase() + prod.slice(1)}
-                      </option>
-                    ))}
-                  </select>
+                  <div className="p-3 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-between">
+                    <span className="text-[#8AB5A8]">Last Scan Time:</span>
+                    <span className="font-bold text-white">{lastScanDate} {lastScanTime ? `• ${lastScanTime}` : ''}</span>
+                  </div>
                 </div>
               </div>
+            </div>
 
-              {/* Table Container */}
-              <div className="bg-white rounded-2xl border border-[#13493B]/10 shadow-xs overflow-hidden">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-left border-collapse text-xs">
-                    <thead>
-                      <tr className="bg-[#F4F7F6] border-b border-[#13493B]/10 text-[10px] font-black uppercase tracking-wider text-[#5C7F75]">
-                        <th className="py-3 px-4">Time</th>
-                        <th className="py-3 px-4">RFID UID</th>
-                        <th className="py-3 px-4">Product</th>
-                        <th className="py-3 px-4">Device ID</th>
-                        <th className="py-3 px-4">Warehouse</th>
-                        <th className="py-3 px-4">Status</th>
-                        <th className="py-3 px-4 text-right">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-[#13493B]/8">
-                      {filteredScans.length > 0 ? (
-                        filteredScans.map((scan) => {
-                          const { dateStr, timeStr } = formatRealtimeDateTime(scan.timestamp_ms);
-                          const isVerified = scan.verified === true;
-                          const isIdentified =
-                            String(scan.scanner_status || '').toLowerCase() === 'identified';
-                          const prodLabel = scan.product
-                            ? scan.product.charAt(0).toUpperCase() + scan.product.slice(1).toLowerCase()
-                            : 'Monitored';
-
-                          return (
-                            <tr
-                              key={scan.id}
-                              onClick={() => {
-                                if (scan.device_id) {
-                                  handleOpenDevice(scan.device_id, scan.tag_uid);
-                                }
-                              }}
-                              className="hover:bg-[#EBFBF4]/60 transition-colors cursor-pointer group"
-                            >
-                              <td className="py-3 px-4">
-                                <span className="font-bold text-[#07221A] block">{dateStr}</span>
-                                <span className="text-[10px] font-mono text-[#5C7F75]">
-                                  {timeStr}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4">
-                                <span className="font-mono font-bold text-amber-800 bg-amber-100/80 px-2 py-0.5 rounded-md border border-amber-300">
-                                  {scan.tag_uid || 'N/A'}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4 font-bold text-[#07221A]">
-                                {prodLabel}
-                              </td>
-                              <td className="py-3 px-4 font-mono font-bold text-[#13493B]">
-                                {scan.device_id || 'N/A'}
-                              </td>
-                              <td className="py-3 px-4 font-bold text-[#5C7F75]">
-                                {scan.warehouse_id || 'WH-001'}
-                              </td>
-                              <td className="py-3 px-4">
-                                <span
-                                  className={`inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-black ${
-                                    isVerified && isIdentified
-                                      ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                      : 'bg-amber-100 text-amber-800 border border-amber-300'
-                                  }`}
-                                >
-                                  {isVerified && isIdentified ? (
-                                    <>
-                                      <CheckCircle2 className="w-3 h-3 text-emerald-600" />
-                                      Identified
-                                    </>
-                                  ) : (
-                                    <>
-                                      <AlertTriangle className="w-3 h-3 text-amber-600" />
-                                      {scan.scanner_status || 'Unverified'}
-                                    </>
-                                  )}
-                                </span>
-                              </td>
-                              <td className="py-3 px-4 text-right">
-                                <span className="inline-flex items-center gap-1 text-[11px] font-black text-[#13493B] group-hover:text-[#20E79A] transition-colors">
-                                  View Details
-                                  <ChevronRight className="w-3.5 h-3.5" />
-                                </span>
-                              </td>
-                            </tr>
-                          );
-                        })
-                      ) : (
-                        <tr>
-                          <td colSpan={7} className="py-8 text-center text-xs font-semibold text-[#5C7F75]">
-                            {loading
-                              ? 'Loading warehouse scans from Firebase...'
-                              : 'No warehouse scans found matching filters.'}
-                          </td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
-                </div>
+            {/* Live Product Monitoring Area (Waiting State) */}
+            <div className="p-8 rounded-[32px] bg-white border border-[#13493B]/10 text-center space-y-3 shadow-xs">
+              <div className="w-12 h-12 mx-auto rounded-2xl bg-[#EBFBF4] text-[#13493B] border border-[#20E79A]/30 flex items-center justify-center">
+                <Cpu className="w-6 h-6 text-[#20E79A]" />
               </div>
+              <h3 className="text-base font-black text-[#07221A]">
+                Waiting for RFID scan...
+              </h3>
+              <p className="text-xs text-[#5C7F75] font-semibold max-w-sm mx-auto">
+                Scan any registered product RFID card to automatically open its live telemetry, sensors, and freshness quality metrics.
+              </p>
             </div>
           </motion.div>
         )}

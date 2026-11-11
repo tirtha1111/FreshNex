@@ -22,12 +22,15 @@ import { UserProfile, UserSettings } from '../types';
 import { resolveFactualProduct } from '../data/initialData';
 
 export interface WarehouseSession {
-  tagUid: string;
-  deviceId: string;
-  product: string;
+  token: string;
   warehouseId: string;
-  warehouseDevice?: string;
+  warehouseName?: string;
+  location?: string;
+  scannerDevice?: string;
+  permittedDevices?: string[];
   authenticatedAt: number;
+  selectedDeviceId?: string;
+  selectedTagUid?: string;
 }
 
 interface AuthContextType {
@@ -40,7 +43,8 @@ interface AuthContextType {
   authError: string | null;
   login: (email: string, pass: string) => Promise<void>;
   loginWithProductId: (productId: string) => Promise<void>;
-  loginWithWarehouseRFID: (session: WarehouseSession) => Promise<void>;
+  loginWarehouse: (warehouseId: string, pass: string) => Promise<WarehouseSession>;
+  setWarehouseSelectedDevice: (deviceId: string, tagUid?: string) => void;
   logoutWarehouse: () => Promise<void>;
   signup: (name: string, email: string, pass: string) => Promise<void>;
   logout: () => Promise<void>;
@@ -176,7 +180,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         sessionStorage.getItem('freshnex_warehouse_session') ||
         localStorage.getItem('freshnex_warehouse_session');
       if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        if (parsed && parsed.warehouseId && parsed.token) {
+          return parsed;
+        }
       }
     } catch (e) {
       console.warn('Error reading warehouse session', e);
@@ -235,11 +242,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const activeUid = userProfile?.uid || currentUser?.uid;
     if (!activeUid) return;
 
-    // Activate any per-login Firebase credentials configured in the Settings panel for this login
-    const loginCfg = getActiveFirebaseConfig(activeUid);
-    reinitializeFirebaseWithConfig(loginCfg, activeUid);
+    // Only reinitialize if a custom per-user Firebase config exists and differs from active config
+    const customPerUserCfg =
+      typeof window !== 'undefined' ? localStorage.getItem(`freshnex_firebase_config_${activeUid}`) : null;
+    if (customPerUserCfg) {
+      const loginCfg = getActiveFirebaseConfig(activeUid);
+      reinitializeFirebaseWithConfig(loginCfg, activeUid);
+    }
 
-    // Sync profile to Firebase
+    // Sync profile to Firebase outside of render phase
     if (userProfile?.uid) {
       syncProfileToFirebase(userProfile);
     }
@@ -254,7 +265,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (val && typeof val === 'object') {
           setUserSettings((prev) => {
             const merged = { ...prev, ...val };
-            localStorage.setItem('freshnex_settings', JSON.stringify(merged));
+            try {
+              localStorage.setItem('freshnex_settings', JSON.stringify(merged));
+            } catch {}
             return merged;
           });
         }
@@ -330,8 +343,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
                 new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }),
               organization: prev.organization || 'FreshNex Operations',
             };
-            localStorage.setItem('freshnex_profile', JSON.stringify(updated));
-            syncProfileToFirebase(updated);
+            try {
+              localStorage.setItem('freshnex_profile', JSON.stringify(updated));
+            } catch {}
             return updated;
           });
         } else {
@@ -524,18 +538,81 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
-  const loginWithWarehouseRFID = async (session: WarehouseSession) => {
+  const loginWarehouse = async (warehouseId: string, pass: string): Promise<WarehouseSession> => {
     setAuthError(null);
-    setWarehouseSession(session);
+    setIsLoading(true);
+
+    const cleanId = warehouseId.trim().toUpperCase();
+    const cleanPass = pass.trim();
+
+    if (!cleanId || !cleanPass) {
+      setIsLoading(false);
+      const msg = 'Please enter both your Warehouse ID and Password.';
+      setAuthError(msg);
+      throw new Error(msg);
+    }
+
     try {
-      sessionStorage.setItem('freshnex_warehouse_session', JSON.stringify(session));
-      localStorage.setItem('freshnex_warehouse_session', JSON.stringify(session));
-    } catch (e) {
-      console.warn('Error saving warehouse session', e);
+      const res = await fetch('/api/warehouse/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ warehouseId: cleanId, password: cleanPass }),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data.ok || !data.session) {
+        const errorMsg = data.error || 'Invalid Warehouse ID or Password. Please verify your credentials.';
+        setAuthError(errorMsg);
+        throw new Error(errorMsg);
+      }
+
+      const session: WarehouseSession = data.session;
+      setWarehouseSession(session);
+      try {
+        sessionStorage.setItem('freshnex_warehouse_session', JSON.stringify(session));
+        localStorage.setItem('freshnex_warehouse_session', JSON.stringify(session));
+      } catch (e) {
+        console.warn('Error saving warehouse session', e);
+      }
+
+      // Ensure background anonymous RTDB auth is active for Firebase Realtime Database
+      await ensureFirebaseAuthenticated();
+
+      return session;
+    } catch (err: any) {
+      const msg = err.message || 'Failed to authenticate warehouse account.';
+      setAuthError(msg);
+      throw err;
+    } finally {
+      setIsLoading(false);
     }
   };
 
+  const setWarehouseSelectedDevice = (deviceId: string, tagUid?: string) => {
+    setWarehouseSession((prev) => {
+      if (!prev) return null;
+      const updated: WarehouseSession = {
+        ...prev,
+        selectedDeviceId: deviceId,
+        selectedTagUid: tagUid || prev.selectedTagUid,
+      };
+      try {
+        sessionStorage.setItem('freshnex_warehouse_session', JSON.stringify(updated));
+        localStorage.setItem('freshnex_warehouse_session', JSON.stringify(updated));
+      } catch (e) {
+        console.warn('Error saving selected warehouse device', e);
+      }
+      return updated;
+    });
+  };
+
   const logoutWarehouse = async () => {
+    try {
+      await fetch('/api/warehouse/logout', { method: 'POST' });
+    } catch (e) {
+      console.warn('Backend warehouse logout notice:', e);
+    }
+
     setWarehouseSession(null);
     try {
       sessionStorage.removeItem('freshnex_warehouse_session');
@@ -591,24 +668,24 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   const updateUserProfile = (updates: Partial<UserProfile>) => {
-    setUserProfile((prev) => {
-      const next = { ...prev, ...updates };
+    const next: UserProfile = { ...userProfile, ...updates };
+    setUserProfile(next);
+    try {
       localStorage.setItem('freshnex_profile', JSON.stringify(next));
-      syncProfileToFirebase(next);
-      return next;
-    });
+    } catch {}
+    syncProfileToFirebase(next);
   };
 
   const updateUserSettings = (updates: Partial<UserSettings>) => {
-    setUserSettings((prev) => {
-      const next = { ...prev, ...updates };
+    const next: UserSettings = { ...userSettings, ...updates };
+    setUserSettings(next);
+    try {
       localStorage.setItem('freshnex_settings', JSON.stringify(next));
-      const activeUid = userProfile?.uid || currentUser?.uid;
-      if (activeUid) {
-        syncSettingsToFirebase(activeUid, next);
-      }
-      return next;
-    });
+    } catch {}
+    const activeUid = userProfile?.uid || currentUser?.uid;
+    if (activeUid) {
+      syncSettingsToFirebase(activeUid, next);
+    }
   };
 
   const clearAuthError = () => setAuthError(null);
@@ -631,7 +708,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         authError,
         login,
         loginWithProductId,
-        loginWithWarehouseRFID,
+        loginWarehouse,
+        setWarehouseSelectedDevice,
         logoutWarehouse,
         signup,
         logout,

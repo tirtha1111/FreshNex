@@ -14,30 +14,24 @@ import {
   Leaf,
   CheckCircle2,
   Warehouse,
-  Radio,
-  Cpu,
-  RefreshCw,
-  Zap
+  KeyRound,
+  ShieldCheck,
 } from 'lucide-react';
 import jsqr from 'jsqr';
 import { Logo } from '../components/common/Logo';
 import { useAuth } from '../context/AuthContext';
-import { RFIDScanStatus, RFIDStatusEventDetail } from '../components/WarehouseRFIDListener';
 
-export type LoginMode = 'user' | 'admin' | 'rfid';
+export type LoginMode = 'user' | 'admin' | 'warehouse';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { currentUser, userProfile, warehouseSession, login, loginWithProductId, authError, clearAuthError } = useAuth();
+  const { currentUser, userProfile, warehouseSession, login, loginWithProductId, loginWarehouse, authError, clearAuthError } = useAuth();
 
   useEffect(() => {
     if (currentUser && userProfile?.role !== 'warehouse') {
       navigate(userProfile?.role === 'admin' ? '/devices' : '/dashboard', { replace: true });
-    } else if (warehouseSession && warehouseSession.deviceId && warehouseSession.tagUid) {
-      navigate(
-        `/warehouse?deviceId=${encodeURIComponent(warehouseSession.deviceId)}&rfid=${encodeURIComponent(warehouseSession.tagUid)}`,
-        { replace: true }
-      );
+    } else if (warehouseSession && warehouseSession.warehouseId && warehouseSession.token) {
+      navigate('/warehouse', { replace: true });
     }
   }, [currentUser, userProfile?.role, warehouseSession, navigate]);
 
@@ -46,16 +40,6 @@ export const LoginPage: React.FC = () => {
   // User device portal state
   const [productId, setProductId] = useState('');
   const [focusedField, setFocusedField] = useState<string | null>(null);
-
-  // RFID Warehouse login live state
-  const [rfidStatus, setRfidStatus] = useState<RFIDScanStatus>('waiting');
-  const [rfidStatusMessage, setRfidStatusMessage] = useState<string>('Waiting for RFID scan...');
-  const [rfidDetails, setRfidDetails] = useState<{
-    tagUid?: string;
-    deviceId?: string;
-    product?: string;
-  } | null>(null);
-  const rfidResetTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // QR Code Scanner state
   const [showScanner, setShowScanner] = useState(false);
@@ -71,55 +55,20 @@ export const LoginPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
 
+  // Warehouse login state (Warehouse ID + Password)
+  const [warehouseId, setWarehouseId] = useState(() => {
+    try {
+      return localStorage.getItem('freshnex_saved_wh_id') || 'WH-001';
+    } catch {
+      return 'WH-001';
+    }
+  });
+  const [warehousePassword, setWarehousePassword] = useState('');
+  const [showWarehousePassword, setShowWarehousePassword] = useState(false);
+  const [rememberWarehouse, setRememberWarehouse] = useState(true);
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [localError, setLocalError] = useState<string | null>(null);
-
-  // Subscribe to live RFID scanner telemetry events from WarehouseRFIDListener
-  useEffect(() => {
-    const handleRfidStatus = (e: Event) => {
-      const detail = (e as CustomEvent<RFIDStatusEventDetail>).detail;
-      if (!detail) return;
-
-      if (rfidResetTimerRef.current) {
-        clearTimeout(rfidResetTimerRef.current);
-        rfidResetTimerRef.current = null;
-      }
-
-      setRfidStatus(detail.status);
-      if (detail.message) {
-        setRfidStatusMessage(detail.message);
-      }
-      if (detail.tagUid || detail.deviceId || detail.product) {
-        setRfidDetails({
-          tagUid: detail.tagUid,
-          deviceId: detail.deviceId,
-          product: detail.product,
-        });
-      } else if (detail.status === 'waiting') {
-        setRfidDetails(null);
-      }
-
-      // Automatically switch to the RFID tab when a hardware scan begins so the operator sees live feedback
-      if (detail.status === 'detected' || detail.status === 'verifying' || detail.status === 'granted' || detail.status === 'denied') {
-        setLoginMode('rfid');
-      }
-
-      // If access was denied, keep message visible for 4.5 seconds then reset back to waiting
-      if (detail.status === 'denied') {
-        rfidResetTimerRef.current = setTimeout(() => {
-          setRfidStatus('waiting');
-          setRfidStatusMessage('Waiting for RFID scan...');
-          setRfidDetails(null);
-        }, 4500);
-      }
-    };
-
-    window.addEventListener('freshnex_rfid_status', handleRfidStatus);
-    return () => {
-      window.removeEventListener('freshnex_rfid_status', handleRfidStatus);
-      if (rfidResetTimerRef.current) clearTimeout(rfidResetTimerRef.current);
-    };
-  }, []);
 
   const startScanner = async () => {
     setScannerError(null);
@@ -249,6 +198,39 @@ export const LoginPage: React.FC = () => {
     }
   };
 
+  const handleWarehouseSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLocalError(null);
+    clearAuthError();
+
+    const cleanId = warehouseId.trim().toUpperCase();
+    const cleanPass = warehousePassword.trim();
+
+    if (!cleanId || !cleanPass) {
+      setLocalError('Please enter both your Warehouse ID and Password.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      if (rememberWarehouse) {
+        try {
+          localStorage.setItem('freshnex_saved_wh_id', cleanId);
+        } catch {
+          // ignore
+        }
+      }
+      await loginWarehouse(cleanId, cleanPass);
+      navigate('/warehouse');
+    } catch (err: any) {
+      setLocalError(
+        err.message || 'Invalid Warehouse ID or Password. Please verify your credentials.'
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-[#EEFAF3] via-[#E4F6EC] to-[#F5FCF8] text-[#07221A] font-['DM_Sans',sans-serif] flex flex-col justify-center items-center px-4 py-8 relative overflow-hidden select-none">
       {/* Static Botanical Ambience Background */}
@@ -368,18 +350,18 @@ export const LoginPage: React.FC = () => {
             <button
               type="button"
               onClick={() => {
-                setLoginMode('rfid');
+                setLoginMode('warehouse');
                 setLocalError(null);
                 clearAuthError();
               }}
               className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
-                loginMode === 'rfid'
+                loginMode === 'warehouse'
                   ? 'bg-gradient-to-r from-[#07221A] to-[#13493B] text-white shadow-md shadow-emerald-950/30'
                   : 'text-[#3B5E52] hover:text-[#07221A]'
               }`}
             >
               <Warehouse className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">RFID Warehouse</span>
+              <span className="truncate">Warehouse Login</span>
             </button>
           </div>
 
@@ -553,154 +535,122 @@ export const LoginPage: React.FC = () => {
             </form>
           ) : (
             /* =========================================================
-               MODE 3: DEDICATED RFID WAREHOUSE LOGIN
+               MODE 3: DEDICATED WAREHOUSE LOGIN (ID + PASSWORD)
                ========================================================= */
-            <div className="space-y-4">
-              {/* Instruction Header */}
-              <div className="text-center space-y-1 pt-1">
-                <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[#07221A] text-[#20E79A] text-[10px] font-black uppercase tracking-wider border border-[#20E79A]/30">
-                  <Radio className="w-3 h-3 animate-pulse" />
-                  <span>Real-Time Warehouse Gateway</span>
-                </div>
-                <h3 className="text-base font-black text-[#07221A]">
-                  RFID Warehouse Login
-                </h3>
-                <p className="text-xs font-semibold text-[#3B5E52]">
-                  Scan your registered RFID card to access the Warehouse.
-                </p>
-              </div>
-
-              {/* LIVE STATUS INDICATOR CONTAINER */}
-              <div className="p-4 rounded-2xl bg-gradient-to-br from-[#07221A] to-[#0D3429] border border-[#20E79A]/30 text-white shadow-xl space-y-3 relative overflow-hidden">
-                {/* Status Indicator Bar */}
-                <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-[#8AB5A8] flex items-center gap-1.5">
-                    <Cpu className="w-3.5 h-3.5 text-[#20E79A]" />
-                    Live Status Indicator
-                  </span>
-
-                  <span
-                    className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider ${
-                      rfidStatus === 'waiting'
-                        ? 'bg-[#20E79A]/15 text-[#20E79A] border border-[#20E79A]/40'
-                        : rfidStatus === 'detected'
-                        ? 'bg-amber-500/20 text-amber-300 border border-amber-400/40'
-                        : rfidStatus === 'verifying'
-                        ? 'bg-blue-500/20 text-blue-300 border border-blue-400/40'
-                        : rfidStatus === 'granted'
-                        ? 'bg-emerald-500/25 text-emerald-300 border border-emerald-400/50'
-                        : 'bg-rose-500/25 text-rose-300 border border-rose-400/50'
-                    }`}
+            <form onSubmit={handleWarehouseSubmit} className="space-y-4">
+              {/* Warehouse ID Field */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label
+                    htmlFor="warehouse-id-input"
+                    className="text-xs font-bold text-[#07221A] block"
                   >
-                    {rfidStatus === 'waiting' && (
-                      <>
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#20E79A] animate-ping" />
-                        Waiting for RFID scan
-                      </>
-                    )}
-                    {rfidStatus === 'detected' && (
-                      <>
-                        <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
-                        RFID detected
-                      </>
-                    )}
-                    {rfidStatus === 'verifying' && (
-                      <>
-                        <RefreshCw className="w-3 h-3 animate-spin text-blue-300" />
-                        Verifying RFID
-                      </>
-                    )}
-                    {rfidStatus === 'granted' && (
-                      <>
-                        <CheckCircle2 className="w-3 h-3 text-emerald-400" />
-                        Access granted
-                      </>
-                    )}
-                    {rfidStatus === 'denied' && (
-                      <>
-                        <AlertCircle className="w-3 h-3 text-rose-400" />
-                        Access denied
-                      </>
-                    )}
+                    Warehouse ID
+                  </label>
+                  <span className="text-[10px] font-mono text-[#5C7F75] font-semibold">
+                    e.g. WH-001 or WH-002
                   </span>
                 </div>
-
-                {/* Visual Status Display */}
-                <div className="flex items-center gap-4 py-2">
-                  <div className="relative w-14 h-14 shrink-0 flex items-center justify-center">
-                    {rfidStatus === 'waiting' && (
-                      <div className="absolute inset-0 rounded-2xl bg-[#20E79A]/10 animate-ping" />
-                    )}
-                    <div
-                      className={`w-14 h-14 rounded-2xl flex items-center justify-center border transition-all ${
-                        rfidStatus === 'waiting'
-                          ? 'bg-[#20E79A]/15 border-[#20E79A]/40 text-[#20E79A]'
-                          : rfidStatus === 'detected'
-                          ? 'bg-amber-500/20 border-amber-400/50 text-amber-300 animate-pulse'
-                          : rfidStatus === 'verifying'
-                          ? 'bg-blue-500/20 border-blue-400/50 text-blue-300'
-                          : rfidStatus === 'granted'
-                          ? 'bg-emerald-500/25 border-emerald-400/60 text-emerald-300'
-                          : 'bg-rose-500/25 border-rose-400/60 text-rose-300'
-                      }`}
-                    >
-                      {rfidStatus === 'waiting' && <Radio className="w-7 h-7" />}
-                      {rfidStatus === 'detected' && <Zap className="w-7 h-7" />}
-                      {rfidStatus === 'verifying' && <RefreshCw className="w-7 h-7 animate-spin" />}
-                      {rfidStatus === 'granted' && <CheckCircle2 className="w-7 h-7" />}
-                      {rfidStatus === 'denied' && <AlertCircle className="w-7 h-7" />}
-                    </div>
-                  </div>
-
-                  <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-white tracking-tight leading-tight">
-                      {rfidStatus === 'waiting' && 'Ready for ESP32 RFID card reader'}
-                      {rfidStatus === 'detected' && 'Tag detected — Reading UID'}
-                      {rfidStatus === 'verifying' && 'Checking /rfid_registry in Firebase RTDB...'}
-                      {rfidStatus === 'granted' && 'Authenticated! Redirecting to Warehouse...'}
-                      {rfidStatus === 'denied' && 'Authentication Rejected'}
-                    </p>
-                    <p
-                      className={`text-[11px] mt-1 font-medium leading-relaxed ${
-                        rfidStatus === 'denied'
-                          ? 'text-rose-300 font-bold'
-                          : rfidStatus === 'granted'
-                          ? 'text-emerald-300 font-bold'
-                          : 'text-[#D5E6DF]'
-                      }`}
-                    >
-                      {rfidStatusMessage}
-                    </p>
-                    {rfidDetails?.tagUid && (
-                      <div className="mt-2 flex flex-wrap items-center gap-2 text-[10px] font-mono">
-                        <span className="px-2 py-0.5 rounded bg-white/10 text-amber-300 border border-white/10">
-                          UID: {rfidDetails.tagUid}
-                        </span>
-                        {rfidDetails.deviceId && (
-                          <span className="px-2 py-0.5 rounded bg-white/10 text-[#20E79A] border border-white/10">
-                            Device: {rfidDetails.deviceId}
-                          </span>
-                        )}
-                        {rfidDetails.product && (
-                          <span className="px-2 py-0.5 rounded bg-white/10 text-white border border-white/10">
-                            Product: {rfidDetails.product}
-                          </span>
-                        )}
-                      </div>
-                    )}
-                  </div>
+                <div className="relative">
+                  <Warehouse className="w-4 h-4 text-emerald-700 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    id="warehouse-id-input"
+                    type="text"
+                    required
+                    value={warehouseId}
+                    onFocus={() => setFocusedField('warehouseId')}
+                    onBlur={() => setFocusedField(null)}
+                    onChange={(e) => setWarehouseId(e.target.value.toUpperCase())}
+                    placeholder="e.g. WH-001"
+                    className="w-full pl-11 pr-4 py-3.5 bg-[#F4FBF7] text-sm font-bold text-[#07221A] placeholder-[#6B8A7E] rounded-2xl border border-emerald-950/12 focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/15 transition-all font-mono tracking-wider uppercase"
+                  />
                 </div>
+              </div>
 
-                {/* Connected Hardware Telemetry Footer */}
-                <div className="pt-2 border-t border-white/10 flex items-center justify-between text-[10px] text-[#8AB5A8] font-mono">
-                  <span>Reader: ESP32-RC522 (WH-001)</span>
-                  <span className="text-[#20E79A] flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-[#20E79A] inline-block" />
-                    Listening on /warehouse_scans
+              {/* Warehouse Password Field */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label
+                    htmlFor="warehouse-password-input"
+                    className="text-xs font-bold text-[#07221A] block"
+                  >
+                    Warehouse Access Password
+                  </label>
+                  <span className="text-[10px] text-[#5C7F75] font-semibold">
+                    Secure Backend PBKDF2
+                  </span>
+                </div>
+                <div className="relative">
+                  <Lock className="w-4 h-4 text-emerald-700 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  <input
+                    id="warehouse-password-input"
+                    type={showWarehousePassword ? 'text' : 'password'}
+                    required
+                    value={warehousePassword}
+                    onFocus={() => setFocusedField('warehousePassword')}
+                    onBlur={() => setFocusedField(null)}
+                    onChange={(e) => setWarehousePassword(e.target.value)}
+                    placeholder="••••••••"
+                    className="w-full pl-11 pr-11 py-3.5 bg-[#F4FBF7] text-sm font-semibold text-[#07221A] placeholder-[#6B8A7E] rounded-2xl border border-emerald-950/12 focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/15 transition-all"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowWarehousePassword(!showWarehousePassword)}
+                    aria-label={showWarehousePassword ? 'Hide password' : 'Show password'}
+                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#527367] hover:text-[#07221A] cursor-pointer"
+                  >
+                    {showWarehousePassword ? (
+                      <EyeOff className="w-4 h-4" />
+                    ) : (
+                      <Eye className="w-4 h-4" />
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Remember Warehouse ID Checkbox */}
+              <div className="flex items-center justify-between text-xs pt-1">
+                <label className="flex items-center gap-2 cursor-pointer text-[#3B5E52] font-medium group">
+                  <input
+                    type="checkbox"
+                    checked={rememberWarehouse}
+                    onChange={(e) => setRememberWarehouse(e.target.checked)}
+                    className="w-4 h-4 rounded border-emerald-300 text-emerald-600 focus:ring-0 cursor-pointer accent-emerald-600"
+                  />
+                  <span className="group-hover:text-[#07221A] transition-colors">
+                    Remember Warehouse ID
+                  </span>
+                </label>
+              </div>
+
+              {/* Submit Button */}
+              <div className="pt-2">
+                <button
+                  type="submit"
+                  disabled={isSubmitting}
+                  className="w-full py-4 px-6 rounded-2xl font-bold text-sm text-white bg-gradient-to-r from-[#07221A] via-[#103E32] to-[#047857] hover:from-[#041B14] hover:to-[#065F46] flex items-center justify-center gap-2 shadow-[0_12px_30px_-6px_rgba(7,34,26,0.45)] disabled:opacity-50 cursor-pointer transition-all"
+                >
+                  <KeyRound className="w-4 h-4 text-[#20E79A]" />
+                  <span>
+                    {isSubmitting ? 'Authenticating Warehouse...' : 'Access Warehouse Portal'}
+                  </span>
+                  <ArrowRight className="w-4 h-4" />
+                </button>
+              </div>
+
+              {/* Security Architecture Badge */}
+              <div className="p-3.5 rounded-xl bg-[#F4F7F6] border border-[#13493B]/10 flex items-start gap-2.5 text-[11px] text-[#3B5E52]">
+                <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
+                <div>
+                  <span className="font-bold text-[#07221A] block">
+                    Warehouse Role-Based Access Control
+                  </span>
+                  <span>
+                    Warehouse operators must authenticate using valid credentials. RFID card scans are only accepted and processed inside an active Warehouse session.
                   </span>
                 </div>
               </div>
-            </div>
+            </form>
           )}
 
           {/* Bottom Card Footer */}

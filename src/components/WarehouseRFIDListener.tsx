@@ -61,7 +61,7 @@ export const WarehouseRFIDListener: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { devicesMap, addScanToHistory } = useApp();
-  const { loginWithWarehouseRFID, currentUser, userProfile } = useAuth();
+  const { warehouseSession, setWarehouseSelectedDevice, currentUser, userProfile } = useAuth();
   const [notification, setNotification] = useState<RFIDNotificationState | null>(null);
 
   // Track processed Firebase scan keys and timestamps across rerenders
@@ -74,7 +74,8 @@ export const WarehouseRFIDListener: React.FC = () => {
   const navigateRef = useRef(navigate);
   const locationRef = useRef(location);
   const addScanRef = useRef(addScanToHistory);
-  const loginWithRfidRef = useRef(loginWithWarehouseRFID);
+  const warehouseSessionRef = useRef(warehouseSession);
+  const setWarehouseSelectedDeviceRef = useRef(setWarehouseSelectedDevice);
   const currentUserRef = useRef(currentUser);
   const userProfileRef = useRef(userProfile);
   const dismissTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -98,8 +99,12 @@ export const WarehouseRFIDListener: React.FC = () => {
   }, [addScanToHistory]);
 
   useEffect(() => {
-    loginWithRfidRef.current = loginWithWarehouseRFID;
-  }, [loginWithWarehouseRFID]);
+    warehouseSessionRef.current = warehouseSession;
+  }, [warehouseSession]);
+
+  useEffect(() => {
+    setWarehouseSelectedDeviceRef.current = setWarehouseSelectedDevice;
+  }, [setWarehouseSelectedDevice]);
 
   useEffect(() => {
     currentUserRef.current = currentUser;
@@ -126,9 +131,30 @@ export const WarehouseRFIDListener: React.FC = () => {
   const processScan = async (record: WarehouseScanRecord | null, scanKey: string) => {
     console.log('[FRESHNEX RFID] Processing scan record', { scanKey, record });
 
+    // 1. User or Admin Logged In: Scanning an RFID card must NOT log in, navigate to warehouse, or interrupt user/admin experience
+    if (currentUserRef.current) {
+      console.log(
+        '[FRESHNEX RFID] User or Admin session active. RFID scan ignored to prevent interruption.'
+      );
+      return;
+    }
+
+    // 2. Not Logged In: Scanning an RFID card must NOT open the Warehouse section.
+    // Display message: "Warehouse login required. Please log in with your Warehouse ID and Password."
+    const currentSession = warehouseSessionRef.current;
+    if (!currentSession || !currentSession.token || !currentSession.warehouseId) {
+      console.log('[FRESHNEX RFID] Unauthenticated RFID scan detected. Warehouse login required.');
+      showNotification({
+        id: `login_required_${Date.now()}`,
+        title: 'Warehouse login required.',
+        message: 'Please log in with your Warehouse ID and Password.',
+        type: 'warning',
+      });
+      return;
+    }
+
     if (!record || typeof record !== 'object') {
       const msg = 'Access Denied — RFID verification failed.';
-      dispatchStatus({ status: 'denied', message: msg });
       showNotification({
         id: scanKey,
         title: msg,
@@ -138,28 +164,10 @@ export const WarehouseRFIDListener: React.FC = () => {
     }
 
     const rawUid = record.tag_uid ? String(record.tag_uid).trim().toUpperCase() : '';
-    const warehouseLabel = record.warehouse_id || record.warehouse_device || 'WH-001';
-
-    // 1. Emit: RFID detected
-    dispatchStatus({
-      status: 'detected',
-      tagUid: rawUid,
-      message: 'RFID detected. Reading tag data...',
-    });
-
-    // Small delay to allow UI state transition: Waiting -> Detected -> Verifying
-    await new Promise((resolve) => setTimeout(resolve, 250));
-
-    // 2. Emit: Verifying RFID
-    dispatchStatus({
-      status: 'verifying',
-      tagUid: rawUid,
-      message: 'Verifying RFID credentials against /rfid_registry...',
-    });
+    const warehouseLabel = currentSession.warehouseId || record.warehouse_id || 'WH-001';
 
     if (!rawUid) {
       const msg = 'Access Denied — RFID verification failed.';
-      dispatchStatus({ status: 'denied', message: msg });
       showNotification({
         id: scanKey,
         title: msg,
@@ -205,11 +213,6 @@ export const WarehouseRFIDListener: React.FC = () => {
     if (!registryEntry || typeof registryEntry !== 'object') {
       const msg = 'Access Denied — RFID card is not registered.';
       console.warn('[FRESHNEX RFID] Unregistered RFID UID:', rawUid);
-      dispatchStatus({
-        status: 'denied',
-        message: msg,
-        tagUid: rawUid,
-      });
       showNotification({
         id: scanKey,
         title: msg,
@@ -229,11 +232,6 @@ export const WarehouseRFIDListener: React.FC = () => {
     if (registryEntry.active !== true) {
       const msg = 'Access Denied — This RFID card is inactive.';
       console.warn('[FRESHNEX RFID] Inactive RFID tag:', rawUid);
-      dispatchStatus({
-        status: 'denied',
-        message: msg,
-        tagUid: rawUid,
-      });
       showNotification({
         id: scanKey,
         title: msg,
@@ -274,11 +272,6 @@ export const WarehouseRFIDListener: React.FC = () => {
         scanProduct,
         authoritativeProduct,
       });
-      dispatchStatus({
-        status: 'denied',
-        message: msg,
-        tagUid: rawUid,
-      });
       showNotification({
         id: scanKey,
         title: msg,
@@ -290,11 +283,6 @@ export const WarehouseRFIDListener: React.FC = () => {
     // Check 5: Confirm device exists in /devices/{authoritativeDeviceId}
     if (!authoritativeDeviceId) {
       const msg = 'Device identified, but device information is unavailable.';
-      dispatchStatus({
-        status: 'denied',
-        message: msg,
-        tagUid: rawUid,
-      });
       showNotification({
         id: scanKey,
         title: msg,
@@ -313,21 +301,17 @@ export const WarehouseRFIDListener: React.FC = () => {
       }
     }
 
+    const displayProduct = formatProductLabel(registryEntry.product);
+
     if (!deviceExists) {
       const msg = 'Device identified, but device information is unavailable.';
       console.warn('[FRESHNEX RFID] Device node not found in /devices:', authoritativeDeviceId);
-      dispatchStatus({
-        status: 'denied',
-        message: msg,
-        tagUid: rawUid,
-        deviceId: authoritativeDeviceId,
-      });
       showNotification({
         id: scanKey,
         title: msg,
         type: 'error',
         details: {
-          product: formatProductLabel(registryEntry.product),
+          product: displayProduct,
           deviceId: authoritativeDeviceId,
           rfidUid: rawUid,
           warehouse: warehouseLabel,
@@ -337,69 +321,48 @@ export const WarehouseRFIDListener: React.FC = () => {
       return;
     }
 
-    const displayProduct = formatProductLabel(registryEntry.product);
+    // Check 6: Warehouse-Level Device Permissions
+    // A warehouse operator must only be permitted to view devices that belong to their warehouse
+    const permittedList = currentSession.permittedDevices || [];
+    const isAssigned =
+      permittedList.length === 0 ||
+      permittedList.some((d) => d.trim().toUpperCase() === authoritativeDeviceId.toUpperCase());
+
+    if (!isAssigned) {
+      const deniedMsg = 'Access denied. This device is not assigned to your warehouse.';
+      console.warn('[FRESHNEX RFID] Warehouse device permission check failed:', {
+        deviceId: authoritativeDeviceId,
+        warehouseId: currentSession.warehouseId,
+        permitted: permittedList,
+      });
+      showNotification({
+        id: `denied_${scanKey}`,
+        title: deniedMsg,
+        message: `Device ${authoritativeDeviceId} is not assigned to warehouse ${currentSession.warehouseId}.`,
+        type: 'error',
+        details: {
+          product: displayProduct,
+          deviceId: authoritativeDeviceId,
+          rfidUid: rawUid,
+          warehouse: currentSession.warehouseId,
+          status: 'Unassigned',
+        },
+      });
+      return;
+    }
 
     // Record scan in history non-blockingly
     try {
       addScanRef.current(authoritativeDeviceId, displayProduct).catch(() => {});
     } catch {}
 
-    // Check current route and session before creating a Warehouse session or navigating:
-    // Do not unexpectedly replace an existing Admin or User session when they are on another page
-    const currentPath = locationRef.current.pathname;
-    const isLoginOrRoot = currentPath === '/login' || currentPath === '/' || currentPath === '';
-    const isWarehouse = currentPath.startsWith('/warehouse');
-    const hasActiveUserOrAdminSession =
-      Boolean(currentUserRef.current) &&
-      (userProfileRef.current?.role === 'admin' || userProfileRef.current?.role === 'user');
+    // Update selected device in warehouse session
+    setWarehouseSelectedDeviceRef.current(authoritativeDeviceId, rawUid);
 
-    if (!isLoginOrRoot && !isWarehouse && hasActiveUserOrAdminSession) {
-      console.log(
-        '[FRESHNEX RFID] Active User/Admin session on',
-        currentPath,
-        '- scan logged without replacing session.'
-      );
-      showNotification({
-        id: scanKey,
-        title: `Warehouse Scan Logged: ${authoritativeDeviceId} (${displayProduct})`,
-        type: 'success',
-        details: {
-          product: displayProduct,
-          deviceId: authoritativeDeviceId,
-          rfidUid: rawUid,
-          warehouse: warehouseLabel,
-          status: 'Verified',
-        },
-      });
-      return;
-    }
-
-    console.log('[FRESHNEX RFID] Access Granted:', `${authoritativeDeviceId} (${displayProduct})`);
-
-    // 4. Emit: Access granted
-    dispatchStatus({
-      status: 'granted',
-      message: `Access Granted — Device ${authoritativeDeviceId} (${displayProduct}) identified. Opening Warehouse...`,
-      tagUid: rawUid,
-      deviceId: authoritativeDeviceId,
-      product: displayProduct,
-    });
-
-    // 5. Authenticate into dedicated Warehouse Session
-    const warehouseSessionData: WarehouseSession = {
-      tagUid: rawUid,
-      deviceId: authoritativeDeviceId,
-      product: displayProduct,
-      warehouseId: warehouseLabel,
-      warehouseDevice: record.warehouse_device || 'FRESHNEX-WH-001',
-      authenticatedAt: Date.now(),
-    };
-
-    try {
-      await loginWithRfidRef.current(warehouseSessionData);
-    } catch (authErr) {
-      console.warn('[FRESHNEX RFID] Warehouse session error:', authErr);
-    }
+    console.log(
+      '[FRESHNEX RFID] Access Granted for Warehouse Session:',
+      `${authoritativeDeviceId} (${displayProduct})`
+    );
 
     // Notification toast
     showNotification({
@@ -410,7 +373,7 @@ export const WarehouseRFIDListener: React.FC = () => {
         product: displayProduct,
         deviceId: authoritativeDeviceId,
         rfidUid: rawUid,
-        warehouse: warehouseLabel,
+        warehouse: currentSession.warehouseId,
         status: 'Verified',
       },
     });
@@ -423,8 +386,8 @@ export const WarehouseRFIDListener: React.FC = () => {
             deviceId: authoritativeDeviceId,
             product: displayProduct,
             tagUid: rawUid,
-            warehouseId: warehouseLabel,
-            warehouseDevice: record.warehouse_device || 'FRESHNEX-WH-001',
+            warehouseId: currentSession.warehouseId,
+            warehouseDevice: currentSession.scannerDevice || 'FRESHNEX-WH-001',
             scanKey,
             timestampMs: record.timestamp_ms || Date.now(),
           },
@@ -432,11 +395,13 @@ export const WarehouseRFIDListener: React.FC = () => {
       );
     }
 
-    // 6. Navigate directly to /warehouse and open the device associated with the RFID scan
+    // Stay inside /warehouse and open the device associated with the RFID scan
     const targetUrl = `/warehouse?deviceId=${encodeURIComponent(authoritativeDeviceId)}&rfid=${encodeURIComponent(rawUid)}`;
-    setTimeout(() => {
+    if (!locationRef.current.pathname.startsWith('/warehouse')) {
       navigateRef.current(targetUrl);
-    }, 80);
+    } else {
+      navigateRef.current(targetUrl, { replace: true });
+    }
   };
 
   useEffect(() => {
