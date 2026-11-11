@@ -559,7 +559,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         body: JSON.stringify({ warehouseId: cleanId, password: cleanPass }),
       });
 
-      const data = await res.json();
+      const text = await res.text();
+      let data: any = {};
+      try {
+        data = JSON.parse(text);
+      } catch {
+        throw new Error(text || 'Server response was not valid JSON. Please check deployment configuration.');
+      }
+
       if (!res.ok || !data.ok || !data.session) {
         const errorMsg = data.error || 'Invalid Warehouse ID or Password. Please verify your credentials.';
         setAuthError(errorMsg);

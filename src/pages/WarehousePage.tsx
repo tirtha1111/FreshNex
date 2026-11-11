@@ -114,33 +114,39 @@ export const WarehousePage: React.FC = () => {
         ]);
 
         if (regRes.ok) {
-          const regData = await regRes.json();
-          if (regData && typeof regData === 'object') {
-            const normalized: RFIDRegistryMap = {};
-            Object.entries(regData).forEach(([uid, entry]) => {
-              normalized[uid.trim().toUpperCase()] = entry as any;
-            });
-            if (!isCancelled) setRegistryMap((prev) => ({ ...prev, ...normalized }));
-          }
+          try {
+            const regText = await regRes.text();
+            const regData = JSON.parse(regText);
+            if (regData && typeof regData === 'object') {
+              const normalized: RFIDRegistryMap = {};
+              Object.entries(regData).forEach(([uid, entry]) => {
+                normalized[uid.trim().toUpperCase()] = entry as any;
+              });
+              if (!isCancelled) setRegistryMap((prev) => ({ ...prev, ...normalized }));
+            }
+          } catch {}
         }
 
         if (scansRes.ok) {
-          const scansData = await scansRes.json();
-          if (scansData && typeof scansData === 'object') {
-            const list: WarehouseScanEntry[] = Object.entries(scansData).map(([key, v]: [string, any]) => ({
-              id: key,
-              tag_uid: v?.tag_uid ? String(v.tag_uid).trim().toUpperCase() : '',
-              device_id: v?.device_id || '',
-              product: v?.product || '',
-              warehouse_id: v?.warehouse_id || 'WH-001',
-              warehouse_device: v?.warehouse_device || 'FRESHNEX-WH-001',
-              timestamp_ms: Number(v?.timestamp_ms) || Date.now(),
-              scanner_status: v?.scanner_status || 'identified',
-              verified: Boolean(v?.verified),
-            }));
-            list.sort((a, b) => (b.timestamp_ms || 0) - (a.timestamp_ms || 0));
-            if (!isCancelled) setScansList(list);
-          }
+          try {
+            const scansText = await scansRes.text();
+            const scansData = JSON.parse(scansText);
+            if (scansData && typeof scansData === 'object') {
+              const list: WarehouseScanEntry[] = Object.entries(scansData).map(([key, v]: [string, any]) => ({
+                id: key,
+                tag_uid: v?.tag_uid ? String(v.tag_uid).trim().toUpperCase() : '',
+                device_id: v?.device_id || '',
+                product: v?.product || '',
+                warehouse_id: v?.warehouse_id || 'WH-001',
+                warehouse_device: v?.warehouse_device || 'FRESHNEX-WH-001',
+                timestamp_ms: Number(v?.timestamp_ms) || Date.now(),
+                scanner_status: v?.scanner_status || 'identified',
+                verified: Boolean(v?.verified),
+              }));
+              list.sort((a, b) => (b.timestamp_ms || 0) - (a.timestamp_ms || 0));
+              if (!isCancelled) setScansList(list);
+            }
+          } catch {}
         }
       } catch (err) {
         console.warn('[WarehousePage] Prefetch warning:', err);
