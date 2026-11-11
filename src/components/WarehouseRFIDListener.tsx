@@ -211,7 +211,7 @@ export const WarehouseRFIDListener: React.FC = () => {
 
     // Check 1: Does RFID UID exist in /rfid_registry?
     if (!registryEntry || typeof registryEntry !== 'object') {
-      const msg = 'Access Denied — RFID card is not registered.';
+      const msg = 'Unknown RFID card. No registered product found.';
       console.warn('[FRESHNEX RFID] Unregistered RFID UID:', rawUid);
       showNotification({
         id: scanKey,
@@ -230,7 +230,7 @@ export const WarehouseRFIDListener: React.FC = () => {
 
     // Check 2: Is the RFID card active (active === true)?
     if (registryEntry.active !== true) {
-      const msg = 'Access Denied — This RFID card is inactive.';
+      const msg = 'This RFID card is inactive.';
       console.warn('[FRESHNEX RFID] Inactive RFID tag:', rawUid);
       showNotification({
         id: scanKey,
@@ -263,7 +263,7 @@ export const WarehouseRFIDListener: React.FC = () => {
     const productMatches = !scanProduct || !authoritativeProduct || scanProduct === authoritativeProduct;
 
     if (!isScanVerified || !isStatusIdentified || !deviceMatches || !productMatches) {
-      const msg = 'Access Denied — RFID verification failed.';
+      const msg = 'RFID verification failed.';
       console.warn('[FRESHNEX RFID] Scan verification or registry match failed:', {
         verified: record.verified,
         scanner_status: record.scanner_status,
@@ -329,7 +329,7 @@ export const WarehouseRFIDListener: React.FC = () => {
       permittedList.some((d) => d.trim().toUpperCase() === authoritativeDeviceId.toUpperCase());
 
     if (!isAssigned) {
-      const deniedMsg = 'Access denied. This device is not assigned to your warehouse.';
+      const deniedMsg = 'Access denied. This product is not assigned to your warehouse.';
       console.warn('[FRESHNEX RFID] Warehouse device permission check failed:', {
         deviceId: authoritativeDeviceId,
         warehouseId: currentSession.warehouseId,

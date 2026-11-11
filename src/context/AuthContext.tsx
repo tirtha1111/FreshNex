@@ -567,27 +567,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const res = await fetch('/api/warehouse/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ warehouseId: cleanId, password: cleanPass }),
-      });
+      const { authenticateWarehouseCredentials } = await import('../services/warehouseAuthService');
+      const session = await authenticateWarehouseCredentials(cleanId, cleanPass);
 
-      const text = await res.text();
-      let data: any = {};
-      try {
-        data = JSON.parse(text);
-      } catch {
-        throw new Error(text || 'Server response was not valid JSON. Please check deployment configuration.');
-      }
-
-      if (!res.ok || !data.ok || !data.session) {
-        const errorMsg = data.error || 'Invalid Warehouse ID or Password. Please verify your credentials.';
-        setAuthError(errorMsg);
-        throw new Error(errorMsg);
-      }
-
-      const session: WarehouseSession = data.session;
       setWarehouseSession(session);
       try {
         sessionStorage.setItem('freshnex_warehouse_session', JSON.stringify(session));
@@ -629,7 +611,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logoutWarehouse = async () => {
     try {
-      await fetch('/api/warehouse/logout', { method: 'POST' });
+      const { terminateWarehouseSession } = await import('../services/warehouseAuthService');
+      await terminateWarehouseSession(warehouseSession?.token);
     } catch (e) {
       console.warn('Backend warehouse logout notice:', e);
     }
