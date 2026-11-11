@@ -20,6 +20,7 @@ import {
 import jsqr from 'jsqr';
 import { Logo } from '../components/common/Logo';
 import { useAuth } from '../context/AuthContext';
+import { getErrorMessage } from '../services/warehouseAuthService';
 
 export type LoginMode = 'user' | 'admin' | 'warehouse';
 
@@ -223,7 +224,6 @@ export const LoginPage: React.FC = () => {
       await loginWarehouse(cleanId, cleanPass);
       navigate('/warehouse');
     } catch (err: any) {
-      const { getErrorMessage } = await import('../services/warehouseAuthService');
       setLocalError(getErrorMessage(err));
     } finally {
       setIsSubmitting(false);

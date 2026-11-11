@@ -25,6 +25,11 @@ import {
 import { socketTelemetryService } from '../services/socketService';
 import { UserProfile, UserSettings } from '../types';
 import { resolveFactualProduct } from '../data/initialData';
+import {
+  authenticateWarehouseCredentials,
+  terminateWarehouseSession,
+  getErrorMessage,
+} from '../services/warehouseAuthService';
 
 export interface WarehouseSession {
   token: string;
@@ -567,7 +572,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
 
     try {
-      const { authenticateWarehouseCredentials } = await import('../services/warehouseAuthService');
       const session = await authenticateWarehouseCredentials(cleanId, cleanPass);
 
       setWarehouseSession(session);
@@ -583,7 +587,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       return session;
     } catch (err: any) {
-      const { getErrorMessage } = await import('../services/warehouseAuthService');
       const msg = getErrorMessage(err);
       setAuthError(msg);
       throw new Error(msg);
@@ -612,7 +615,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const logoutWarehouse = async () => {
     try {
-      const { terminateWarehouseSession } = await import('../services/warehouseAuthService');
       await terminateWarehouseSession(warehouseSession?.token);
     } catch (e) {
       console.warn('Backend warehouse logout notice:', e);
