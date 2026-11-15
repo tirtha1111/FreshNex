@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { getDirectDatabase } from '../services/firebaseService';
 import { ensureFirebaseAuthenticated } from '../firebase/firebase';
-import { ref, onValue, off } from 'firebase/database';
+import { ref, onValue, off, query, limitToLast } from 'firebase/database';
 import { WarehouseDeviceDetails } from '../components/WarehouseDeviceDetails';
 import { useAuth } from '../context/AuthContext';
 import { Logo } from '../components/common/Logo';
@@ -28,6 +28,11 @@ import {
   LogOut,
 } from 'lucide-react';
 import { formatRealtimeDateTime } from '../utils/dateUtils';
+import {
+  normalizeRfidUid,
+  resolveRfidScanTimestamp,
+  findRegistryEntryByUid,
+} from '../utils/rfidUtils';
 
 interface WarehouseScanEntry {
   id: string;
@@ -37,8 +42,10 @@ interface WarehouseScanEntry {
   warehouse_id?: string;
   warehouse_device?: string;
   timestamp_ms?: number;
+  detected_at_ms?: number;
   scanner_status?: string;
   verified?: boolean;
+  source?: 'warehouse_scans' | 'device_rfid_scans';
 }
 
 export interface RFIDRegistryEntry {
@@ -57,12 +64,18 @@ export const WarehousePage: React.FC = () => {
   const { warehouseSession, logoutWarehouse, userProfile } = useAuth();
   const [manualOverviewMode, setManualOverviewMode] = useState(false);
   const [permissionError, setPermissionError] = useState<string | null>(null);
+  const warehouseSessionRef = useRef(warehouseSession);
+
+  useEffect(() => {
+    warehouseSessionRef.current = warehouseSession;
+  }, [warehouseSession]);
 
   const isDevicePermitted = (devId: string): boolean => {
-    if (!warehouseSession || !warehouseSession.permittedDevices || warehouseSession.permittedDevices.length === 0) {
+    const sess = warehouseSessionRef.current;
+    if (!sess || !sess.permittedDevices || sess.permittedDevices.length === 0) {
       return true;
     }
-    return warehouseSession.permittedDevices.some(
+    return sess.permittedDevices.some(
       (d) => d.trim().toUpperCase() === devId.trim().toUpperCase()
     );
   };
@@ -90,16 +103,29 @@ export const WarehousePage: React.FC = () => {
   };
 
   const [registryMap, setRegistryMap] = useState<RFIDRegistryMap>({});
-  const [scansList, setScansList] = useState<WarehouseScanEntry[]>([]);
+  const [warehouseScansRaw, setWarehouseScansRaw] = useState<Record<string, any>>({});
+  const [deviceRfidScansRaw, setDeviceRfidScansRaw] = useState<Record<string, any>>({});
+  const receivedTimestampsRef = useRef<Record<string, number>>({});
   const [deviceStatuses, setDeviceStatuses] = useState<Record<string, boolean>>({});
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [productFilter, setProductFilter] = useState('ALL');
   const [loading, setLoading] = useState(true);
 
+  const recordReceivedTimestamps = (prefix: string, entriesObj: Record<string, any>) => {
+    const now = Date.now();
+    Object.keys(entriesObj).forEach((k) => {
+      const cacheKey = `${prefix}:${k}`;
+      if (!receivedTimestampsRef.current[cacheKey]) {
+        receivedTimestampsRef.current[cacheKey] = now;
+      }
+    });
+  };
+
   // Synchronize with Firebase Realtime Database
   useEffect(() => {
     let isCancelled = false;
     let cleanupScans: (() => void) | null = null;
+    let cleanupDeviceScans: (() => void) | null = null;
     let cleanupRegistry: (() => void) | null = null;
     let cleanupDevices: (() => void) | null = null;
 
@@ -120,7 +146,7 @@ export const WarehousePage: React.FC = () => {
             if (regData && typeof regData === 'object') {
               const normalized: RFIDRegistryMap = {};
               Object.entries(regData).forEach(([uid, entry]) => {
-                normalized[uid.trim().toUpperCase()] = entry as any;
+                normalized[normalizeRfidUid(uid)] = entry as any;
               });
               if (!isCancelled) setRegistryMap((prev) => ({ ...prev, ...normalized }));
             }
@@ -132,19 +158,24 @@ export const WarehousePage: React.FC = () => {
             const scansText = await scansRes.text();
             const scansData = JSON.parse(scansText);
             if (scansData && typeof scansData === 'object') {
-              const list: WarehouseScanEntry[] = Object.entries(scansData).map(([key, v]: [string, any]) => ({
-                id: key,
-                tag_uid: v?.tag_uid ? String(v.tag_uid).trim().toUpperCase() : '',
-                device_id: v?.device_id || '',
-                product: v?.product || '',
-                warehouse_id: v?.warehouse_id || 'WH-001',
-                warehouse_device: v?.warehouse_device || 'FRESHNEX-WH-001',
-                timestamp_ms: Number(v?.timestamp_ms) || Date.now(),
-                scanner_status: v?.scanner_status || 'identified',
-                verified: Boolean(v?.verified),
-              }));
-              list.sort((a, b) => (b.timestamp_ms || 0) - (a.timestamp_ms || 0));
-              if (!isCancelled) setScansList(list);
+              const nextWh: Record<string, any> = {};
+              const nextDev: Record<string, any> = {};
+              Object.entries(scansData).forEach(([key, v]: [string, any]) => {
+                if (!v || typeof v !== 'object') return;
+                if (v.source === 'device_rfid_scans' || key.startsWith('device_rfid_scans_')) {
+                  const rawKey = v.source_key || key.replace(/^device_rfid_scans_/, '');
+                  nextDev[rawKey] = v;
+                } else {
+                  const rawKey = v.source_key || key;
+                  nextWh[rawKey] = v;
+                }
+              });
+              recordReceivedTimestamps('wh', nextWh);
+              recordReceivedTimestamps('dev', nextDev);
+              if (!isCancelled) {
+                setWarehouseScansRaw(nextWh);
+                setDeviceRfidScansRaw(nextDev);
+              }
             }
           } catch {}
         }
@@ -171,7 +202,7 @@ export const WarehousePage: React.FC = () => {
           const val = snap.val() || {};
           const normalized: RFIDRegistryMap = {};
           Object.entries(val).forEach(([uid, entry]) => {
-            normalized[uid.trim().toUpperCase()] = entry as any;
+            normalized[normalizeRfidUid(uid)] = entry as any;
           });
           setRegistryMap((prev) => ({ ...prev, ...normalized }));
         }
@@ -181,28 +212,17 @@ export const WarehousePage: React.FC = () => {
       });
       cleanupRegistry = () => off(regRef, 'value', handleRegistry);
 
-      // 2. Listen to /warehouse_scans
+      // 2. Listen to /warehouse_scans (existing Milk ESP32 reader)
       const scansRef = ref(db, 'warehouse_scans');
       const handleScans = (snap: any) => {
         if (isCancelled) return;
         setLoading(false);
         if (snap.exists()) {
           const raw = snap.val() || {};
-          const list: WarehouseScanEntry[] = Object.entries(raw).map(([key, v]: [string, any]) => ({
-            id: key,
-            tag_uid: v?.tag_uid ? String(v.tag_uid).trim().toUpperCase() : '',
-            device_id: v?.device_id || '',
-            product: v?.product || '',
-            warehouse_id: v?.warehouse_id || 'WH-001',
-            warehouse_device: v?.warehouse_device || 'FRESHNEX-WH-001',
-            timestamp_ms: Number(v?.timestamp_ms) || Date.now(),
-            scanner_status: v?.scanner_status || 'identified',
-            verified: Boolean(v?.verified),
-          }));
-          list.sort((a, b) => (b.timestamp_ms || 0) - (a.timestamp_ms || 0));
-          setScansList(list);
+          recordReceivedTimestamps('wh', raw);
+          setWarehouseScansRaw(raw);
         } else {
-          setScansList([]);
+          setWarehouseScansRaw({});
         }
       };
       onValue(scansRef, handleScans, (err) => {
@@ -210,6 +230,28 @@ export const WarehousePage: React.FC = () => {
         setLoading(false);
       });
       cleanupScans = () => off(scansRef, 'value', handleScans);
+
+      // 2b. Listen to /devices/YGS-FD-124/rfid_scans (new separate RFID ESP32 reader)
+      const deviceScansQuery = query(ref(db, 'devices/YGS-FD-124/rfid_scans'), limitToLast(25));
+      const handleDeviceScans = (snap: any) => {
+        if (isCancelled) return;
+        setLoading(false);
+        if (snap.exists()) {
+          const raw = snap.val() || {};
+          recordReceivedTimestamps('dev', raw);
+          setDeviceRfidScansRaw(raw);
+        } else {
+          setDeviceRfidScansRaw({});
+        }
+      };
+      onValue(deviceScansQuery, handleDeviceScans, (err) => {
+        console.warn(
+          '[WarehousePage] Realtime device RFID scans notice (/devices/YGS-FD-124/rfid_scans):',
+          err?.message || err
+        );
+        setLoading(false);
+      });
+      cleanupDeviceScans = () => off(deviceScansQuery, 'value', handleDeviceScans);
 
       // 3. Listen to /devices for live online statuses
       const devRef = ref(db, 'devices');
@@ -259,11 +301,71 @@ export const WarehousePage: React.FC = () => {
     return () => {
       isCancelled = true;
       if (cleanupScans) cleanupScans();
+      if (cleanupDeviceScans) cleanupDeviceScans();
       if (cleanupRegistry) cleanupRegistry();
       if (cleanupDevices) cleanupDevices();
       window.removeEventListener('freshnex_warehouse_rfid_scan', handleScanEvent);
     };
   }, [setSearchParams]);
+
+  // Combined, sorted list of scans from both /warehouse_scans and /devices/YGS-FD-124/rfid_scans
+  const scansList = useMemo<WarehouseScanEntry[]>(() => {
+    const whEntries: WarehouseScanEntry[] = Object.entries(warehouseScansRaw).map(
+      ([key, v]: [string, any]) => {
+        const normalizedUid = normalizeRfidUid(v?.tag_uid ?? v?.rfid_uid ?? v?.uid);
+        const regEntry = findRegistryEntryByUid(registryMap, normalizedUid);
+        const timestampMs = resolveRfidScanTimestamp(
+          key,
+          v,
+          receivedTimestampsRef.current[`wh:${key}`]
+        );
+        return {
+          id: key,
+          tag_uid: normalizedUid,
+          device_id: v?.device_id || regEntry?.device_id || '',
+          product: v?.product || regEntry?.product || '',
+          warehouse_id: v?.warehouse_id || warehouseSession?.warehouseId || 'WH-001',
+          warehouse_device: v?.warehouse_device || warehouseSession?.scannerDevice || 'FRESHNEX-WH-001',
+          timestamp_ms: timestampMs,
+          detected_at_ms: v?.detected_at_ms,
+          scanner_status: v?.scanner_status || 'identified',
+          verified: Boolean(v?.verified),
+          source: 'warehouse_scans',
+        };
+      }
+    );
+
+    const devEntries: WarehouseScanEntry[] = Object.entries(deviceRfidScansRaw).map(
+      ([key, v]: [string, any]) => {
+        const rawKey = v?.source_key || key;
+        const normalizedUid = normalizeRfidUid(v?.tag_uid ?? v?.rfid_uid ?? v?.uid);
+        const regEntry = findRegistryEntryByUid(registryMap, normalizedUid);
+        const timestampMs = resolveRfidScanTimestamp(
+          rawKey,
+          v,
+          receivedTimestampsRef.current[`dev:${rawKey}`]
+        );
+        return {
+          id: `device_rfid_scans_${rawKey}`,
+          tag_uid: normalizedUid,
+          device_id: regEntry?.device_id ? String(regEntry.device_id).trim() : v?.device_id || '',
+          product: regEntry?.product ? String(regEntry.product).trim() : v?.product || '',
+          warehouse_id: v?.warehouse_id || warehouseSession?.warehouseId || 'WH-001',
+          warehouse_device: v?.warehouse_device || v?.device_id || 'YGS-FD-124',
+          timestamp_ms: timestampMs,
+          detected_at_ms: v?.detected_at_ms,
+          scanner_status:
+            v?.scanner_status || (regEntry?.active === true ? 'registered' : 'unregistered'),
+          verified: Boolean(regEntry && regEntry.active === true),
+          source: 'device_rfid_scans',
+        };
+      }
+    );
+
+    const combined = [...whEntries, ...devEntries];
+    combined.sort((a, b) => (b.timestamp_ms || 0) - (a.timestamp_ms || 0));
+    return combined;
+  }, [warehouseScansRaw, deviceRfidScansRaw, registryMap, warehouseSession]);
 
   // Registered Devices List derived from /rfid_registry
   const registeredDevicesList = useMemo(() => {
@@ -374,13 +476,20 @@ export const WarehousePage: React.FC = () => {
     setPermissionError(null);
     setManualOverviewMode(true);
     setSearchParams({});
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new CustomEvent('freshnex_warehouse_scan_reset'));
+    }
   };
 
   // Find scan meta for selected device
   const activeScanMeta = useMemo(() => {
     if (!selectedDeviceId) return null;
+    const targetDevUpper = selectedDeviceId.trim().toUpperCase();
+    const targetRfidUpper = selectedRfid ? normalizeRfidUid(selectedRfid) : '';
     return scansList.find(
-      (s) => s.device_id === selectedDeviceId || (selectedRfid && s.tag_uid === selectedRfid)
+      (s) =>
+        (s.device_id && s.device_id.trim().toUpperCase() === targetDevUpper) ||
+        (targetRfidUpper && s.tag_uid === targetRfidUpper)
     );
   }, [selectedDeviceId, selectedRfid, scansList]);
 
@@ -547,7 +656,7 @@ export const WarehousePage: React.FC = () => {
                     Tap a registered RFID card on the scanner to view its live product data.
                   </h2>
                   <p className="text-xs font-semibold text-[#8AB5A8]">
-                    Real-time listener active on /warehouse_scans. No manual selection required.
+                    Real-time listeners active on /warehouse_scans and /devices/YGS-FD-124/rfid_scans. No manual selection required.
                   </p>
                 </div>
 

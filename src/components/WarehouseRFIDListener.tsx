@@ -1,21 +1,36 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { getDirectDatabase } from '../services/firebaseService';
-import { ensureFirebaseAuthenticated, auth } from '../firebase/firebase';
+import {
+  ensureFirebaseAuthenticated,
+  auth,
+  getActiveFirebaseConfig,
+  DEFAULT_REALTIME_DATABASE_URL,
+} from '../firebase/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { ref, onValue, get, off, query, limitToLast } from 'firebase/database';
 import { useApp } from '../context/AppContext';
 import { useAuth, WarehouseSession } from '../context/AuthContext';
 import { CheckCircle2, AlertTriangle, Radio, X, Cpu, ShieldCheck, Warehouse } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import {
+  normalizeRfidUid,
+  resolveRfidScanTimestamp,
+  findRegistryEntryByUid,
+} from '../utils/rfidUtils';
+
+export type ScanSource = 'warehouse_scans' | 'device_rfid_scans';
 
 export interface WarehouseScanRecord {
   tag_uid?: string;
+  rfid_uid?: string;
+  uid?: string;
   device_id?: string;
   product?: string;
   warehouse_id?: string;
   warehouse_device?: string;
   timestamp_ms?: number;
+  detected_at_ms?: number;
   scanner_status?: string;
   verified?: boolean;
 }
@@ -64,9 +79,13 @@ export const WarehouseRFIDListener: React.FC = () => {
   const { warehouseSession, setWarehouseSelectedDevice, currentUser, userProfile } = useAuth();
   const [notification, setNotification] = useState<RFIDNotificationState | null>(null);
 
-  // Track processed Firebase scan keys and timestamps across rerenders
+  // Track processed Firebase scan keys and per-source baselines across rerenders
   const processedKeysRef = useRef<Set<string>>(new Set());
-  const baselineInitializedRef = useRef<boolean>(false);
+  const warehouseBaselineInitializedRef = useRef<boolean>(false);
+  const deviceScansBaselineInitializedRef = useRef<boolean>(false);
+  const recentPhysicalScansRef = useRef<
+    Record<string, { timestamp: number; source: ScanSource; scanKey: string }>
+  >({});
   const baselineKeyRef = useRef<string | null>(null);
   const lastProcessedTimeRef = useRef<number>(Date.now());
   const registryCacheRef = useRef<Record<string, RFIDRegistryEntry>>({});
@@ -127,9 +146,13 @@ export const WarehouseRFIDListener: React.FC = () => {
     }, durationMs);
   };
 
-  // Authoritative scan processor used for real-time ESP32 scans
-  const processScan = async (record: WarehouseScanRecord | null, scanKey: string) => {
-    console.log('[FRESHNEX RFID] Processing scan record', { scanKey, record });
+  // Authoritative scan processor used for real-time ESP32 scans from both /warehouse_scans and /devices/YGS-FD-124/rfid_scans
+  const processScan = async (
+    record: WarehouseScanRecord | null,
+    scanKey: string,
+    source: ScanSource = 'warehouse_scans'
+  ) => {
+    console.log('[FRESHNEX RFID] Processing scan record', { source, scanKey, record });
 
     // 1. User or Admin Logged In: Scanning an RFID card must NOT log in, navigate to warehouse, or interrupt user/admin experience
     if (currentUserRef.current) {
@@ -154,29 +177,50 @@ export const WarehouseRFIDListener: React.FC = () => {
     }
 
     if (!record || typeof record !== 'object') {
-      const msg = 'Access Denied — RFID verification failed.';
+      const msg = 'RFID verification failed.';
       showNotification({
-        id: scanKey,
+        id: `${source}:${scanKey}`,
         title: msg,
         type: 'error',
       });
       return;
     }
 
-    const rawUid = record.tag_uid ? String(record.tag_uid).trim().toUpperCase() : '';
+    const rawUid = normalizeRfidUid(record.tag_uid ?? record.rfid_uid ?? record.uid);
     const warehouseLabel = currentSession.warehouseId || record.warehouse_id || 'WH-001';
 
     if (!rawUid) {
-      const msg = 'Access Denied — RFID verification failed.';
+      const msg = 'RFID verification failed.';
       showNotification({
-        id: scanKey,
+        id: `${source}:${scanKey}`,
         title: msg,
         type: 'warning',
       });
       return;
     }
 
-    // 3. Look up UID dynamically in /rfid_registry from Firebase
+    // Prevent duplicate processing when the same physical scan appears rapidly across both listeners or bounces
+    const nowMs = Date.now();
+    const recentEntry = recentPhysicalScansRef.current[rawUid];
+    if (recentEntry) {
+      const elapsed = nowMs - recentEntry.timestamp;
+      const isCrossSourceDuplicate = recentEntry.source !== source && elapsed < 2500;
+      const isSameSourceBounce =
+        recentEntry.source === source && recentEntry.scanKey !== scanKey && elapsed < 1200;
+      if (isCrossSourceDuplicate || isSameSourceBounce) {
+        console.log('[FRESHNEX RFID] Duplicate physical scan ignored:', {
+          rawUid,
+          source,
+          scanKey,
+          previousSource: recentEntry.source,
+          elapsedMs: elapsed,
+        });
+        return;
+      }
+    }
+    recentPhysicalScansRef.current[rawUid] = { timestamp: nowMs, source, scanKey };
+
+    // 3. Look up UID dynamically in /rfid_registry from Firebase (case-insensitive)
     const db = getDirectDatabase();
     let registryEntry: RFIDRegistryEntry | undefined = undefined;
 
@@ -192,7 +236,7 @@ export const WarehouseRFIDListener: React.FC = () => {
             const allReg = fullRegSnap.val();
             if (allReg && typeof allReg === 'object') {
               for (const [k, v] of Object.entries(allReg)) {
-                const normKey = k.trim().toUpperCase();
+                const normKey = normalizeRfidUid(k);
                 registryCacheRef.current[normKey] = v as RFIDRegistryEntry;
                 if (normKey === rawUid) {
                   registryEntry = v as RFIDRegistryEntry;
@@ -203,10 +247,35 @@ export const WarehouseRFIDListener: React.FC = () => {
         }
       } catch (regErr: any) {
         console.warn('[FRESHNEX RFID] Registry direct lookup notice:', regErr?.message || regErr);
-        registryEntry = registryCacheRef.current[rawUid];
+        registryEntry = findRegistryEntryByUid(registryCacheRef.current, rawUid);
       }
     } else {
-      registryEntry = registryCacheRef.current[rawUid];
+      registryEntry = findRegistryEntryByUid(registryCacheRef.current, rawUid);
+    }
+
+    // REST fallback if SDK lookup returned nothing (e.g., transient socket reconnect)
+    if (!registryEntry) {
+      try {
+        const cfg = getActiveFirebaseConfig();
+        const base = (cfg.databaseURL || DEFAULT_REALTIME_DATABASE_URL).replace(/\/$/, '');
+        const restRes = await fetch(`${base}/rfid_registry.json`, {
+          signal: AbortSignal.timeout(2500),
+        });
+        if (restRes.ok) {
+          const allReg = await restRes.json();
+          if (allReg && typeof allReg === 'object') {
+            for (const [k, v] of Object.entries(allReg)) {
+              const normKey = normalizeRfidUid(k);
+              registryCacheRef.current[normKey] = v as RFIDRegistryEntry;
+              if (normKey === rawUid) {
+                registryEntry = v as RFIDRegistryEntry;
+              }
+            }
+          }
+        }
+      } catch {
+        // Non-blocking fallback
+      }
     }
 
     // Check 1: Does RFID UID exist in /rfid_registry?
@@ -214,7 +283,7 @@ export const WarehouseRFIDListener: React.FC = () => {
       const msg = 'Unknown RFID card. No registered product found.';
       console.warn('[FRESHNEX RFID] Unregistered RFID UID:', rawUid);
       showNotification({
-        id: scanKey,
+        id: `${source}:${scanKey}`,
         title: msg,
         type: 'error',
         details: {
@@ -233,7 +302,7 @@ export const WarehouseRFIDListener: React.FC = () => {
       const msg = 'This RFID card is inactive.';
       console.warn('[FRESHNEX RFID] Inactive RFID tag:', rawUid);
       showNotification({
-        id: scanKey,
+        id: `${source}:${scanKey}`,
         title: msg,
         type: 'warning',
         details: {
@@ -251,33 +320,61 @@ export const WarehouseRFIDListener: React.FC = () => {
     const authoritativeDeviceId = registryEntry.device_id ? String(registryEntry.device_id).trim() : '';
     const authoritativeProduct = registryEntry.product ? String(registryEntry.product).trim().toLowerCase() : '';
 
-    // Check 4: Verify scan has verified === true, scanner_status === "identified",
-    // and confirm registered device ID and product match the scan record
-    const isScanVerified = record.verified === true;
-    const isStatusIdentified =
-      String(record.scanner_status || '').trim().toLowerCase() === 'identified';
-    const scanDeviceId = record.device_id ? String(record.device_id).trim() : '';
-    const scanProduct = record.product ? String(record.product).trim().toLowerCase() : '';
+    // Check 4: Source-aware verification without mutating or forging record fields
+    if (source === 'warehouse_scans') {
+      // Existing /warehouse_scans reader protocol: requires verified === true, scanner_status === "identified", and matching device/product if provided
+      const isScanVerified = record.verified === true;
+      const isStatusIdentified =
+        String(record.scanner_status || '').trim().toLowerCase() === 'identified';
+      const scanDeviceId = record.device_id ? String(record.device_id).trim() : '';
+      const scanProduct = record.product ? String(record.product).trim().toLowerCase() : '';
 
-    const deviceMatches = !scanDeviceId || scanDeviceId === authoritativeDeviceId;
-    const productMatches = !scanProduct || !authoritativeProduct || scanProduct === authoritativeProduct;
+      const deviceMatches =
+        !scanDeviceId || scanDeviceId.toUpperCase() === authoritativeDeviceId.toUpperCase();
+      const productMatches =
+        !scanProduct || !authoritativeProduct || scanProduct === authoritativeProduct;
 
-    if (!isScanVerified || !isStatusIdentified || !deviceMatches || !productMatches) {
-      const msg = 'RFID verification failed.';
-      console.warn('[FRESHNEX RFID] Scan verification or registry match failed:', {
-        verified: record.verified,
-        scanner_status: record.scanner_status,
-        scanDeviceId,
-        authoritativeDeviceId,
-        scanProduct,
-        authoritativeProduct,
-      });
-      showNotification({
-        id: scanKey,
-        title: msg,
-        type: 'warning',
-      });
-      return;
+      if (!isScanVerified || !isStatusIdentified || !deviceMatches || !productMatches) {
+        const msg = 'RFID verification failed.';
+        console.warn('[FRESHNEX RFID] Scan verification or registry match failed:', {
+          verified: record.verified,
+          scanner_status: record.scanner_status,
+          scanDeviceId,
+          authoritativeDeviceId,
+          scanProduct,
+          authoritativeProduct,
+        });
+        showNotification({
+          id: `${source}:${scanKey}`,
+          title: msg,
+          type: 'warning',
+        });
+        return;
+      }
+    } else {
+      // New /devices/YGS-FD-124/rfid_scans ESP32 reader protocol:
+      // The hardware uploads { device_id: "YGS-FD-124", tag_uid, detected_at_ms } without scanner_status/verified fields.
+      // Do NOT accept records explicitly marked rejected/false, and resolve the authoritative product & device_id strictly from /rfid_registry.
+      const explicitlyRejected =
+        record.verified === false ||
+        ['denied', 'rejected', 'unverified', 'unknown', 'failed', 'error'].includes(
+          String(record.scanner_status || '').trim().toLowerCase()
+        );
+      if (explicitlyRejected) {
+        const msg = 'RFID verification failed.';
+        console.warn('[FRESHNEX RFID] Device RFID scan explicitly flagged invalid:', {
+          source,
+          scanKey,
+          verified: record.verified,
+          scanner_status: record.scanner_status,
+        });
+        showNotification({
+          id: `${source}:${scanKey}`,
+          title: msg,
+          type: 'warning',
+        });
+        return;
+      }
     }
 
     // Check 5: Confirm device exists in /devices/{authoritativeDeviceId}
@@ -351,6 +448,9 @@ export const WarehouseRFIDListener: React.FC = () => {
       return;
     }
 
+    // Compute reliable wall-clock timestamp (explicitly ignoring ESP32 millis() detected_at_ms as epoch)
+    const resolvedTimestampMs = resolveRfidScanTimestamp(scanKey, record, nowMs);
+
     // Record scan in history non-blockingly
     try {
       addScanRef.current(authoritativeDeviceId, displayProduct).catch(() => {});
@@ -361,12 +461,12 @@ export const WarehouseRFIDListener: React.FC = () => {
 
     console.log(
       '[FRESHNEX RFID] Access Granted for Warehouse Session:',
-      `${authoritativeDeviceId} (${displayProduct})`
+      `${authoritativeDeviceId} (${displayProduct}) via ${source}`
     );
 
     // Notification toast
     showNotification({
-      id: scanKey,
+      id: `${source}:${scanKey}`,
       title: `RFID detected. Device ${authoritativeDeviceId} opened in Warehouse.`,
       type: 'success',
       details: {
@@ -387,9 +487,15 @@ export const WarehouseRFIDListener: React.FC = () => {
             product: displayProduct,
             tagUid: rawUid,
             warehouseId: currentSession.warehouseId,
-            warehouseDevice: currentSession.scannerDevice || 'FRESHNEX-WH-001',
+            warehouseDevice:
+              record.warehouse_device ||
+              (source === 'device_rfid_scans' ? 'YGS-FD-124' : undefined) ||
+              currentSession.scannerDevice ||
+              'FRESHNEX-WH-001',
             scanKey,
-            timestampMs: record.timestamp_ms || Date.now(),
+            source,
+            timestampMs: resolvedTimestampMs,
+            detectedAtMs: record.detected_at_ms,
           },
         })
       );
@@ -408,6 +514,7 @@ export const WarehouseRFIDListener: React.FC = () => {
     let isCancelled = false;
     let isSubscribed = false;
     let cleanupScanListener: (() => void) | null = null;
+    let cleanupDeviceScansListener: (() => void) | null = null;
     let cleanupRegistryListener: (() => void) | null = null;
 
     const bindListeners = async (forceRebind = false) => {
@@ -419,6 +526,10 @@ export const WarehouseRFIDListener: React.FC = () => {
       if (cleanupScanListener) {
         cleanupScanListener();
         cleanupScanListener = null;
+      }
+      if (cleanupDeviceScansListener) {
+        cleanupDeviceScansListener();
+        cleanupDeviceScansListener = null;
       }
       if (cleanupRegistryListener) {
         cleanupRegistryListener();
@@ -432,7 +543,7 @@ export const WarehouseRFIDListener: React.FC = () => {
         return;
       }
 
-      // Ensure Firebase Auth session is active so /warehouse_scans and /rfid_registry are permitted
+      // Ensure Firebase Auth session is active so /warehouse_scans, /devices/YGS-FD-124/rfid_scans, and /rfid_registry are permitted
       await ensureFirebaseAuthenticated();
       if (isCancelled) {
         isBindingRef.current = false;
@@ -441,14 +552,14 @@ export const WarehouseRFIDListener: React.FC = () => {
 
       const registryRef = ref(db, 'rfid_registry');
 
-      // 1. Keep /rfid_registry synchronized in memory
+      // 1. Keep /rfid_registry synchronized in memory (normalized uppercase UIDs)
       const handleRegistryValue = (snapshot: any) => {
         if (snapshot.exists()) {
           const val = snapshot.val();
           if (val && typeof val === 'object') {
             const normalized: Record<string, RFIDRegistryEntry> = {};
             Object.entries(val).forEach(([uid, entry]) => {
-              normalized[uid.trim().toUpperCase()] = entry as RFIDRegistryEntry;
+              normalized[normalizeRfidUid(uid)] = entry as RFIDRegistryEntry;
             });
             registryCacheRef.current = normalized;
           }
@@ -473,14 +584,14 @@ export const WarehouseRFIDListener: React.FC = () => {
         off(registryRef, 'value', handleRegistryValue);
       };
 
-      // 2. Subscribe once to /warehouse_scans (latest 25 records)
+      // 2. Subscribe to /warehouse_scans (existing old Milk ESP32 reader, latest 25 records)
       // On initial snapshot, record all existing child keys so historical scans are never replayed as logins.
       const scansQuery = query(ref(db, 'warehouse_scans'), limitToLast(25));
       const handleScansValue = async (snapshot: any) => {
         if (isCancelled) return;
         if (!snapshot.exists()) {
-          if (!baselineInitializedRef.current) {
-            baselineInitializedRef.current = true;
+          if (!warehouseBaselineInitializedRef.current) {
+            warehouseBaselineInitializedRef.current = true;
             dispatchStatus({ status: 'waiting', message: 'Waiting for RFID scan...' });
           }
           return;
@@ -498,9 +609,9 @@ export const WarehouseRFIDListener: React.FC = () => {
         });
 
         // Initial snapshot baseline check: record all existing child keys without triggering login
-        if (!baselineInitializedRef.current) {
-          baselineInitializedRef.current = true;
-          entries.forEach(([k]) => processedKeysRef.current.add(k));
+        if (!warehouseBaselineInitializedRef.current) {
+          warehouseBaselineInitializedRef.current = true;
+          entries.forEach(([k]) => processedKeysRef.current.add(`warehouse_scans:${k}`));
           if (entries.length > 0) {
             baselineKeyRef.current = entries[entries.length - 1][0];
           }
@@ -509,14 +620,15 @@ export const WarehouseRFIDListener: React.FC = () => {
           return;
         }
 
-        // Process only newly added scan keys (deduplicated by Firebase child key)
+        // Process only newly added scan keys (deduplicated by source + Firebase child key)
         for (const [scanKey, record] of entries) {
-          if (!processedKeysRef.current.has(scanKey)) {
-            processedKeysRef.current.add(scanKey);
+          const namespacedKey = `warehouse_scans:${scanKey}`;
+          if (!processedKeysRef.current.has(namespacedKey)) {
+            processedKeysRef.current.add(namespacedKey);
             baselineKeyRef.current = scanKey;
             lastProcessedTimeRef.current = Date.now();
-            console.log('[FRESHNEX RFID] New scan detected from ESP32:', scanKey, record);
-            await processScan(record, scanKey);
+            console.log('[FRESHNEX RFID] New scan detected from /warehouse_scans:', scanKey, record);
+            await processScan(record, scanKey, 'warehouse_scans');
           }
         }
       };
@@ -537,6 +649,72 @@ export const WarehouseRFIDListener: React.FC = () => {
       cleanupScanListener = () => {
         unsubScans();
         off(scansQuery, 'value', handleScansValue);
+      };
+
+      // 3. Subscribe to /devices/YGS-FD-124/rfid_scans (new separate RFID ESP32 reader, latest 25 records)
+      // Uses its own baseline flag so historical scans on startup/reload never replay.
+      const deviceScansQuery = query(ref(db, 'devices/YGS-FD-124/rfid_scans'), limitToLast(25));
+      const handleDeviceScansValue = async (snapshot: any) => {
+        if (isCancelled) return;
+        if (!snapshot.exists()) {
+          if (!deviceScansBaselineInitializedRef.current) {
+            deviceScansBaselineInitializedRef.current = true;
+          }
+          return;
+        }
+
+        const val = snapshot.val();
+        if (!val || typeof val !== 'object') return;
+
+        const entries: [string, WarehouseScanRecord][] = Object.entries(val);
+        // Sort strictly by Firebase push key order (NOT detected_at_ms, which is ESP32 local millis() uptime)
+        entries.sort((a, b) => a[0].localeCompare(b[0]));
+
+        if (!deviceScansBaselineInitializedRef.current) {
+          deviceScansBaselineInitializedRef.current = true;
+          entries.forEach(([k]) =>
+            processedKeysRef.current.add(`device_rfid_scans:YGS-FD-124:${k}`)
+          );
+          console.log(
+            '[FRESHNEX RFID] Live scanner baseline ready. Listening on /devices/YGS-FD-124/rfid_scans...'
+          );
+          return;
+        }
+
+        for (const [scanKey, record] of entries) {
+          const namespacedKey = `device_rfid_scans:YGS-FD-124:${scanKey}`;
+          if (!processedKeysRef.current.has(namespacedKey)) {
+            processedKeysRef.current.add(namespacedKey);
+            lastProcessedTimeRef.current = Date.now();
+            console.log(
+              '[FRESHNEX RFID] New scan detected from /devices/YGS-FD-124/rfid_scans:',
+              scanKey,
+              record
+            );
+            await processScan(record, scanKey, 'device_rfid_scans');
+          }
+        }
+      };
+
+      const unsubDeviceScans = onValue(
+        deviceScansQuery,
+        handleDeviceScansValue,
+        async (error) => {
+          console.warn(
+            '[FRESHNEX RFID] Device RFID scans listener notice (/devices/YGS-FD-124/rfid_scans):',
+            error?.message || error
+          );
+          isSubscribed = false;
+          if (error?.message?.includes('permission_denied') || error?.message?.includes('Permission denied')) {
+            await ensureFirebaseAuthenticated();
+            scheduleReconnect(1000, true);
+          }
+        }
+      );
+
+      cleanupDeviceScansListener = () => {
+        unsubDeviceScans();
+        off(deviceScansQuery, 'value', handleDeviceScansValue);
       };
 
       isSubscribed = true;
@@ -573,6 +751,7 @@ export const WarehouseRFIDListener: React.FC = () => {
     const handleLogoutEvent = async () => {
       console.log('[FRESHNEX RFID] Warehouse logout event caught. Ready for next scan.');
       dispatchStatus({ status: 'waiting', message: 'Waiting for RFID scan...' });
+      recentPhysicalScansRef.current = {};
       lastProcessedTimeRef.current = Date.now();
       await ensureFirebaseAuthenticated();
       if (!isSubscribed) {
@@ -580,16 +759,23 @@ export const WarehouseRFIDListener: React.FC = () => {
       }
     };
 
+    const handleScanResetEvent = () => {
+      recentPhysicalScansRef.current = {};
+    };
+
     window.addEventListener('freshnex_warehouse_logout', handleLogoutEvent);
+    window.addEventListener('freshnex_warehouse_scan_reset', handleScanResetEvent);
 
     return () => {
       isCancelled = true;
       isSubscribed = false;
       if (reconnectTimerRef.current) clearTimeout(reconnectTimerRef.current);
       if (cleanupScanListener) cleanupScanListener();
+      if (cleanupDeviceScansListener) cleanupDeviceScansListener();
       if (cleanupRegistryListener) cleanupRegistryListener();
       if (unsubAuth) unsubAuth();
       window.removeEventListener('freshnex_warehouse_logout', handleLogoutEvent);
+      window.removeEventListener('freshnex_warehouse_scan_reset', handleScanResetEvent);
     };
   }, []);
 

@@ -63,21 +63,55 @@ export default async function handler(req: any, res: any) {
   try {
     const cfg = getFirebaseConfig();
     const token = await getServerIdToken(cfg.apiKey);
-    const dbUrl = cfg.databaseURL || 'https://freshnex-9bf3f-default-rtdb.firebaseio.com';
+    const dbUrl = (cfg.databaseURL || 'https://freshnex-9bf3f-default-rtdb.firebaseio.com').replace(/\/$/, '');
     const authParam = token ? `?auth=${encodeURIComponent(token)}` : '';
-    const rtdbRes = await fetch(`${dbUrl.replace(/\/$/, '')}/warehouse_scans.json${authParam}`);
-    if (rtdbRes.ok) {
-      const data = await rtdbRes.json();
-      res.status(200).end(JSON.stringify(data || {}));
+
+    const [warehouseRes, deviceScansRes] = await Promise.all([
+      fetch(`${dbUrl}/warehouse_scans.json${authParam}`),
+      fetch(`${dbUrl}/devices/YGS-FD-124/rfid_scans.json${authParam}`),
+    ]);
+
+    if (!warehouseRes.ok && !deviceScansRes.ok) {
+      res.status(warehouseRes.status).end(
+        JSON.stringify({
+          success: false,
+          message: 'Failed to fetch warehouse scans',
+          error: 'Failed to fetch warehouse scans',
+        })
+      );
       return;
     }
-    res.status(rtdbRes.status).end(
-      JSON.stringify({
-        success: false,
-        message: 'Failed to fetch warehouse scans',
-        error: 'Failed to fetch warehouse scans',
-      })
-    );
+
+    const merged: Record<string, any> = {};
+
+    if (warehouseRes.ok) {
+      const warehouseData = await warehouseRes.json();
+      if (warehouseData && typeof warehouseData === 'object') {
+        for (const [key, val] of Object.entries(warehouseData)) {
+          if (val && typeof val === 'object') {
+            merged[key] = { ...(val as Record<string, any>), source: 'warehouse_scans', source_key: key };
+          }
+        }
+      }
+    }
+
+    if (deviceScansRes.ok) {
+      const deviceScansData = await deviceScansRes.json();
+      if (deviceScansData && typeof deviceScansData === 'object') {
+        for (const [key, val] of Object.entries(deviceScansData)) {
+          if (val && typeof val === 'object') {
+            merged[`device_rfid_scans_${key}`] = {
+              ...(val as Record<string, any>),
+              source: 'device_rfid_scans',
+              source_key: key,
+            };
+          }
+        }
+      }
+    }
+
+    res.status(200).end(JSON.stringify(merged));
+    return;
   } catch (err: any) {
     res.status(500).end(
       JSON.stringify({
