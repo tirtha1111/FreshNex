@@ -30,6 +30,7 @@ import {
   Tooltip, 
   CartesianGrid 
 } from 'recharts';
+import { APIProvider, Map as GoogleMap, AdvancedMarker, Pin } from '@vis.gl/react-google-maps';
 import { useAuth } from '../context/AuthContext';
 import { useApp, DeviceData } from '../context/AppContext';
 import { useFreshness } from '../context/FreshnessContext';
@@ -298,20 +299,10 @@ export const LiveDataPage: React.FC = () => {
     gps: { name: 'NEO-6M GPS', unit: 'Sats', color: '#06B6D4', bg: '#CFFAFE' },
   };
 
-  // Google Maps Static API URL for APPLE (31.2536° N, 75.7037° E)
-  const googleStaticMapUrl = useMemo(() => {
-    const params = new URLSearchParams({
-      center: `${liveGpsLat.toFixed(4)},${liveGpsLng.toFixed(4)}`,
-      zoom: '14',
-      size: '640x400',
-      scale: '2',
-      maptype: 'roadmap',
-      markers: `color:0x10B981|label:A|${liveGpsLat.toFixed(4)},${liveGpsLng.toFixed(4)}`,
-      key: import.meta.env.VITE_GOOGLE_MAPS_API_KEY || '',
-      solution_id: 'gmp_mcp_codeassist_v1_aistudio',
-    });
-    return `https://maps.googleapis.com/maps/api/staticmap?${params.toString()}`;
-  }, [liveGpsLat, liveGpsLng]);
+  const mapPosition = useMemo(
+    () => ({ lat: liveGpsLat, lng: liveGpsLng }),
+    [liveGpsLat, liveGpsLng]
+  );
 
   const availableMetricTabs = useMemo(() => {
     const baseTabs = ['temp', 'humidity', 'moisture', 'ph', 'gas', 'impact', 'light'] as const;
@@ -646,7 +637,7 @@ export const LiveDataPage: React.FC = () => {
           </div>
         </div>
 
-        {/* RIGHT (5 COLS): GOOGLE MAPS STATIC LOCATION MAP (APPLE ONLY) */}
+        {/* RIGHT (5 COLS): INTERACTIVE GOOGLE MAPS LOCATION MAP (APPLE ONLY) */}
         {!isMilkProduct && (
           <div className="lg:col-span-5 bg-white border border-[#13493B]/10 rounded-[28px] p-4 sm:p-6 shadow-sm flex flex-col justify-between space-y-4">
             <div className="flex items-start justify-between gap-3 pb-2 border-b border-[#F4F7F6]">
@@ -656,7 +647,7 @@ export const LiveDataPage: React.FC = () => {
                   <h3 className="text-sm font-black text-[#07221A]">Live Device Location Map</h3>
                 </div>
                 <p className="text-[11px] text-[#5C7F75] font-semibold">
-                  Google Maps Static • {factualProduct.name} ({factualProduct.id})
+                  Google Maps Live Telemetry • {factualProduct.name} ({factualProduct.id})
                 </p>
               </div>
               <div className="flex items-center gap-1.5 shrink-0">
@@ -681,15 +672,30 @@ export const LiveDataPage: React.FC = () => {
               </div>
             </div>
 
-            {/* Google Maps Static Image */}
+            {/* Interactive Google Map */}
             <div className="relative w-full h-56 sm:h-64 rounded-2xl overflow-hidden border border-[#13493B]/15 bg-[#F4F7F6] shadow-inner">
-              <img
-                src={googleStaticMapUrl}
-                alt={`Google Maps Static Location for ${factualProduct.name} (${liveGpsLat.toFixed(4)}° N, ${liveGpsLng.toFixed(4)}° E)`}
-                className="w-full h-full object-cover"
-                loading="lazy"
-                onError={() => window.dispatchEvent(new CustomEvent('gmp-quota-exceeded'))}
-              />
+              <APIProvider apiKey={import.meta.env.VITE_GOOGLE_MAPS_API_KEY || ''}>
+                <GoogleMap
+                  defaultZoom={14}
+                  defaultCenter={mapPosition}
+                  mapId="DEMO_MAP_ID"
+                  internalUsageAttributionIds={['gmp_mcp_codeassist_v1_aistudio']}
+                  gestureHandling="cooperative"
+                  disableDefaultUI={false}
+                  className="w-full h-full"
+                >
+                  <AdvancedMarker
+                    position={mapPosition}
+                    title={`${factualProduct.name} (${factualProduct.id})`}
+                  >
+                    <Pin
+                      background="#10B981"
+                      borderColor="#07221A"
+                      glyphColor="#FFFFFF"
+                    />
+                  </AdvancedMarker>
+                </GoogleMap>
+              </APIProvider>
               <div className="absolute bottom-2.5 left-2.5 right-2.5 p-2.5 rounded-xl bg-[#07221A]/85 backdrop-blur-md text-white flex items-center justify-between gap-2 text-[11px] shadow-md pointer-events-none">
                 <div className="flex items-center gap-1.5 font-mono font-bold truncate">
                   <span
