@@ -46,30 +46,18 @@ export const AppLayout: React.FC = () => {
         <Sidebar />
       </div>
 
-      {/* Mobile Drawer Overlay with AnimatePresence */}
-      <AnimatePresence>
-        {mobileMenuOpen && (
-          <div className="fixed inset-0 z-50 flex md:hidden">
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.2 }}
-              className="fixed inset-0 bg-[#07221A]/65 backdrop-blur-xs"
-              onClick={() => setMobileMenuOpen(false)}
-            />
-            <motion.div
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 28, stiffness: 320 }}
-              className="relative flex flex-col w-[280px] sm:w-[300px] max-w-[85vw] h-full bg-[#07221A] border-r border-[#20E79A]/20 z-10 shadow-2xl overflow-hidden"
-            >
-              <Sidebar onCloseMobile={() => setMobileMenuOpen(false)} />
-            </motion.div>
+      {/* Mobile Drawer Overlay - Static (no animations to eliminate lag) */}
+      {mobileMenuOpen && (
+        <div className="fixed inset-0 z-50 flex md:hidden">
+          <div
+            className="fixed inset-0 bg-[#07221A]/65"
+            onClick={() => setMobileMenuOpen(false)}
+          />
+          <div className="relative flex flex-col w-[280px] sm:w-[300px] max-w-[85vw] h-full bg-[#07221A] border-r border-[#20E79A]/20 z-10 shadow-2xl overflow-hidden">
+            <Sidebar onCloseMobile={() => setMobileMenuOpen(false)} />
           </div>
-        )}
-      </AnimatePresence>
+        </div>
+      )}
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 h-full overflow-hidden z-10 relative">
@@ -105,10 +93,8 @@ export const AppLayout: React.FC = () => {
                 className="relative flex flex-col items-center justify-center min-h-[46px] py-1 px-1 rounded-2xl transition-colors"
               >
                 {isActive && (
-                  <motion.div
-                    layoutId="mobileNavActive"
+                  <div
                     className="absolute inset-x-1.5 inset-y-1 bg-[#20E79A]/15 rounded-xl border border-[#20E79A]/40 shadow-[0_0_10px_rgba(32,231,154,0.25)]"
-                    transition={{ type: 'spring', stiffness: 420, damping: 32 }}
                   />
                 )}
                 <Icon className={`w-5 h-5 relative z-10 transition-colors ${isActive ? 'text-[#07221A] glow-icon-emerald' : 'text-[#5C7F75]'}`} />

@@ -11,8 +11,6 @@ import {
   Shield,
   Camera,
   X,
-  Leaf,
-  CheckCircle2,
   Warehouse,
   KeyRound,
   ShieldCheck,
@@ -26,7 +24,16 @@ export type LoginMode = 'user' | 'admin' | 'warehouse';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
-  const { currentUser, userProfile, warehouseSession, login, loginWithProductId, loginWarehouse, authError, clearAuthError } = useAuth();
+  const {
+    currentUser,
+    userProfile,
+    warehouseSession,
+    login,
+    loginWithProductId,
+    loginWarehouse,
+    authError,
+    clearAuthError,
+  } = useAuth();
 
   useEffect(() => {
     if (currentUser && userProfile?.role !== 'warehouse') {
@@ -40,7 +47,6 @@ export const LoginPage: React.FC = () => {
 
   // User device portal state
   const [productId, setProductId] = useState('');
-  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   // QR Code Scanner state
   const [showScanner, setShowScanner] = useState(false);
@@ -76,7 +82,7 @@ export const LoginPage: React.FC = () => {
     setShowScanner(true);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        video: { facingMode: 'environment' }
+        video: { facingMode: 'environment' },
       });
       streamRef.current = stream;
       if (videoRef.current) {
@@ -230,168 +236,145 @@ export const LoginPage: React.FC = () => {
     }
   };
 
+  const modeSubtitles: Record<LoginMode, string> = {
+    user: 'Enter your product Device ID or scan its QR code for live freshness telemetry.',
+    admin: 'Sign in with your administrator credentials to manage devices and thresholds.',
+    warehouse: 'Authenticate with your Warehouse ID and password to enable RFID scanning.',
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-[#EEFAF3] via-[#E4F6EC] to-[#F5FCF8] text-[#07221A] font-['DM_Sans',sans-serif] flex flex-col justify-center items-center px-4 py-8 relative overflow-hidden select-none">
-      {/* Static Botanical Ambience Background */}
-      <div className="fixed inset-0 pointer-events-none z-0 overflow-hidden">
-        {/* Corner Static Botanical Rings */}
-        <div className="absolute -top-28 -left-28 w-80 h-80 rounded-full border border-emerald-500/20 flex items-center justify-center">
-          <div className="w-56 h-56 rounded-full border border-dashed border-emerald-500/25" />
-        </div>
-        <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full border border-teal-500/20 flex items-center justify-center">
-          <div className="w-48 h-48 rounded-full border border-dashed border-lime-500/25" />
-        </div>
-        <div className="absolute -bottom-28 -left-28 w-76 h-76 rounded-full border border-lime-500/20 flex items-center justify-center">
-          <div className="w-52 h-52 rounded-full border border-dashed border-emerald-500/25" />
-        </div>
-        <div className="absolute -bottom-24 -right-24 w-80 h-80 rounded-full border border-emerald-500/20 flex items-center justify-center">
-          <div className="w-56 h-56 rounded-full border border-dashed border-teal-500/25" />
-        </div>
-
-        {/* Static Chlorophyll Aurora Blobs */}
+    <div className="min-h-[100dvh] bg-[#F2FAF5] sm:bg-gradient-to-br sm:from-[#EEFAF3] sm:via-[#E4F6EC] sm:to-[#F5FCF8] text-[#07221A] font-['DM_Sans',sans-serif] flex flex-col justify-between sm:justify-center items-center px-4 py-6 sm:py-10 relative overflow-x-hidden select-none">
+      {/* Lightweight Desktop-Only Ambient Accents (Zero GPU blur overhead on mobile) */}
+      <div className="hidden sm:block fixed inset-0 pointer-events-none z-0 overflow-hidden">
         <div
-          className="absolute -top-32 -left-24 w-[520px] h-[520px] rounded-full blur-[105px] opacity-40 pointer-events-none"
+          className="absolute -top-32 -left-24 w-[460px] h-[460px] rounded-full opacity-35"
           style={{
             background:
-              'radial-gradient(circle, rgba(16, 185, 129, 0.28) 0%, rgba(52, 211, 153, 0.08) 65%, transparent 100%)'
+              'radial-gradient(circle, rgba(16, 185, 129, 0.22) 0%, rgba(52, 211, 153, 0.05) 65%, transparent 100%)',
           }}
         />
         <div
-          className="absolute top-1/4 -right-32 w-[560px] h-[560px] rounded-full blur-[115px] opacity-35 pointer-events-none"
+          className="absolute -bottom-36 -right-24 w-[460px] h-[460px] rounded-full opacity-30"
           style={{
             background:
-              'radial-gradient(circle, rgba(132, 204, 22, 0.22) 0%, rgba(16, 185, 129, 0.06) 70%, transparent 100%)'
-          }}
-        />
-        <div
-          className="absolute -bottom-36 left-1/3 w-[500px] h-[500px] rounded-full blur-[105px] opacity-30 pointer-events-none"
-          style={{
-            background:
-              'radial-gradient(circle, rgba(20, 184, 166, 0.2) 0%, transparent 70%)'
-          }}
-        />
-
-        {/* Crisp Botanical Dot Matrix */}
-        <div
-          className="absolute inset-0 opacity-[0.22]"
-          style={{
-            backgroundImage: 'radial-gradient(rgba(7, 34, 26, 0.15) 1px, transparent 1px)',
-            backgroundSize: '26px 26px'
+              'radial-gradient(circle, rgba(20, 184, 166, 0.18) 0%, transparent 70%)',
           }}
         />
       </div>
 
-      {/* Centered Login Portal Card */}
-      <div className="w-full max-w-lg space-y-6 relative z-10">
-        {/* Brand Logo & Welcome Headline */}
-        <div className="text-center space-y-2">
-          <div className="flex justify-center pb-1">
-            <Logo size="lg" variant="light" showTagline={true} linkTo="/" />
+      {/* Main Content Container */}
+      <div className="w-full max-w-[440px] sm:max-w-lg my-auto space-y-5 sm:space-y-6 relative z-10">
+        {/* Clean Header Lockup */}
+        <div className="text-center space-y-2 px-1">
+          <div className="flex justify-center">
+            <Logo size="md" variant="light" showTagline={false} linkTo="/" />
           </div>
 
-          <h1 className="text-3xl sm:text-[2.5rem] leading-[1.15] pt-1 flex items-baseline justify-center gap-2.5 flex-wrap">
-            <span className="font-['Playfair_Display',Georgia,serif] italic font-medium text-[#174936] tracking-[-0.01em] text-[0.92em]">
-              Welcome to
-            </span>
-            <span className="font-['Outfit',sans-serif] font-extrabold tracking-[-0.035em] bg-gradient-to-r from-[#064E3B] via-[#059669] to-[#10B981] bg-clip-text text-transparent drop-shadow-[0_4px_14px_rgba(16,185,129,0.25)] pb-0.5">
-              FreshNex
-            </span>
+          <h1 className="text-2xl sm:text-3xl font-['Outfit',sans-serif] font-extrabold tracking-tight text-[#07221A]">
+            Welcome to <span className="text-[#059669]">FreshNex</span>
           </h1>
+          <p className="text-xs sm:text-sm text-[#4A6B5F] font-medium max-w-sm mx-auto leading-relaxed">
+            {modeSubtitles[loginMode]}
+          </p>
         </div>
 
-        {/* Main Glassmorphic Login Card */}
-        <div className="bg-white/95 backdrop-blur-2xl p-6 sm:p-8 rounded-[32px] shadow-[0_24px_60px_-15px_rgba(7,34,26,0.14)] border border-emerald-950/10 space-y-6 relative overflow-hidden">
-          {/* Top Leaf Bar */}
-          <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-emerald-500 via-lime-400 to-teal-500" />
+        {/* Solid, Zero-Lag Login Card */}
+        <div className="bg-white p-5 sm:p-8 rounded-3xl shadow-[0_12px_36px_-12px_rgba(7,34,26,0.10)] border border-emerald-950/10 space-y-5 relative overflow-hidden">
+          {/* Subtle Top Accent Line */}
+          <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-[#059669] via-[#10B981] to-[#0D9488]" />
 
-          {/* Corner Accents */}
-          <div className="w-4 h-4 border-t-2 border-l-2 border-emerald-500/40 rounded-tl-lg absolute top-3.5 left-3.5 pointer-events-none opacity-50" />
-          <div className="w-4 h-4 border-t-2 border-r-2 border-emerald-500/40 rounded-tr-lg absolute top-3.5 right-3.5 pointer-events-none opacity-50" />
-          <div className="w-4 h-4 border-b-2 border-l-2 border-emerald-500/40 rounded-bl-lg absolute bottom-3.5 left-3.5 pointer-events-none opacity-50" />
-          <div className="w-4 h-4 border-b-2 border-r-2 border-emerald-500/40 rounded-br-lg absolute bottom-3.5 right-3.5 pointer-events-none opacity-50" />
-
-          {/* 3-Way Segmented Mode Switcher: User Login | Admin Login | RFID Warehouse Login */}
-          <div className="grid grid-cols-3 p-1.5 rounded-2xl bg-[#EDF7F2] border border-emerald-950/8 relative">
+          {/* 3-Way Segmented Mode Switcher — Thumb-Friendly on Mobile */}
+          <div
+            role="tablist"
+            aria-label="Login portal mode"
+            className="grid grid-cols-3 gap-1 p-1 rounded-2xl bg-[#EEF7F2] border border-emerald-950/8"
+          >
             <button
               type="button"
+              role="tab"
+              aria-selected={loginMode === 'user'}
               onClick={() => {
                 setLoginMode('user');
                 setLocalError(null);
                 clearAuthError();
               }}
-              className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
+              className={`min-h-[48px] py-2 px-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap ${
                 loginMode === 'user'
-                  ? 'bg-gradient-to-r from-[#059669] to-[#10B981] text-white shadow-md shadow-emerald-600/25'
+                  ? 'bg-[#059669] text-white shadow-xs'
                   : 'text-[#3B5E52] hover:text-[#07221A]'
               }`}
             >
-              <QrCode className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">User Login</span>
+              <QrCode className="w-4 h-4 shrink-0" />
+              <span>
+                User<span className="hidden sm:inline"> Login</span>
+              </span>
             </button>
 
             <button
               type="button"
+              role="tab"
+              aria-selected={loginMode === 'admin'}
               onClick={() => {
                 setLoginMode('admin');
                 setLocalError(null);
                 clearAuthError();
               }}
-              className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
+              className={`min-h-[48px] py-2 px-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap ${
                 loginMode === 'admin'
-                  ? 'bg-gradient-to-r from-[#059669] to-[#10B981] text-white shadow-md shadow-emerald-600/25'
+                  ? 'bg-[#059669] text-white shadow-xs'
                   : 'text-[#3B5E52] hover:text-[#07221A]'
               }`}
             >
-              <Shield className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">Admin Login</span>
+              <Shield className="w-4 h-4 shrink-0" />
+              <span>
+                Admin<span className="hidden sm:inline"> Login</span>
+              </span>
             </button>
 
             <button
               type="button"
+              role="tab"
+              aria-selected={loginMode === 'warehouse'}
               onClick={() => {
                 setLoginMode('warehouse');
                 setLocalError(null);
                 clearAuthError();
               }}
-              className={`py-2.5 px-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 whitespace-nowrap ${
+              className={`min-h-[48px] py-2 px-2 rounded-xl text-xs font-bold transition-colors cursor-pointer flex flex-col sm:flex-row items-center justify-center gap-1 sm:gap-1.5 whitespace-nowrap ${
                 loginMode === 'warehouse'
-                  ? 'bg-gradient-to-r from-[#07221A] to-[#13493B] text-white shadow-md shadow-emerald-950/30'
+                  ? 'bg-[#07221A] text-white shadow-xs'
                   : 'text-[#3B5E52] hover:text-[#07221A]'
               }`}
             >
-              <Warehouse className="w-3.5 h-3.5 shrink-0" />
-              <span className="truncate">Warehouse Login</span>
+              <Warehouse className="w-4 h-4 shrink-0" />
+              <span>
+                Warehouse<span className="hidden sm:inline"> Login</span>
+              </span>
             </button>
           </div>
 
           {/* Error Banner */}
           {(localError || authError) && (
-            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-rose-700 text-xs font-semibold">
+            <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-200 flex items-start gap-2.5 text-rose-700 text-xs font-semibold leading-relaxed">
               <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
               <span>{localError || authError}</span>
             </div>
           )}
 
-          {/* Forms & Modes */}
+          {/* MODE 1: USER PRODUCT PORTAL */}
           {loginMode === 'user' ? (
             <form onSubmit={handleUserProductSubmit} className="space-y-4">
-              {/* Device ID Input */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <label
                     htmlFor="product-tag-input"
-                    className="text-xs font-bold text-[#07221A] block"
+                    className="text-xs font-bold text-[#07221A]"
                   >
                     Unique Device ID
                   </label>
-                  <button
-                    type="button"
-                    onClick={startScanner}
-                    className="text-xs font-bold text-emerald-800 hover:text-emerald-950 flex items-center gap-1.5 cursor-pointer bg-emerald-50 hover:bg-emerald-100/90 px-3 py-1.5 rounded-xl border border-emerald-500/30 transition-colors shadow-2xs"
-                  >
-                    <Camera className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Scan QR Code</span>
-                  </button>
+                  <span className="text-[11px] font-mono text-[#5C7F75] font-medium">
+                    YGS-FD-001 · YGS-FD-124
+                  </span>
                 </div>
 
                 <div className="relative">
@@ -403,45 +386,52 @@ export const LoginPage: React.FC = () => {
                     type="text"
                     required
                     value={productId}
-                    onFocus={() => setFocusedField('tag')}
-                    onBlur={() => setFocusedField(null)}
                     onChange={(e) => setProductId(e.target.value)}
-                    placeholder="e.g. YGS-FD-001 (Apple) or YGS-FD-124 (Milk)"
-                    className="w-full pl-11 pr-4 py-3.5 bg-[#F4FBF7] text-sm font-bold text-[#07221A] placeholder-[#6B8A7E] rounded-2xl border border-emerald-950/12 focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/15 transition-all uppercase font-mono tracking-wider"
+                    placeholder="Enter Device ID (e.g. YGS-FD-001)"
+                    className="w-full min-h-[48px] pl-11 pr-4 py-3 bg-[#F6FBF8] text-base sm:text-sm font-bold text-[#07221A] placeholder-[#6B8A7E] rounded-2xl border border-emerald-950/12 focus:outline-none focus:bg-white focus:border-emerald-600 transition-colors uppercase font-mono tracking-wider"
                   />
                 </div>
               </div>
 
               {/* Remember Me Checkbox */}
-              <div className="flex items-center justify-between text-xs pt-1">
-                <label className="flex items-center gap-2 cursor-pointer text-[#3B5E52] font-medium group">
+              <div className="flex items-center justify-between text-xs">
+                <label className="min-h-[36px] flex items-center gap-2.5 cursor-pointer text-[#3B5E52] font-medium">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                     className="w-4 h-4 rounded border-emerald-300 text-emerald-600 focus:ring-0 cursor-pointer accent-emerald-600"
                   />
-                  <span className="group-hover:text-[#07221A] transition-colors">Remember Me</span>
+                  <span>Remember this device</span>
                 </label>
               </div>
 
-              {/* Submit Button */}
-              <div className="pt-2">
+              {/* Primary & QR Scanner Actions */}
+              <div className="space-y-2.5 pt-1">
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full py-4 px-6 rounded-2xl font-bold text-sm text-white bg-gradient-to-r from-[#059669] via-[#10B981] to-[#0D9488] hover:from-[#047857] hover:to-[#059669] flex items-center justify-center gap-2 shadow-[0_12px_30px_-6px_rgba(16,185,129,0.5)] disabled:opacity-50 cursor-pointer transition-colors"
+                  className="w-full min-h-[48px] py-3.5 px-6 rounded-2xl font-bold text-sm text-white bg-[#059669] hover:bg-[#047857] active:bg-[#065F46] flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer transition-colors"
                 >
                   <span>
-                    {isSubmitting ? 'Authenticating Tag...' : 'Access Product Portal'}
+                    {isSubmitting ? 'Authenticating Device...' : 'Access Product Portal'}
                   </span>
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-4 h-4 shrink-0" />
+                </button>
+
+                <button
+                  type="button"
+                  onClick={startScanner}
+                  className="w-full min-h-[46px] py-3 px-4 rounded-2xl font-bold text-xs text-[#07221A] bg-[#EEF7F2] hover:bg-[#E1F2E9] border border-emerald-950/10 flex items-center justify-center gap-2 cursor-pointer transition-colors"
+                >
+                  <Camera className="w-4 h-4 text-[#059669] shrink-0" />
+                  <span>Scan Product QR Code</span>
                 </button>
               </div>
             </form>
           ) : loginMode === 'admin' ? (
+            /* MODE 2: ADMIN LOGIN */
             <form onSubmit={handleAdminSubmit} className="space-y-4">
-              {/* Email Address */}
               <div className="space-y-1.5">
                 <label
                   htmlFor="admin-email-input"
@@ -456,16 +446,13 @@ export const LoginPage: React.FC = () => {
                     type="email"
                     required
                     value={adminEmail}
-                    onFocus={() => setFocusedField('email')}
-                    onBlur={() => setFocusedField(null)}
                     onChange={(e) => setAdminEmail(e.target.value)}
-                    placeholder="Enter administrator email"
-                    className="w-full pl-11 pr-4 py-3.5 bg-[#F4FBF7] text-sm font-semibold text-[#07221A] placeholder-[#6B8A7E] rounded-2xl border border-emerald-950/12 focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/15 transition-all"
+                    placeholder="admin@freshnex.com"
+                    className="w-full min-h-[48px] pl-11 pr-4 py-3 bg-[#F6FBF8] text-base sm:text-sm font-semibold text-[#07221A] placeholder-[#6B8A7E] rounded-2xl border border-emerald-950/12 focus:outline-none focus:bg-white focus:border-emerald-600 transition-colors"
                   />
                 </div>
               </div>
 
-              {/* Password */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label
@@ -476,7 +463,7 @@ export const LoginPage: React.FC = () => {
                   </label>
                   <Link
                     to="/forgot-password"
-                    className="text-xs font-semibold text-emerald-700 hover:text-emerald-900"
+                    className="text-xs font-semibold text-[#059669] hover:text-[#047857]"
                   >
                     Forgot password?
                   </Link>
@@ -488,66 +475,59 @@ export const LoginPage: React.FC = () => {
                     type={showPassword ? 'text' : 'password'}
                     required
                     value={adminPassword}
-                    onFocus={() => setFocusedField('password')}
-                    onBlur={() => setFocusedField(null)}
                     onChange={(e) => setAdminPassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-11 pr-11 py-3.5 bg-[#F4FBF7] text-sm font-semibold text-[#07221A] placeholder-[#6B8A7E] rounded-2xl border border-emerald-950/12 focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/15 transition-all"
+                    placeholder="Enter password"
+                    className="w-full min-h-[48px] pl-11 pr-12 py-3 bg-[#F6FBF8] text-base sm:text-sm font-semibold text-[#07221A] placeholder-[#6B8A7E] rounded-2xl border border-emerald-950/12 focus:outline-none focus:bg-white focus:border-emerald-600 transition-colors"
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
                     aria-label={showPassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#527367] hover:text-[#07221A] cursor-pointer"
+                    className="w-11 h-11 absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center text-[#527367] hover:text-[#07221A] cursor-pointer rounded-xl"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
                 </div>
               </div>
 
-              {/* Remember Me Checkbox */}
-              <div className="flex items-center justify-between text-xs pt-1">
-                <label className="flex items-center gap-2 cursor-pointer text-[#3B5E52] font-medium group">
+              <div className="flex items-center justify-between text-xs">
+                <label className="min-h-[36px] flex items-center gap-2.5 cursor-pointer text-[#3B5E52] font-medium">
                   <input
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
                     className="w-4 h-4 rounded border-emerald-300 text-emerald-600 focus:ring-0 cursor-pointer accent-emerald-600"
                   />
-                  <span className="group-hover:text-[#07221A] transition-colors">Remember Me</span>
+                  <span>Remember Me</span>
                 </label>
               </div>
 
-              {/* Submit Button */}
-              <div className="pt-2">
+              <div className="pt-1">
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full py-4 px-6 rounded-2xl font-bold text-sm text-white bg-gradient-to-r from-[#059669] via-[#10B981] to-[#0D9488] hover:from-[#047857] hover:to-[#059669] flex items-center justify-center gap-2 shadow-[0_12px_30px_-6px_rgba(16,185,129,0.5)] disabled:opacity-50 cursor-pointer transition-colors"
+                  className="w-full min-h-[48px] py-3.5 px-6 rounded-2xl font-bold text-sm text-white bg-[#059669] hover:bg-[#047857] active:bg-[#065F46] flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer transition-colors"
                 >
                   <span>
-                    {isSubmitting ? 'Signing in as Admin...' : 'Sign In as Admin'}
+                    {isSubmitting ? 'Signing in...' : 'Sign In as Admin'}
                   </span>
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-4 h-4 shrink-0" />
                 </button>
               </div>
             </form>
           ) : (
-            /* =========================================================
-               MODE 3: DEDICATED WAREHOUSE LOGIN (ID + PASSWORD)
-               ========================================================= */
+            /* MODE 3: WAREHOUSE LOGIN (ID + PASSWORD) */
             <form onSubmit={handleWarehouseSubmit} className="space-y-4">
-              {/* Warehouse ID Field */}
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label
                     htmlFor="warehouse-id-input"
-                    className="text-xs font-bold text-[#07221A] block"
+                    className="text-xs font-bold text-[#07221A]"
                   >
                     Warehouse ID
                   </label>
-                  <span className="text-[10px] font-mono text-[#5C7F75] font-semibold">
-                    e.g. WH-001 or WH-002
+                  <span className="text-[11px] font-mono text-[#5C7F75] font-medium">
+                    WH-001 · WH-002
                   </span>
                 </div>
                 <div className="relative">
@@ -557,28 +537,20 @@ export const LoginPage: React.FC = () => {
                     type="text"
                     required
                     value={warehouseId}
-                    onFocus={() => setFocusedField('warehouseId')}
-                    onBlur={() => setFocusedField(null)}
                     onChange={(e) => setWarehouseId(e.target.value.toUpperCase())}
                     placeholder="e.g. WH-001"
-                    className="w-full pl-11 pr-4 py-3.5 bg-[#F4FBF7] text-sm font-bold text-[#07221A] placeholder-[#6B8A7E] rounded-2xl border border-emerald-950/12 focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/15 transition-all font-mono tracking-wider uppercase"
+                    className="w-full min-h-[48px] pl-11 pr-4 py-3 bg-[#F6FBF8] text-base sm:text-sm font-bold text-[#07221A] placeholder-[#6B8A7E] rounded-2xl border border-emerald-950/12 focus:outline-none focus:bg-white focus:border-emerald-600 transition-colors font-mono tracking-wider uppercase"
                   />
                 </div>
               </div>
 
-              {/* Warehouse Password Field */}
               <div className="space-y-1.5">
-                <div className="flex items-center justify-between">
-                  <label
-                    htmlFor="warehouse-password-input"
-                    className="text-xs font-bold text-[#07221A] block"
-                  >
-                    Warehouse Access Password
-                  </label>
-                  <span className="text-[10px] text-[#5C7F75] font-semibold">
-                    Secure Backend PBKDF2
-                  </span>
-                </div>
+                <label
+                  htmlFor="warehouse-password-input"
+                  className="text-xs font-bold text-[#07221A] block"
+                >
+                  Warehouse Access Password
+                </label>
                 <div className="relative">
                   <Lock className="w-4 h-4 text-emerald-700 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
                   <input
@@ -586,17 +558,15 @@ export const LoginPage: React.FC = () => {
                     type={showWarehousePassword ? 'text' : 'password'}
                     required
                     value={warehousePassword}
-                    onFocus={() => setFocusedField('warehousePassword')}
-                    onBlur={() => setFocusedField(null)}
                     onChange={(e) => setWarehousePassword(e.target.value)}
-                    placeholder="••••••••"
-                    className="w-full pl-11 pr-11 py-3.5 bg-[#F4FBF7] text-sm font-semibold text-[#07221A] placeholder-[#6B8A7E] rounded-2xl border border-emerald-950/12 focus:outline-none focus:bg-white focus:border-emerald-600 focus:ring-4 focus:ring-emerald-500/15 transition-all"
+                    placeholder="Enter warehouse password"
+                    className="w-full min-h-[48px] pl-11 pr-12 py-3 bg-[#F6FBF8] text-base sm:text-sm font-semibold text-[#07221A] placeholder-[#6B8A7E] rounded-2xl border border-emerald-950/12 focus:outline-none focus:bg-white focus:border-emerald-600 transition-colors"
                   />
                   <button
                     type="button"
                     onClick={() => setShowWarehousePassword(!showWarehousePassword)}
                     aria-label={showWarehousePassword ? 'Hide password' : 'Show password'}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 text-[#527367] hover:text-[#07221A] cursor-pointer"
+                    className="w-11 h-11 absolute right-1 top-1/2 -translate-y-1/2 flex items-center justify-center text-[#527367] hover:text-[#07221A] cursor-pointer rounded-xl"
                   >
                     {showWarehousePassword ? (
                       <EyeOff className="w-4 h-4" />
@@ -607,85 +577,71 @@ export const LoginPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Remember Warehouse ID Checkbox */}
-              <div className="flex items-center justify-between text-xs pt-1">
-                <label className="flex items-center gap-2 cursor-pointer text-[#3B5E52] font-medium group">
+              <div className="flex items-center justify-between text-xs">
+                <label className="min-h-[36px] flex items-center gap-2.5 cursor-pointer text-[#3B5E52] font-medium">
                   <input
                     type="checkbox"
                     checked={rememberWarehouse}
                     onChange={(e) => setRememberWarehouse(e.target.checked)}
                     className="w-4 h-4 rounded border-emerald-300 text-emerald-600 focus:ring-0 cursor-pointer accent-emerald-600"
                   />
-                  <span className="group-hover:text-[#07221A] transition-colors">
-                    Remember Warehouse ID
-                  </span>
+                  <span>Remember Warehouse ID</span>
                 </label>
               </div>
 
-              {/* Submit Button */}
-              <div className="pt-2">
+              <div className="pt-1">
                 <button
                   type="submit"
                   disabled={isSubmitting}
-                  className="w-full py-4 px-6 rounded-2xl font-bold text-sm text-white bg-gradient-to-r from-[#07221A] via-[#103E32] to-[#047857] hover:from-[#041B14] hover:to-[#065F46] flex items-center justify-center gap-2 shadow-[0_12px_30px_-6px_rgba(7,34,26,0.45)] disabled:opacity-50 cursor-pointer transition-all"
+                  className="w-full min-h-[48px] py-3.5 px-6 rounded-2xl font-bold text-sm text-white bg-[#07221A] hover:bg-[#103E32] active:bg-[#041410] flex items-center justify-center gap-2 shadow-sm disabled:opacity-50 cursor-pointer transition-colors"
                 >
-                  <KeyRound className="w-4 h-4 text-[#20E79A]" />
+                  <KeyRound className="w-4 h-4 text-[#20E79A] shrink-0" />
                   <span>
-                    {isSubmitting ? 'Authenticating Warehouse...' : 'Access Warehouse Portal'}
+                    {isSubmitting ? 'Authenticating...' : 'Access Warehouse Portal'}
                   </span>
-                  <ArrowRight className="w-4 h-4" />
+                  <ArrowRight className="w-4 h-4 shrink-0" />
                 </button>
               </div>
 
-              {/* Security Architecture Badge */}
-              <div className="p-3.5 rounded-xl bg-[#F4F7F6] border border-[#13493B]/10 flex items-start gap-2.5 text-[11px] text-[#3B5E52]">
-                <ShieldCheck className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-                <div>
-                  <span className="font-bold text-[#07221A] block">
-                    Warehouse Role-Based Access Control
-                  </span>
-                  <span>
-                    Warehouse operators must authenticate using valid credentials. RFID card scans are only accepted and processed inside an active Warehouse session.
-                  </span>
-                </div>
+              <div className="pt-1 flex items-center justify-center gap-1.5 text-[11px] text-[#4A6B5F]">
+                <ShieldCheck className="w-3.5 h-3.5 text-emerald-700 shrink-0" />
+                <span>RFID scans activate automatically after warehouse sign-in</span>
               </div>
             </form>
           )}
-
-          {/* Bottom Card Footer */}
-          <div className="pt-4 border-t border-emerald-950/8 flex items-center justify-center text-xs text-[#4A6B5F]">
-            <span className="flex items-center gap-1.5">
-              <Leaf className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Real-time freshness monitoring &amp; automated RFID verification</span>
-            </span>
-          </div>
         </div>
+
+        {/* Minimal Footer */}
+        <p className="text-center text-[11px] text-[#5C7F75] font-medium">
+          FreshNex IoT · Real-time freshness &amp; RFID telemetry
+        </p>
       </div>
 
-      {/* QR CODE CAMERA SCANNER MODAL OVERLAY (Static) */}
+      {/* QR CODE CAMERA SCANNER MODAL OVERLAY */}
       {showScanner && (
-        <div className="fixed inset-0 z-50 bg-[#07221A]/80 backdrop-blur-md flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-emerald-950/10 space-y-4 relative overflow-hidden">
+        <div className="fixed inset-0 z-50 bg-[#07221A]/80 flex items-center justify-center p-4">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-5 sm:p-6 shadow-2xl border border-emerald-950/10 space-y-4 relative overflow-hidden">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2.5">
-                <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 flex items-center justify-center text-emerald-700 font-bold shrink-0">
                   <QrCode className="w-5 h-5" />
                 </div>
                 <div>
                   <h3 className="text-sm font-extrabold text-[#07221A]">Scan Product QR Code</h3>
-                  <p className="text-[11px] text-[#4A6B5F]">Center the QR code in the viewfinder</p>
+                  <p className="text-[11px] text-[#4A6B5F]">Center the QR code in the frame</p>
                 </div>
               </div>
               <button
                 type="button"
                 onClick={stopScanner}
-                className="w-8 h-8 rounded-full bg-[#F4FBF7] flex items-center justify-center text-[#3B5E52] hover:bg-emerald-100 transition-colors cursor-pointer"
+                aria-label="Close scanner"
+                className="w-10 h-10 rounded-full bg-[#F4FBF7] flex items-center justify-center text-[#3B5E52] hover:bg-emerald-100 transition-colors cursor-pointer shrink-0"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
 
-            <div className="relative w-full aspect-square rounded-2xl overflow-hidden bg-[#07221A] flex items-center justify-center shadow-inner">
+            <div className="relative w-full aspect-square rounded-2xl overflow-hidden bg-[#07221A] flex items-center justify-center">
               <video
                 ref={videoRef}
                 playsInline
@@ -701,7 +657,7 @@ export const LoginPage: React.FC = () => {
                   <div className="w-6 h-6 border-t-2 border-r-2 border-emerald-400 rounded-tr" />
                 </div>
                 <div className="w-full text-center">
-                  <span className="bg-[#07221A]/85 backdrop-blur-md text-emerald-300 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-emerald-400/30">
+                  <span className="bg-[#07221A]/90 text-emerald-300 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-widest border border-emerald-400/30">
                     Scanning...
                   </span>
                 </div>
@@ -719,19 +675,16 @@ export const LoginPage: React.FC = () => {
               </div>
             )}
 
-            <div className="pt-1">
-              <button
-                type="button"
-                onClick={stopScanner}
-                className="w-full py-3.5 rounded-2xl font-bold text-xs text-[#07221A] bg-[#EDF7F2] hover:bg-emerald-100 transition-colors cursor-pointer"
-              >
-                Cancel &amp; Enter Manually
-              </button>
-            </div>
+            <button
+              type="button"
+              onClick={stopScanner}
+              className="w-full min-h-[46px] py-3 rounded-2xl font-bold text-xs text-[#07221A] bg-[#EEF7F2] hover:bg-emerald-100 transition-colors cursor-pointer"
+            >
+              Cancel &amp; Enter Manually
+            </button>
           </div>
         </div>
       )}
     </div>
   );
 };
-

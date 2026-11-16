@@ -1,6 +1,5 @@
 import React from 'react';
 import { NavLink, useNavigate, useLocation } from 'react-router-dom';
-import { motion } from 'motion/react';
 import { 
   Home, 
   QrCode, 
@@ -150,30 +149,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
                           : 'text-[#8FA39E] hover:text-white hover:bg-[#13493B]/20'
                       }`}
                     >
-                      {/* Fluid Sliding Active Pill Background across selections */}
+                      {/* Static Active Pill Background */}
                       {isActive && (
-                        <motion.div
-                          layoutId="activeSidebarPill"
+                        <div
                           className="absolute inset-0 rounded-xl bg-gradient-to-r from-[#13493B] via-[#104033] to-[#0D3429] border border-[#20E79A]/30 shadow-[0_4px_20px_rgba(32,231,154,0.18)]"
-                          transition={{
-                            type: 'spring',
-                            stiffness: 420,
-                            damping: 32,
-                            mass: 0.8
-                          }}
                         />
                       )}
 
-                      {/* Sliding Emerald Accent Indicator Bar */}
+                      {/* Static Emerald Accent Indicator Bar */}
                       {isActive && (
-                        <motion.div
-                          layoutId="activeSidebarIndicator"
+                        <div
                           className="absolute left-0 top-2 bottom-2 w-1 rounded-r-full bg-[#20E79A] shadow-[0_0_12px_#20E79A]"
-                          transition={{
-                            type: 'spring',
-                            stiffness: 450,
-                            damping: 32,
-                          }}
                         />
                       )}
 
@@ -286,11 +272,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
 
       {/* Bottom User Profile Section */}
       <div className="p-3 sm:p-4 border-t border-[#13493B]/30 bg-[#041410]/70 shrink-0">
-        <motion.div 
-          whileHover={{ scale: 1.02, y: -1 }}
-          transition={{ type: 'spring', stiffness: 400, damping: 25 }}
-          className="flex items-center justify-between p-2.5 rounded-2xl bg-[#092019]/90 border border-[#20E79A]/25 shadow-[0_8px_20px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.1)]"
-        >
+        <div className="flex items-center justify-between p-2.5 rounded-2xl bg-[#092019]/90 border border-[#20E79A]/25 shadow-[0_8px_20px_rgba(0,0,0,0.4),inset_0_1px_1px_rgba(255,255,255,0.1)]">
           <div className="flex items-center gap-2.5 min-w-0">
             {/* Avatar Pill with Glow */}
             <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#13493B] via-[#20E79A] to-[#10B981] flex items-center justify-center font-black text-[#07221A] text-xs shrink-0 shadow-[0_0_12px_rgba(32,231,154,0.4)] border border-white/40">
@@ -312,17 +294,16 @@ export const Sidebar: React.FC<SidebarProps> = ({ onCloseMobile }) => {
             </div>
           </div>
 
-          {/* Logout Action with Micro-interaction */}
-          <motion.button
-            whileHover={{ scale: 1.15, rotate: 6 }}
-            whileTap={{ scale: 0.9 }}
+          {/* Logout Action */}
+          <button
+            type="button"
             onClick={handleLogout}
             title={isWarehouseView ? 'Warehouse Logout' : 'Log Out'}
             className="p-2 text-[#5C7F75] hover:text-[#FF5A67] hover:bg-[#FF5A67]/15 rounded-xl transition-colors cursor-pointer border border-transparent hover:border-[#FF5A67]/30 shadow-sm"
           >
             <LogOut className="w-3.5 h-3.5" />
-          </motion.button>
-        </motion.div>
+          </button>
+        </div>
       </div>
     </aside>
   );
