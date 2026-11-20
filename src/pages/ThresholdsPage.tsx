@@ -91,27 +91,32 @@ export const ThresholdsPage: React.FC = () => {
 
   const initialInit = getInitialThresholds(selectedDeviceId, canonical, activeDevice);
 
-  const [tempMin, setTempMin] = useState<number>(initialInit.tempMin);
-  const [tempMax, setTempMax] = useState<number>(initialInit.tempMax);
-  const [humMin, setHumMin] = useState<number>(initialInit.humMin);
-  const [humMax, setHumMax] = useState<number>(initialInit.humMax);
-  const [gasThreshold, setGasThreshold] = useState<number>(initialInit.mq135_threshold);
-  const [gasWarning, setGasWarning] = useState<number>(initialInit.gasWarning);
-  const [impactThreshold, setImpactThreshold] = useState<number>(initialInit.impactThreshold);
-  const [lightThreshold, setLightThreshold] = useState<number>(initialInit.lightThreshold);
+  const [tempMin, setTempMin] = useState<number | ''>(initialInit.tempMin);
+  const [tempMax, setTempMax] = useState<number | ''>(initialInit.tempMax);
+  const [humMin, setHumMin] = useState<number | ''>(initialInit.humMin);
+  const [humMax, setHumMax] = useState<number | ''>(initialInit.humMax);
+  const [gasThreshold, setGasThreshold] = useState<number | ''>(initialInit.mq135_threshold);
+  const [gasWarning, setGasWarning] = useState<number | ''>(initialInit.gasWarning);
+  const [impactThreshold, setImpactThreshold] = useState<number | ''>(initialInit.impactThreshold);
+  const [lightThreshold, setLightThreshold] = useState<number | ''>(initialInit.lightThreshold);
 
-  // Sync state ONLY when selected device or canonical product changes (NOT on live telemetry ticks)
+  const prevSelectedDeviceIdRef = React.useRef(selectedDeviceId);
+
+  // Sync state ONLY when selected device changes explicitly (NOT during typing or background updates)
   React.useEffect(() => {
-    const freshInit = getInitialThresholds(selectedDeviceId, canonical, activeDevice);
-    setTempMin(freshInit.tempMin);
-    setTempMax(freshInit.tempMax);
-    setHumMin(freshInit.humMin);
-    setHumMax(freshInit.humMax);
-    setGasThreshold(freshInit.mq135_threshold);
-    setGasWarning(freshInit.gasWarning);
-    setImpactThreshold(freshInit.impactThreshold);
-    setLightThreshold(freshInit.lightThreshold);
-  }, [selectedDeviceId, canonical]);
+    if (prevSelectedDeviceIdRef.current !== selectedDeviceId) {
+      prevSelectedDeviceIdRef.current = selectedDeviceId;
+      const freshInit = getInitialThresholds(selectedDeviceId, canonical, activeDevice);
+      setTempMin(freshInit.tempMin);
+      setTempMax(freshInit.tempMax);
+      setHumMin(freshInit.humMin);
+      setHumMax(freshInit.humMax);
+      setGasThreshold(freshInit.mq135_threshold);
+      setGasWarning(freshInit.gasWarning);
+      setImpactThreshold(1.2);
+      setLightThreshold(50);
+    }
+  }, [selectedDeviceId, canonical, activeDevice]);
 
   // AI Research State
   const [searchProduct, setSearchProduct] = useState(activeProduct);
@@ -153,12 +158,12 @@ export const ThresholdsPage: React.FC = () => {
 
     try {
       const now = Date.now();
-      const numTempMin = Number(tempMin);
-      const numTempMax = Number(tempMax);
-      const numHumMin = Number(humMin);
-      const numHumMax = Number(humMax);
-      const numGas = Number(gasThreshold);
-      const numGasWarn = Number(gasWarning);
+      const numTempMin = tempMin === '' ? 2.0 : Number(tempMin);
+      const numTempMax = tempMax === '' ? 6.0 : Number(tempMax);
+      const numHumMin = humMin === '' ? 50 : Number(humMin);
+      const numHumMax = humMax === '' ? 70 : Number(humMax);
+      const numGas = gasThreshold === '' ? 1500 : Number(gasThreshold);
+      const numGasWarn = gasWarning === '' ? 250 : Number(gasWarning);
 
       // 1. Save to Device in AppContext (updates state immediately and syncs RTDB + Firestore)
       if (activeDevice) {
@@ -384,7 +389,7 @@ export const ThresholdsPage: React.FC = () => {
                       type="number"
                       step="0.1"
                       value={tempMin}
-                      onChange={(e) => setTempMin(Number(e.target.value))}
+                      onChange={(e) => setTempMin(e.target.value === '' ? '' : Number(e.target.value))}
                       className="w-full px-3 py-2 rounded-xl bg-[#F4F7F6] border border-[#13493B]/15 font-mono font-bold text-sm text-[#07221A] focus:outline-none focus:border-[#20E79A]"
                     />
                     <span className="text-xs font-bold text-[#5C7F75]">Min</span>
@@ -400,7 +405,7 @@ export const ThresholdsPage: React.FC = () => {
                       type="number"
                       step="0.1"
                       value={tempMax}
-                      onChange={(e) => setTempMax(Number(e.target.value))}
+                      onChange={(e) => setTempMax(e.target.value === '' ? '' : Number(e.target.value))}
                       className="w-full px-3 py-2 rounded-xl bg-[#F4F7F6] border border-[#13493B]/15 font-mono font-bold text-sm text-[#07221A] focus:outline-none focus:border-[#20E79A]"
                     />
                     <span className="text-xs font-bold text-[#5C7F75]">Max</span>
@@ -439,7 +444,7 @@ export const ThresholdsPage: React.FC = () => {
                       min="10"
                       max="100"
                       value={humMin}
-                      onChange={(e) => setHumMin(Number(e.target.value))}
+                      onChange={(e) => setHumMin(e.target.value === '' ? '' : Number(e.target.value))}
                       className="w-full px-3 py-2 rounded-xl bg-[#F4F7F6] border border-[#13493B]/15 font-mono font-bold text-sm text-[#07221A] focus:outline-none focus:border-[#20E79A]"
                     />
                     <span className="text-xs font-bold text-[#5C7F75]">%</span>
@@ -456,7 +461,7 @@ export const ThresholdsPage: React.FC = () => {
                       min="10"
                       max="100"
                       value={humMax}
-                      onChange={(e) => setHumMax(Number(e.target.value))}
+                      onChange={(e) => setHumMax(e.target.value === '' ? '' : Number(e.target.value))}
                       className="w-full px-3 py-2 rounded-xl bg-[#F4F7F6] border border-[#13493B]/15 font-mono font-bold text-sm text-[#07221A] focus:outline-none focus:border-[#20E79A]"
                     />
                     <span className="text-xs font-bold text-[#5C7F75]">%</span>
@@ -494,7 +499,7 @@ export const ThresholdsPage: React.FC = () => {
                     min="50"
                     max="5000"
                     value={gasWarning}
-                    onChange={(e) => setGasWarning(Number(e.target.value))}
+                    onChange={(e) => setGasWarning(e.target.value === '' ? '' : Number(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl bg-[#F4F7F6] border border-[#13493B]/15 font-mono font-bold text-sm text-[#07221A] focus:outline-none focus:border-[#20E79A]"
                   />
                 </div>
@@ -508,7 +513,7 @@ export const ThresholdsPage: React.FC = () => {
                     min="100"
                     max="10000"
                     value={gasThreshold}
-                    onChange={(e) => setGasThreshold(Number(e.target.value))}
+                    onChange={(e) => setGasThreshold(e.target.value === '' ? '' : Number(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl bg-[#F4F7F6] border border-[#13493B]/15 font-mono font-bold text-sm text-[#07221A] focus:outline-none focus:border-[#20E79A]"
                   />
                 </div>
@@ -528,7 +533,7 @@ export const ThresholdsPage: React.FC = () => {
                     type="number"
                     step="0.1"
                     value={impactThreshold}
-                    onChange={(e) => setImpactThreshold(Number(e.target.value))}
+                    onChange={(e) => setImpactThreshold(e.target.value === '' ? '' : Number(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl bg-[#F4F7F6] border border-[#13493B]/15 font-mono font-bold text-sm text-[#07221A]"
                   />
                   <span className="text-xs font-bold text-[#5C7F75]">G</span>
@@ -545,7 +550,7 @@ export const ThresholdsPage: React.FC = () => {
                   <input
                     type="number"
                     value={lightThreshold}
-                    onChange={(e) => setLightThreshold(Number(e.target.value))}
+                    onChange={(e) => setLightThreshold(e.target.value === '' ? '' : Number(e.target.value))}
                     className="w-full px-3 py-2 rounded-xl bg-[#F4F7F6] border border-[#13493B]/15 font-mono font-bold text-sm text-[#07221A]"
                   />
                   <span className="text-xs font-bold text-[#5C7F75]">lx</span>
