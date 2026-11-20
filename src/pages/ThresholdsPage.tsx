@@ -57,11 +57,11 @@ export const ThresholdsPage: React.FC = () => {
   const activeProduct = activeDevice?.product || 'Monitored Produce';
   const canonical = normalizeProductKey(activeProduct);
 
-  const initialThresholds = useMemo(() => {
+  const getInitialThresholds = (devId: string, prodCanonical: string, dev?: DeviceData) => {
     try {
       const stored = 
-        localStorage.getItem(`freshnex_product_thresholds_${canonical}`) ||
-        localStorage.getItem(`freshnex_product_thresholds_${selectedDeviceId}`);
+        localStorage.getItem(`freshnex_product_thresholds_${prodCanonical}`) ||
+        localStorage.getItem(`freshnex_product_thresholds_${devId}`);
       if (stored) {
         const p = JSON.parse(stored);
         return {
@@ -78,37 +78,40 @@ export const ThresholdsPage: React.FC = () => {
     } catch {}
 
     return {
-      tempMin: (activeDevice as any)?.temperature_min ?? 2.0,
-      tempMax: (activeDevice as any)?.temperature_max ?? 6.0,
-      humMin: (activeDevice as any)?.humidity_min ?? 50,
-      humMax: (activeDevice as any)?.humidity_max ?? 70,
-      mq135_threshold: (activeDevice as any)?.mq135_threshold ?? 1500,
+      tempMin: (dev as any)?.temperature_min ?? 2.0,
+      tempMax: (dev as any)?.temperature_max ?? 6.0,
+      humMin: (dev as any)?.humidity_min ?? 50,
+      humMax: (dev as any)?.humidity_max ?? 70,
+      mq135_threshold: (dev as any)?.mq135_threshold ?? 1500,
       gasWarning: 250,
       impactThreshold: 1.2,
       lightThreshold: 50,
     };
-  }, [selectedDeviceId, canonical, activeDevice]);
+  };
 
-  const [tempMin, setTempMin] = useState<number>(initialThresholds.tempMin);
-  const [tempMax, setTempMax] = useState<number>(initialThresholds.tempMax);
-  const [humMin, setHumMin] = useState<number>(initialThresholds.humMin);
-  const [humMax, setHumMax] = useState<number>(initialThresholds.humMax);
-  const [gasThreshold, setGasThreshold] = useState<number>(initialThresholds.mq135_threshold);
-  const [gasWarning, setGasWarning] = useState<number>(initialThresholds.gasWarning);
-  const [impactThreshold, setImpactThreshold] = useState<number>(initialThresholds.impactThreshold);
-  const [lightThreshold, setLightThreshold] = useState<number>(initialThresholds.lightThreshold);
+  const initialInit = getInitialThresholds(selectedDeviceId, canonical, activeDevice);
 
-  // Sync state whenever selected device changes
+  const [tempMin, setTempMin] = useState<number>(initialInit.tempMin);
+  const [tempMax, setTempMax] = useState<number>(initialInit.tempMax);
+  const [humMin, setHumMin] = useState<number>(initialInit.humMin);
+  const [humMax, setHumMax] = useState<number>(initialInit.humMax);
+  const [gasThreshold, setGasThreshold] = useState<number>(initialInit.mq135_threshold);
+  const [gasWarning, setGasWarning] = useState<number>(initialInit.gasWarning);
+  const [impactThreshold, setImpactThreshold] = useState<number>(initialInit.impactThreshold);
+  const [lightThreshold, setLightThreshold] = useState<number>(initialInit.lightThreshold);
+
+  // Sync state ONLY when selected device or canonical product changes (NOT on live telemetry ticks)
   React.useEffect(() => {
-    setTempMin(initialThresholds.tempMin);
-    setTempMax(initialThresholds.tempMax);
-    setHumMin(initialThresholds.humMin);
-    setHumMax(initialThresholds.humMax);
-    setGasThreshold(initialThresholds.mq135_threshold);
-    setGasWarning(initialThresholds.gasWarning);
-    setImpactThreshold(initialThresholds.impactThreshold);
-    setLightThreshold(initialThresholds.lightThreshold);
-  }, [selectedDeviceId, initialThresholds]);
+    const freshInit = getInitialThresholds(selectedDeviceId, canonical, activeDevice);
+    setTempMin(freshInit.tempMin);
+    setTempMax(freshInit.tempMax);
+    setHumMin(freshInit.humMin);
+    setHumMax(freshInit.humMax);
+    setGasThreshold(freshInit.mq135_threshold);
+    setGasWarning(freshInit.gasWarning);
+    setImpactThreshold(freshInit.impactThreshold);
+    setLightThreshold(freshInit.lightThreshold);
+  }, [selectedDeviceId, canonical]);
 
   // AI Research State
   const [searchProduct, setSearchProduct] = useState(activeProduct);
